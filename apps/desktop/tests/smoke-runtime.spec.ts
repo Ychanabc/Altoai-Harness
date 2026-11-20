@@ -1,5 +1,6 @@
 /** Packaged runtime HTTP authentication and Office skill probe results. */
 
+import type { ChildProcess } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -10,6 +11,7 @@ import * as Connection from '@deepseek-ai/dsh-client-connection'
 import * as DesktopAuthentication from '@deepseek-ai/dsh-host-authentication-desktop'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { assertOfficeSkillsLoadable, smokeDesktopRuntime } from '../scripts/smoke-runtime.ts'
+import { DesktopParentAuthentication } from '../src/parent-authentication.ts'
 import { runtimeFixture } from './runtime-fixture.ts'
 
 const boundary = vi.hoisted(() => ({
@@ -60,8 +62,20 @@ it('uses the private readiness Cookie for every packaged runtime HTTP probe', as
     desktopVersion: '1.0.0', platform: process.platform, arch: process.arch,
     python: '3.12.0', pythonPackages: {},
   }))
-  const secret = Buffer.alloc(32, 7).toString('base64url')
-  const cookie = `altoaih-desktop-session=${secret}`
+  const authentication = new DesktopParentAuthentication()
+  let secret = ''
+  const send: ChildProcess['send'] = (message: unknown, ...args: unknown[]) => {
+    const callback = args.at(-1)
+    if (typeof message !== 'object' || message === null || !('secret' in message)
+      || typeof message.secret !== 'string' || typeof callback !== 'function') {
+      throw new Error('invalid Desktop authentication handoff')
+    }
+    secret = message.secret
+    callback(null)
+    return true
+  }
+  await authentication.deliver({ send })
+  const cookie = await authentication.readyCookie()
   await ctx.plugin(WebServer, { host: '127.0.0.1', port: 0 }).await()
   await ctx.plugin(Connection).await()
   await ctx.plugin(DesktopAuthentication, { readSecret: () => secret }).await()
@@ -87,7 +101,7 @@ it('uses the private readiness Cookie for every packaged runtime HTTP probe', as
   }))
   boundary.start.mockResolvedValue({ url: ctx.webServer.getOrigin(), injections: [], authenticationCookie: cookie })
   let smokeHome: string | undefined
-  // Only package-manager and Office subprocess work is substituted; HTTP admission is real.
+  // HTTP admission uses the credential issued by the shell and delivered over the fixture IPC channel.
   boundary.run.mockImplementation(async (_executable, args, options) => {
     if (options.cwd === undefined) {
       const home = args.at(-1)!

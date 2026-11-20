@@ -5409,7 +5409,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'deleteSession(sessionId: SessionId, options: ArchiveSessionOptions = {}): Promise<boolean>',
-        description: 'Permanently remove one Session, its Workspace membership, global archive/pin entries, durable log, and Session working directory. Active work is stopped before persistence deletion; any storage or filesystem failure propagates with the Session already hidden from the registry.',
+        description: 'Permanently remove one Session, its Workspace membership, global archive/pin entries and durable storage. Active work is stopped when requested; the owned Session lifecycle drains before storage deletion. Membership is retained if stopping, draining, or deleting storage fails.',
         parameters: [{ name: 'sessionId', description: 'Session identity to remove.' }, { name: 'options', description: 'whether to stop active work before deletion.' }],
         returns: '`true` when a known Session was permanently removed.',
       },
@@ -6271,6 +6271,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     summary: 'Admit optional follow-up work after durable archival and any stop requests.',
     description: 'Admit optional follow-up work after durable archival and any stop requests. Dispatched inside the registry\'s write queue: a listener registers its work and returns, and runs the work and any unbounded I/O afterwards. Listener failures are logged without undoing archival. Listeners own and drain their background work.',
     parameters: [{ name: 'request', description: 'newly archived Session; repeated archive requests do not dispatch.' }],
+  },
+  {
+    name: 'workspace/session-delete',
+    mode: 'waterfall',
+    signature: '\'workspace/session-delete\'(request: SessionActivityRequest, next: () => Promise<void>): Promise<void>',
+    summary: 'Drain the owned Session lifecycle and prevent it from reopening until permanent deletion settles.',
+    description: 'Drain the owned Session lifecycle and prevent it from reopening until permanent deletion settles. Lifecycle owners must await and return `next()` after draining; a teardown failure aborts deletion.',
+    parameters: [{ name: 'request', description: 'Session being permanently removed.' }, { name: 'next', description: 'continue through remaining lifecycle owners and remove the stored Session.' }],
   },
   {
     name: 'workspace/session-stop',

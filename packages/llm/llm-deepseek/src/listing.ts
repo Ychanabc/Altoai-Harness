@@ -227,21 +227,26 @@ export function parseModelListing(body: unknown, format: 'deepseek' | 'site' = '
     const badge = badgeOf(entry)
     const declaredEfforts: readonly unknown[] = Array.isArray(entry.messages_reasoning_efforts) ? entry.messages_reasoning_efforts : []
     const efforts = SITE_EFFORTS.filter(effort => declaredEfforts.includes(effort))
+    const endpoints: readonly unknown[] | undefined = Array.isArray(entry.supported_endpoint_types)
+      ? entry.supported_endpoint_types
+      : undefined
+    const messages = endpoints?.includes('anthropic') === true
+    const openai = endpoints?.includes('openai') === true
     entries.push({
       id,
       ...typeof entry.name === 'string' && entry.name.length > 0 ? { name: entry.name } : {},
       requirement: requirementOf(entry),
       capabilities: format === 'site'
-        ? Array.isArray(entry.supported_endpoint_types)
-          ? entry.supported_endpoint_types.includes('openai')
-            ? { usable: true, facts: { protocol: 'openai-responses', inputModalities: ['text'] } }
-            : entry.supported_endpoint_types.includes('anthropic')
-              ? { usable: true, facts: {
-                protocol: 'anthropic-messages', inputModalities: ['text'], systemPromptUpdate: 'leading-only', toolUpdate: 'leading-only',
-                messagesReasoningEfforts: efforts.length === 0 ? ['off'] : efforts,
-              } }
+        ? endpoints === undefined
+          ? { usable: false, reason: 'declares no supported_endpoint_types' }
+          : messages && (!openai || efforts.length > 0)
+            ? { usable: true, facts: {
+              protocol: 'anthropic-messages', inputModalities: ['text'], systemPromptUpdate: 'leading-only', toolUpdate: 'leading-only',
+              messagesReasoningEfforts: efforts.length === 0 ? ['off'] : efforts,
+            } }
+            : openai
+              ? { usable: true, facts: { protocol: 'openai-responses', inputModalities: ['text'] } }
               : { usable: false, reason: 'declares neither an OpenAI nor Anthropic endpoint' }
-          : { usable: false, reason: 'declares no supported_endpoint_types' }
         : capabilitiesOf(entry),
       ...badge === undefined ? {} : { badge },
     })

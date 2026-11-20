@@ -558,6 +558,26 @@ describe('WorkspaceRegistry create and lookup', () => {
     await expect(realpath(dir)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
+  it('retains Workspace membership when the Session owner fails to drain', async () => {
+    const dir = await makeDir('delete-drain-failure')
+    const session = header('still-open', dir)
+    const result = await harness({ sessions: [session] })
+    const workspace = await result.registry.create(dir)
+    await workspace.attachSession(session.id)
+    await result.registry.pinSession(session.id)
+    const failure = new Error('writer drain failed')
+    const dispose = result.ctx.on('workspace/session-delete', async () => { throw failure })
+    await expect(result.registry.deleteSession(session.id, { stopActivity: true })).rejects.toBe(failure)
+    expect(result.deleteSession).not.toHaveBeenCalled()
+    expect(workspace.sessionIds).toEqual([session.id])
+    expect(result.registry.pinnedSessionIds).toEqual([session.id])
+    dispose()
+    await expect(result.registry.deleteSession(session.id, { stopActivity: true })).resolves.toBe(true)
+    expect(workspace.sessionIds).toEqual([])
+    expect(result.registry.pinnedSessionIds).toEqual([])
+    await expect(realpath(dir)).resolves.toBe(dir)
+  })
+
   it('rolls registry order and cache back when record deletion fails', async () => {
     const dir = await makeDir('delete-rollback')
     const pool = new MemoryMediaPool()

@@ -609,9 +609,9 @@ deletePermanently(id: WorkspaceId, options: ArchiveSessionOptions = {}): Promise
 
 /**
  * Permanently remove one Session, its Workspace membership, global archive/pin
- * entries, durable log, and Session working directory. Active work is stopped
- * before persistence deletion; any storage or filesystem failure propagates
- * with the Session already hidden from the registry.
+ * entries and durable storage. Active work is stopped when requested; the
+ * owned Session lifecycle drains before storage deletion. Membership is
+ * retained if stopping, draining, or deleting storage fails.
  * @param sessionId - Session identity to remove.
  * @param options - whether to stop active work before deletion.
  * @returns `true` when a known Session was permanently removed.
@@ -733,6 +733,25 @@ Admit optional follow-up work after durable archival and any stop requests. Disp
  * @mode parallel
  */
 'workspace/session-archived'(request: SessionActivityRequest): Promise<void> | void
+```
+
+Source: [`packages/workspace/workspace/src/index.ts`](../../packages/workspace/workspace/src/index.ts)
+
+<a id="workspacesession-delete--waterfall"></a>
+
+#### `workspace/session-delete` — waterfall
+
+Drain the owned Session lifecycle and prevent it from reopening until permanent deletion settles. Lifecycle owners must await and return `next()` after draining; a teardown failure aborts deletion.
+
+```ts cordis-catalog
+/**
+ * Drain the owned Session lifecycle and prevent it from reopening until permanent deletion settles.
+ * Lifecycle owners must await and return `next()` after draining; a teardown failure aborts deletion.
+ * @param request - Session being permanently removed.
+ * @param next - continue through remaining lifecycle owners and remove the stored Session.
+ * @mode waterfall
+ */
+'workspace/session-delete'(request: SessionActivityRequest, next: () => Promise<void>): Promise<void>
 ```
 
 Source: [`packages/workspace/workspace/src/index.ts`](../../packages/workspace/workspace/src/index.ts)

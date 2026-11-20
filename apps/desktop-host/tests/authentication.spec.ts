@@ -150,6 +150,7 @@ it('authenticates real HTTP requests using its own Peer and withdraws with its o
     return { status: response.status, body: await response.text() }
   }
   expect((await request()).status).toBe(401)
+  expect((await request(`altoaih-desktop-session=${value}`)).status).toBe(401)
   expect((await request(`dsh-desktop-session=${secret()}`)).status).toBe(401)
   expect((await request(`dsh-desktop-session=${value}; dsh-desktop-session=${value}`)).status).toBe(401)
   expect(await request(`other=1; dsh-desktop-session=${value}`)).toEqual({ status: 200, body: desktopPeer.id })

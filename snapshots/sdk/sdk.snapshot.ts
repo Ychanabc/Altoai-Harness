@@ -158,7 +158,7 @@ const SDK_ASSERTIONS: Readonly<Record<string, SdkAssertions>> = {
     expectedFinalResponse: 'SDK snapshot OK',
     runtimeContext: {
       includes: ['Current working directory:'],
-      excludes: ['Current DeepSeek Harness implementation checkout:', 'Current DeepSeek Harness Web GUI URL:'],
+      excludes: ['Current AltoaiH implementation checkout:', 'Current AltoaiH Web GUI URL:'],
     },
   },
   'desktop-ptc-context': { expectedFinalResponse: 'SDK snapshot OK' },

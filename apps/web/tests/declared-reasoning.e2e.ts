@@ -82,7 +82,7 @@ describe.skipIf(MODE === 'record').each([
     // and xhigh were not declared and must not be offered.
     const levels = page.getByRole('menuitemradio')
     await expect.poll(async () => levels.allTextContents(), { timeout: 10_000 })
-      .toEqual(['Default', 'Off', 'High', 'Max'])
+      .toEqual(['Default', '关闭', '高', 'Ultra'])
     const snapshot = await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
 
@@ -113,13 +113,13 @@ describe.skipIf(MODE === 'record').each([
       { timeout: 10_000 },
     ).toContain('reasoningEffort: high')
     await expect.poll(() => trigger.getAttribute('aria-label'), { timeout: 10_000 })
-      .toBe('选择模型，当前 Acme Think，推理等级 High')
+      .toBe('选择模型，当前 Acme Think，推理等级 高')
 
     // Reopening the drilled pane parks the keyboard on the level in use, and
     // Shift+Tab walks back out like Escape: to the drilled cell, then closed.
     await trigger.click()
     await page.getByRole('menuitem', { name: /推理等级/ }).click()
-    const high = page.getByRole('menuitemradio', { name: 'High' })
+    const high = page.getByRole('menuitemradio', { name: '高' })
     await expect.poll(
       () => high.evaluate(element => element === document.activeElement),
       { timeout: 10_000 },
@@ -150,7 +150,7 @@ describe.skipIf(MODE === 'record').each([
       } else {
         await page.getByRole('menuitem', { name: pane === 'model' ? /^模型/ : /推理等级/ }).click()
         const focused = pane === 'model'
-          ? page.getByRole('searchbox', { name: '搜索模型…' })
+          ? page.getByRole('tab', { name: '站点官方模型', selected: true })
           : page.locator('[role="menuitemradio"][aria-checked="true"]')
         await expect.poll(() => focused.evaluate(element => element === element.ownerDocument.activeElement)).toBe(true)
       }
@@ -176,8 +176,12 @@ describe.skipIf(MODE === 'record').each([
     const current = page.getByRole('menuitemradio', { name: 'Acme Think', exact: true })
     const target = page.getByRole('menuitemradio', { name: 'Acme Swift', exact: true })
     const search = page.getByRole('searchbox', { name: '搜索模型…' })
+    const thirdParty = page.getByRole('tab', { name: '第三方模型' })
+    await thirdParty.click()
+    await thirdParty.press('Tab')
     await expect.poll(() => search.evaluate(element => element === element.ownerDocument.activeElement)).toBe(true)
-    expect(await search.getAttribute('aria-activedescendant')).toBe(await current.getAttribute('id'))
+    const first = page.getByRole('menuitemradio').first()
+    expect(await search.getAttribute('aria-activedescendant')).toBe(await first.getAttribute('id'))
 
     // Native mousedown must not blur search and unmount the menu before click in WebKit.
     await target.getByText('Acme Swift', { exact: true }).hover()
@@ -202,6 +206,7 @@ describe.skipIf(MODE === 'record').each([
 
     await trigger.click()
     await page.getByRole('menuitem', { name: /^模型/ }).click()
+    await thirdParty.click()
     await target.getByText('Acme Swift', { exact: true }).click()
     await menu.waitFor({ state: 'detached' })
     expect(selections).toBe(1)
@@ -210,7 +215,7 @@ describe.skipIf(MODE === 'record').each([
 
     await trigger.click()
     await page.getByRole('menuitem', { name: /推理等级/ }).click()
-    await page.getByRole('menuitemradio', { name: 'Max', exact: true }).click()
+    await page.getByRole('menuitemradio', { name: 'Ultra', exact: true }).click()
     await menu.waitFor({ state: 'detached' })
     expect(selections).toBe(2)
     await expect.poll(() => scaffold.ctx.agentDefaultModel.currentSelection().reasoningEffort, { timeout: 10_000 })
@@ -230,8 +235,7 @@ describe.skipIf(MODE === 'record').each([
     }, { times: 1 })
     await trigger.click()
     await page.getByRole('menuitem', { name: /^模型/ }).click()
-    await expect.poll(() => search.evaluate(element => element === element.ownerDocument.activeElement)).toBe(true)
-    expect(await search.getAttribute('aria-activedescendant')).toBe(await target.getAttribute('id'))
+    await thirdParty.click()
     await current.click()
     await page.getByRole('alert').waitFor()
     expect(selections).toBe(3)

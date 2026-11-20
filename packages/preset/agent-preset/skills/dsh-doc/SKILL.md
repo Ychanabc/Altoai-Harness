@@ -1,13 +1,13 @@
 ---
 name: dsh-doc
-description: Use when a task needs facts about DeepSeek Harness (DSH) itself, such as how a feature, setting, plugin, agent preset, tool, or Cordis API of the running installation works; when the user asks to design, review, build, install, enable, or debug a DSH plugin, bundle, MCP connection, agent preset, plugin icon or detail page, or a DSH tool definition or skill; and when upgrading a plugin or profile to a newer DSH release. Loading it grants no permission to change files or the profile.
+description: Use when a task needs facts about AltoaiH itself, such as how a feature, setting, plugin, agent preset, tool, or Cordis API of the running installation works; when the user asks to design, review, build, install, enable, or debug an AltoaiH plugin, bundle, MCP connection, agent preset, plugin icon or detail page, or an AltoaiH tool definition or skill; and when upgrading a plugin or profile to a newer AltoaiH release. Loading it grants no permission to change files or the profile.
 ---
 
-# DeepSeek Harness documentation
+# AltoaiH documentation
 
-Answer questions about DSH from the documentation and source of the installed version, not from memory, and extend DSH through bundles installed in the current profile.
+Answer questions about AltoaiH from the documentation and source of the installed version, not from memory, and extend AltoaiH through bundles installed in the current profile.
 
-Loading this skill does not authorize changes. Write bundle files, run mutating `plugin_manager` actions such as installing, enabling, disabling, or removing, or change a preset only when the user asks to change DSH or its profile. For a question, design, or review, read-only lookups, including `list_plugins` and `list_bundles` within your tool permissions, remain available; report findings and leave files and the profile unchanged. A request for an image, widget, or decoration that does not target DSH, such as its Web UI or profile, is not a request for a DSH plugin; deliver the ordinary artifact the task asks for.
+Loading this skill does not authorize changes. Write bundle files, run mutating `plugin_manager` actions such as installing, enabling, disabling, or removing, or change a preset only when the user asks to change AltoaiH or its profile. For a question, design, or review, read-only lookups, including `list_plugins` and `list_bundles` within your tool permissions, remain available; report findings and leave files and the profile unchanged. A request for an image, widget, or decoration that does not target AltoaiH, such as its Web UI or profile, is not a request for an AltoaiH plugin; deliver the ordinary artifact the task asks for.
 
 ## Find facts in this order
 
@@ -34,9 +34,9 @@ The files below live in this skill's base directory, which the `skill` tool repo
 | Verify a page or panel, review its user experience, or work without browser control | `references/verification.md` |
 | Draw icons and feature images | `references/artwork.md` |
 | Create, change, or migrate an agent preset; choose Host or preset placement | `references/compositions.md` |
-| Upgrade a plugin or profile to a newer DSH release | `references/upgrading.md` |
+| Upgrade a plugin or profile to a newer AltoaiH release | `references/upgrading.md` |
 | Loader patch dialect | `references/composition-reference.md` |
 | Installable plugin packages, one table per package group | `references/packages.md` |
-| Write a DSH tool definition, skill, or multi-step workflow | `references/tool-design.md` |
+| Write an AltoaiH tool definition, skill, or multi-step workflow | `references/tool-design.md` |
 | UI plugin template | `templates/decoration/package.json`, `templates/decoration/cordis.patch.yml`, `templates/decoration/index.js`, `templates/decoration/client.js`, `templates/decoration/locale`, `templates/decoration/docs/DETAIL.md`, `templates/decoration/docs/preview.svg`, `templates/decoration/icon.svg` |
 | MCP bundle template | `templates/mcp/package.json`, `templates/mcp/cordis.patch.yml`, `templates/mcp/locale`, `templates/mcp/docs/DETAIL.md`, `templates/mcp/docs/preview.svg`, `templates/mcp/icon.svg` |

@@ -22,7 +22,7 @@ const state = vi.hoisted(() => ({
     status: 'signed-out', attempt: null, links: { usageUrl: '', topUpUrl: '' },
   }),
   quit: vi.fn(),
-  startHost: vi.fn().mockResolvedValue({ url: 'http://127.0.0.1:3080/', injections: [], authenticationCookie: 'altoaih-desktop-session=fixture' }),
+  startHost: vi.fn().mockResolvedValue({ url: 'http://127.0.0.1:3080/', injections: [], authenticationCookie: 'dsh-desktop-session=fixture' }),
   stopHost: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
   loadWorkspace: vi.fn<(url: string) => Promise<void>>().mockResolvedValue(undefined),
   showWorkspace: vi.fn(),

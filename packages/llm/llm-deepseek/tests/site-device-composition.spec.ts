@@ -46,8 +46,8 @@ it('uses a persisted site grant only for Messages models and never for dashboard
         if (catalogRejected) return new Response('untrusted error detail', { status: 401 })
         expect(request.headers.get('authorization')).toBe('Bearer site-relay-key')
         return new Response(JSON.stringify({ data: [
-          { id: 'site-text', supported_endpoint_types: ['anthropic', 'openai'] },
-          { id: 'site-reasoner', supported_endpoint_types: ['anthropic'], messages_reasoning_efforts: ['high', 'off', 'medium', 'max', 'unknown', 'medium', {}] },
+          { id: 'site-text', supported_endpoint_types: ['anthropic'] },
+          { id: 'site-reasoner', supported_endpoint_types: ['openai', 'anthropic'], messages_reasoning_efforts: ['high', 'off', 'medium', 'max', 'unknown', 'medium', {}] },
           { id: 'openai-only', supported_endpoint_types: ['openai'] },
           { id: 'undeclared' },
         ] }))
@@ -56,7 +56,13 @@ it('uses a persisted site grant only for Messages models and never for dashboard
         const body = await request.json()
         expect(body.model).toBe('openai-only')
         if (responsesRejected) return Response.json({ error: { message: 'route is unavailable' } }, { status: 403 })
-        return new Response([JSON.stringify({ type: 'response.output_text.delta', delta: 'Hello 世界' }), JSON.stringify({ type: 'response.completed', response: { status: 'completed' } })].join('\n'), {
+        const item = { type: 'message', id: 'site-reply', role: 'assistant', content: [{ type: 'output_text', text: 'Hello 世界', annotations: [] }] }
+        return new Response(sse([
+          { type: 'response.output_item.added', output_index: 0, item },
+          { type: 'response.output_item.done', output_index: 0, item },
+          { type: 'response.completed', response: { id: 'site-response', status: 'completed', output: [item],
+            usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } } },
+        ]), {
           headers: { 'content-type': 'text/event-stream' },
         })
       }
@@ -132,11 +138,11 @@ it('uses a persisted site grant only for Messages models and never for dashboard
     expect((await infer(first, model)).at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'error', failure: { code: 'MODEL_UNSUPPORTED' } } })
   }
   const openai = await infer(first, 'openai-only')
-  expect(openai).toContainEqual(expect.objectContaining({ type: 'text-delta', text: 'Hello 世界' }))
+  expect(openai).toContainEqual(expect.objectContaining({ type: 'block-end', block: { type: 'text', text: 'Hello 世界' } }))
   expect(requests.filter(request => new URL(request.url).pathname === '/v1/responses')).toHaveLength(1)
   responsesRejected = true
   const responseFailure = (await infer(first, 'openai-only')).at(-1)
-  expect(responseFailure).toMatchObject({ reason: { kind: 'error', failure: { code: 'AUTH', status: 403, message: expect.stringContaining('route') } } })
+  expect(responseFailure).toMatchObject({ reason: { kind: 'error', failure: { code: 'AUTH', message: expect.stringContaining('route') } } })
   expect(JSON.stringify(responseFailure)).not.toContain('credential in Models settings')
   expect(await first.deepseekAccount.getState()).toMatchObject({ status: 'credential-stored' })
   responsesRejected = false

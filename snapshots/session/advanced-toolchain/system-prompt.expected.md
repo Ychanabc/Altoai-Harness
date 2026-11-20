@@ -1,4 +1,4 @@
-You are an AI agent powered by DeepSeek Harness.
+You are an AI agent powered by AltoaiH.
 
 You are a coding assistant powered by the deepseek-v4-flash model.
 
@@ -35,7 +35,7 @@ Bash, formatters, code generators, and scripts can overwrite concurrent edits wi
 
 <!-- system/message change 1 -->
 
-You are an AI agent powered by DeepSeek Harness.
+You are an AI agent powered by AltoaiH.
 
 You are a coding assistant powered by the deepseek-v4-flash model.
 
@@ -592,7 +592,7 @@ declare const tools: {
 
 <!-- system/message change 2 -->
 
-You are an AI agent powered by DeepSeek Harness.
+You are an AI agent powered by AltoaiH.
 
 You are a coding assistant powered by the deepseek-v4-flash model.
 

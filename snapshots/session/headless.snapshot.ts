@@ -960,7 +960,7 @@ async function verifyProviderCwdResume(
   const otherHostCwd = await mkdtemp(join(tmpdir(), 'dsh-provider-resume-'))
   const env = {
     ...REPLAY_CREDENTIAL_ENV,
-    DSH_HOME: join(cwd, '.dsh'),
+    ALTOAIH_HOME: join(cwd, '.dsh'),
     DSH_SNAPSHOT: 'replay',
     DSH_SNAPSHOT_FILE: fixture,
     DSH_SNAPSHOT_PROVIDER: model.provider,

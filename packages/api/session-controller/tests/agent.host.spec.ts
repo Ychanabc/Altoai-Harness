@@ -1,12 +1,12 @@
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { agentPresetProjectionDefinition } from '@deepseek-ai/dsh-agent-preset-registry'
-import SessionStore, { SESSION_FORMAT_VERSION, type SessionId } from '@deepseek-ai/dsh-session'
+import SessionStore, { SESSION_FORMAT_VERSION, SessionLogOffset, type SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionHeader } from '@deepseek-ai/dsh-session'
 import { SessionAlreadyOwnedError } from '@deepseek-ai/dsh-session-persistence'
 import type { SessionObservation } from '@deepseek-ai/dsh-session-query'
@@ -18,6 +18,8 @@ import {
 } from '../src/agent.ts'
 import { installSessionReadTestServices, testSessionPersistence } from './test-remote.ts'
 import { brandString } from '@deepseek-ai/dsh-brand'
+import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
+import * as JsonlPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 
 const roots: Context[] = []
 
@@ -114,6 +116,79 @@ describe('ApiSession Agent lookup and recovery', () => {
     await expect(agents.resolveObservedAgent(invalid)).resolves.toMatchObject({
       error: { code: 'session/not-found' },
     })
+  })
+
+  it('permanently deletes a materialized conversation with a live JSONL writer', async () => {
+    const ctx = new Context()
+    roots.push(ctx)
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), 'dsh-delete-live-conversation-')))
+    tempDirs.push(cwd)
+    await mountAgentLoopTestDependencies(ctx)
+    await ctx.plugin(TypertRegistry)
+    await ctx.plugin(JsonlPersistence, { root: join(cwd, 'sessions'), compression: 'none' })
+    await mountAgentLoopTestHarness(ctx)
+    await installSessionReadTestServices(ctx)
+    ctx.provide('agentDefaultModel', {
+      currentSelection: () => ({ provider: 'fixture', model: 'fixture-model' }),
+      resolveSelection: async () => ({ provider: 'fixture', model: 'fixture-model' }),
+      saveSelection: () => Promise.resolve(),
+    } as never)
+    const agents = new ApiSessionAgentController(ctx)
+    agents.initialize()
+    const deleted = await agents.createSession({ cwd, reusable: () => false })
+    const kept = await agents.createSession({ cwd, reusable: () => false })
+    const id = deleted.agent.id
+    await ctx.sessionPersistence.flush()
+    await expect(ctx.sessionPersistence.delete(id)).rejects.toThrow('open persistence handle')
+    await ctx.waterfall('workspace/session-delete', { sessionId: id }, async () => {
+      expect(ctx.agents.get(id)).toBeUndefined()
+      expect(ctx.sessions.get(id)).toBeUndefined()
+      await expect(ctx.sessionPersistence.delete(id)).resolves.toBe(true)
+    })
+    await expect(ctx.sessionPersistence.stat(id)).resolves.toBeUndefined()
+    await expect(agents.resolveAgent(id)).resolves.toMatchObject({ error: { code: 'session/not-found' } })
+    await expect(agents.resolveAgent(kept.agent.id)).resolves.toEqual({ agent: kept.agent })
+  })
+
+  it('drains a racing resume and refuses another activation until permanent deletion settles', async () => {
+    const { ctx, agents } = await harness()
+    const meta = header('racing-delete')
+    const resumed = unpublishedAgent(ctx, meta)
+    const opening = Promise.withResolvers<undefined>()
+    const publish = Promise.withResolvers<undefined>()
+    const deletingStorage = Promise.withResolvers<undefined>()
+    const finishDelete = Promise.withResolvers<undefined>()
+    const dispose = vi.fn(async () => {})
+    vi.spyOn(ctx.agents, 'resume').mockImplementation(async () => {
+      opening.resolve(undefined)
+      await publish.promise
+      return { agent: resumed, dispose }
+    })
+    const observation: SessionObservation = {
+      source: 'prepared', header: meta, inheritedEventCount: SessionLogOffset(0), events: [], cursor: -1,
+      projections: { asOfSeq: -1, values: {} }, retain: vi.fn(), [Symbol.dispose]: vi.fn(),
+    }
+    const activating = agents.resolveObservedAgent(observation)
+    await opening.promise
+    const deleting = ctx.waterfall('workspace/session-delete', { sessionId: meta.id }, async () => {
+      deletingStorage.resolve(undefined)
+      await finishDelete.promise
+    })
+    try {
+      expect(dispose).not.toHaveBeenCalled()
+      publish.resolve(undefined)
+      await deletingStorage.promise
+      expect(dispose).toHaveBeenCalledTimes(1)
+      await expect(activating).resolves.toMatchObject({ error: { code: 'session/agent-busy' } })
+      await expect(agents.resolveAgent(meta.id)).resolves.toMatchObject({ error: { code: 'session/agent-busy' } })
+      await expect(agents.createSession({ sessionId: meta.id, cwd: '/workspace', reusable: () => true }))
+        .rejects.toMatchObject({ code: 'session/agent-busy' })
+    } finally {
+      publish.resolve(undefined)
+      finishDelete.resolve(undefined)
+      await deleting
+    }
+    await expect(agents.resolveAgent(meta.id)).resolves.toMatchObject({ error: { code: 'session/not-found' } })
   })
 
   it('projects live Agent contexts and maps missing cold identities through Typert lookup failures', async () => {

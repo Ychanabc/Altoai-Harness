@@ -4,7 +4,7 @@ import type {} from '@deepseek-ai/dsh-fs'
 import { randomUUID } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
-import type { Agent, AgentOptions, AgentSetup } from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentHandle, AgentOptions, AgentSetup, CreateAgentOptions } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import { installModelSelection } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-preset-registry'
@@ -13,6 +13,7 @@ import type { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-session-query'
 import { RemoteError, remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-typert-registry'
+import type {} from '@deepseek-ai/dsh-workspace'
 
 /** Cold Session identity absent from persistence. */
 export class ApiSessionNotFound extends Error {}
@@ -115,6 +116,8 @@ export function apiSessionSubagentOwnershipError(sessionId: SessionId): ApiSessi
 
 /** Owns every operation that may create, resume, or configure a Web Agent. */
 export class ApiSessionAgentController {
+  private readonly handles = new Map<SessionId, AgentHandle>()
+  private readonly deleting = new Set<SessionId>()
   private readonly resumes = new Map<SessionId, Promise<Agent>>()
   private readonly claims = new Map<SessionId, Promise<void>>()
   private readonly imageAdmissionChains = new WeakMap<Agent, Promise<void>>()
@@ -127,6 +130,10 @@ export class ApiSessionAgentController {
    */
   initialize(): void {
     const ctx = this.ctx
+    ctx.on('workspace/session-delete', ({ sessionId }, next) => this.deleteSession(sessionId, next))
+    ctx.on('agent/disposed', ({ agent }) => {
+      if (this.handles.get(agent.id)?.agent === agent) this.handles.delete(agent.id)
+    })
     ctx.typert.lookups.configure('agent', async (sessionId: SessionId) => {
       const found = await this.resolveAgent(sessionId)
       if ('error' in found) throw found.error
@@ -166,6 +173,7 @@ export class ApiSessionAgentController {
     sessionId: SessionId,
     observation?: SessionObservation,
   ): Promise<ApiSessionAgentResult> {
+    if (this.deleting.has(sessionId)) return { error: this.deletionInProgress(sessionId) }
     const live = this.liveAgent(sessionId)
     if (live !== undefined) return live
     const attached = this.ctx.sessions.get(sessionId)
@@ -180,6 +188,7 @@ export class ApiSessionAgentController {
     }
     try {
       const agent = await resume
+      if (this.deleting.has(sessionId)) return { error: this.deletionInProgress(sessionId) }
       // A shared resume can publish an identity that subagent routing adopts
       // before every waiter observes it; apply the live ownership policy again.
       const published = this.liveAgent(sessionId)
@@ -230,6 +239,7 @@ export class ApiSessionAgentController {
   async createSession(request: ApiSessionCreateRequest): Promise<ApiSessionCreated> {
     const named = request.sessionId
     if (named === undefined) return this.created(await this.createMinted(request.cwd, await this.composeAgent(request.agentPreset)))
+    if (this.deleting.has(named)) throw this.deletionInProgress(named)
     return this.inOrder(named, async () => this.created(await this.claim(named, request)))
   }
 
@@ -274,6 +284,39 @@ export class ApiSessionAgentController {
     }
   }
 
+  private deletionInProgress(sessionId: SessionId): ApiSessionAgentError {
+    return new RemoteError('session/agent-busy', `session "${sessionId}" is being deleted`, { reason: 'session deletion in progress' })
+  }
+
+  private async deleteSession(sessionId: SessionId, next: () => Promise<void>): Promise<void> {
+    this.deleting.add(sessionId)
+    try {
+      await Promise.allSettled([this.claims.get(sessionId), this.resumes.get(sessionId)])
+      const handle = this.handles.get(sessionId)
+      if (handle !== undefined) {
+        await handle.dispose()
+        if (this.handles.get(sessionId) === handle) this.handles.delete(sessionId)
+      }
+      await next()
+    } finally {
+      this.deleting.delete(sessionId)
+    }
+  }
+
+  /**
+   * Create and retain lifecycle ownership for a Web Session fork.
+   * @param options - child identity, fork history, and Agent setup.
+   * @returns the live child Agent.
+   */
+  async createFork(options: CreateAgentOptions): Promise<Agent> {
+    return this.own(await this.ctx.agents.create(options))
+  }
+
+  private own(handle: AgentHandle): Agent {
+    this.handles.set(handle.agent.id, handle)
+    return handle.agent
+  }
+
   private liveAgent(sessionId: SessionId): ApiSessionAgentResult | undefined {
     const agent = this.ctx.agents.get(sessionId)
     if (agent === undefined) return undefined
@@ -311,11 +354,11 @@ export class ApiSessionAgentController {
     if (published !== undefined && hasApiSessionSubagentOwner(published)) {
       throw new ApiSessionSubagentOwnership(sessionId)
     }
-    return (await this.ctx.agents.resume({
+    return this.own(await this.ctx.agents.resume({
       resumeSessionId: sessionId,
       agentOptions: await this.agentOptions(),
       setup: composition.setup,
-    })).agent
+    }))
   }
 
   private async inOrder<Value>(sessionId: SessionId, operation: () => Promise<Value>): Promise<Value> {
@@ -331,6 +374,7 @@ export class ApiSessionAgentController {
 
   /** @returns the reused Session, a new Session under `sessionId` when none is stored, or a new Session under a minted identity. */
   private async claim(sessionId: SessionId, request: ApiSessionCreateRequest): Promise<Agent> {
+    if (this.deleting.has(sessionId)) throw this.deletionInProgress(sessionId)
     const attached = this.ctx.sessions.get(sessionId)
     const live = this.ctx.agents.get(sessionId)
     if (attached !== undefined && hasApiSessionSubagentOwner(attached)) {
@@ -365,11 +409,11 @@ export class ApiSessionAgentController {
     if (!reusable) return this.createMinted(request.cwd, composition)
     this.assertPresetApplicable(sessionId, request.agentPreset)
     try {
-      return (await this.ctx.agents.resume({
+      return this.own(await this.ctx.agents.resume({
         resumeSessionId: sessionId,
         agentOptions: await this.agentOptions(),
         setup: this.reuseSetup(composition),
-      })).agent
+      }))
     } catch (error: unknown) {
       if (error instanceof ApiSessionStartedSinceObserved) return this.createMinted(request.cwd, composition)
       if (!(error instanceof Error) || error.name !== 'SessionAlreadyOwnedError') throw error
@@ -440,7 +484,7 @@ export class ApiSessionAgentController {
     } catch (error: unknown) {
       throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
     }
-    return (await this.ctx.agents.create({
+    return this.own(await this.ctx.agents.create({
       sessionId,
       agentOptions: await this.agentOptions(),
       meta: {
@@ -448,7 +492,7 @@ export class ApiSessionAgentController {
         ...(composition.agentPreset === undefined ? {} : { agentPreset: composition.agentPreset }),
       },
       setup: composition.setup,
-    })).agent
+    }))
   }
 
   /** The canonical spelling of a project directory, which new headers record; see SessionHeader.cwd. */

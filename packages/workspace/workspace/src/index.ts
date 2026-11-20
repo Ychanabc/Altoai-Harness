@@ -149,6 +149,14 @@ declare module '@deepseek-ai/cordis' {
      */
     'workspace/session-stop'(request: SessionActivityRequest): Promise<void> | void
     /**
+     * Drain the owned Session lifecycle and prevent it from reopening until permanent deletion settles.
+     * Lifecycle owners must await and return `next()` after draining; a teardown failure aborts deletion.
+     * @param request - Session being permanently removed.
+     * @param next - continue through remaining lifecycle owners and remove the stored Session.
+     * @mode waterfall
+     */
+    'workspace/session-delete'(request: SessionActivityRequest, next: () => Promise<void>): Promise<void>
+    /**
      * Admit optional follow-up work after durable archival and any stop requests.
      * Dispatched inside the registry's write queue: a listener registers its work
      * and returns, and runs the work and any unbounded I/O afterwards. Listener
@@ -351,7 +359,7 @@ export class WorkspaceRegistry extends Service {
       if (workspace === undefined) return false
       await this.assertDeletableWorkspaceDirectory(workspace.path)
       for (const sessionId of [...workspace.sessionIds]) {
-        await this.deleteSessionKnown(sessionId, options, false)
+        await this.deleteSessionKnown(sessionId, options, workspace)
       }
       await this.removeWorkspaceDirectory(workspace.path)
       return await this.deleteKnown(id)
@@ -360,9 +368,9 @@ export class WorkspaceRegistry extends Service {
 
   /**
    * Permanently remove one Session, its Workspace membership, global archive/pin
-   * entries, durable log, and Session working directory. Active work is stopped
-   * before persistence deletion; any storage or filesystem failure propagates
-   * with the Session already hidden from the registry.
+   * entries and durable storage. Active work is stopped when requested; the
+   * owned Session lifecycle drains before storage deletion. Membership is
+   * retained if stopping, draining, or deleting storage fails.
    * @param sessionId - Session identity to remove.
    * @param options - whether to stop active work before deletion.
    * @returns `true` when a known Session was permanently removed.
@@ -397,39 +405,35 @@ export class WorkspaceRegistry extends Service {
   }
 
   /** Permanently remove a known Session while holding the registry operation queue. */
-  private async deleteSessionKnown(
-    sessionId: SessionId,
-    options: ArchiveSessionOptions,
-    detachMembership = true,
-  ): Promise<boolean> {
-    if (options.stopActivity !== true) {
+  private async deleteSessionKnown(sessionId: SessionId, options: ArchiveSessionOptions, deletingWorkspace?: Workspace): Promise<boolean> {
+    if (options.stopActivity === true) {
+      await this.ctx.parallel('workspace/session-stop', { sessionId })
+    } else {
       const activity = await this.ctx.waterfall(
         'workspace/session-activity', { sessionId }, () => Promise.resolve([]),
       )
       if (activity.length > 0) throw new WorkspaceActiveSessionError(sessionId, activity)
     }
-    if (options.stopActivity === true) await this.stopSessionActivity(sessionId)
-    // A persistence provider owns its open-handle and filesystem safety checks;
-    // do not hide the Session from Workspace state until it accepts deletion.
-    const deleted = await this.ctx.sessionPersistence.delete(sessionId)
-    if (!deleted) throw new Error(`cannot delete session '${sessionId}': persistence no longer contains it`)
-    const state = this.requireState()
-    if (detachMembership) {
+    let removed = false
+    await this.ctx.waterfall('workspace/session-delete', { sessionId }, async () => {
+      await this.ctx.sessionPersistence.delete(sessionId)
+      const state = this.requireState()
       for (const workspace of this.entities.values()) {
-        if (!workspace.sessionIds.includes(sessionId)) continue
-        await workspace.detachSession(sessionId)
+        if (workspace !== deletingWorkspace && workspace.sessionIds.includes(sessionId)) await workspace.detachSession(sessionId)
       }
-    }
-    await this.setState({
-      ...state,
-      archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
-      pinnedSessionIds: state.pinnedSessionIds.filter(id => id !== sessionId),
+      await this.setState({
+        ...state,
+        archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
+        pinnedSessionIds: state.pinnedSessionIds.filter(id => id !== sessionId),
+      })
+      this.headers.delete(sessionId)
+      this.sessionPaths.delete(sessionId)
+      this.missingSessionPaths.delete(sessionId)
+      this.invalidSessionPaths.delete(sessionId)
+      removed = true
     })
-    this.headers.delete(sessionId)
-    this.sessionPaths.delete(sessionId)
-    this.missingSessionPaths.delete(sessionId)
-    this.invalidSessionPaths.delete(sessionId)
-    return deleted
+    if (!removed) throw new Error(`session '${sessionId}' deletion was not performed`)
+    return true
   }
 
   /**

@@ -43,10 +43,10 @@ it('forwards upload bytes and cancellation with Host credentials while keeping t
     method: 'POST', body: 'upload bytes',
     headers: { origin: 'altoaih-app://app', cookie: 'untrusted', host: 'untrusted', 'sec-fetch-site': 'cross-site', accept: 'text/plain' },
   })
-  const response = await forwardWebRequest(request, 'http://127.0.0.1:1234/', 'altoaih-desktop-session=owned')
+  const response = await forwardWebRequest(request, 'http://127.0.0.1:1234/', 'dsh-desktop-session=owned')
   const [target, init] = fetch.mock.calls[0] as [URL, RequestInit]
   expect(target.href).toBe('http://127.0.0.1:1234/api/upload?name=file')
-  expect(new Headers(init.headers).get('cookie')).toBe('altoaih-desktop-session=owned')
+  expect(new Headers(init.headers).get('cookie')).toBe('dsh-desktop-session=owned')
   for (const name of ['origin', 'host', 'sec-fetch-site']) expect(new Headers(init.headers).get(name)).toBeNull()
   expect(new Headers(init.headers).get('accept')).toBe('text/plain')
   expect(request.headers.get('cookie')).toBe('untrusted')

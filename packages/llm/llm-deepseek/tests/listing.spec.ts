@@ -264,9 +264,12 @@ it('reads site endpoint declarations without inventing image or history capabili
     { id: 'unknown', api_capabilities: { anthropic_messages: {} } },
   ] }, 'site')
   expect(listing.entries[0]?.capabilities).toEqual({ usable: true, facts: {
-    inputModalities: ['text'], systemPromptUpdate: 'leading-only', toolUpdate: 'leading-only', messagesReasoningEfforts: ['off'],
+    protocol: 'anthropic-messages', inputModalities: ['text'], systemPromptUpdate: 'leading-only', toolUpdate: 'leading-only', messagesReasoningEfforts: ['off'],
   } })
-  expect(listing.entries.slice(1).every(entry => !entry.capabilities.usable)).toBe(true)
+  expect(listing.entries[1]?.capabilities).toEqual({ usable: true, facts: {
+    protocol: 'openai-responses', inputModalities: ['text'],
+  } })
+  expect(listing.entries[2]?.capabilities.usable).toBe(false)
   expect(parseModelListing({ data: [{ id: 'site-only', supported_endpoint_types: ['anthropic'] }] }).entries[0]?.capabilities.usable).toBe(false)
 })
 
@@ -279,11 +282,18 @@ it('accepts an explicitly empty site catalog but rejects failed envelopes and ma
 
 it('accepts catalog-declared OpenAI or Anthropic endpoint metadata regardless of model name or owner', () => {
   const entries = parseModelListing({ success: true, object: 'list', data: [
-    { id: 'claude-openai', owned_by: 'anthropic', supported_endpoint_types: ['openai'] },
+    { id: 'claude-openai', owned_by: 'anthropic', supported_endpoint_types: ['openai'], messages_reasoning_efforts: ['medium'] },
     { id: 'custom-messages', owned_by: 'custom', supported_endpoint_types: ['anthropic', 'openai'] },
+    { id: 'dual-reasoner', supported_endpoint_types: ['openai', 'anthropic'], messages_reasoning_efforts: ['medium', 'off', 'unknown'] },
+    { id: 'dual-unrecognized', supported_endpoint_types: ['openai', 'anthropic'], messages_reasoning_efforts: ['unknown'] },
     { id: 'undeclared', api_capabilities: { anthropic_messages: {} } },
   ] }, 'site').entries
-  expect(entries.map(entry => [entry.id, entry.capabilities.usable])).toEqual([
-    ['claude-openai', false], ['custom-messages', true], ['undeclared', false],
+  expect(entries.map(({ id, capabilities }) => [id, capabilities.usable
+    ? [capabilities.facts.protocol, capabilities.facts.messagesReasoningEfforts] : false])).toEqual([
+    ['claude-openai', ['openai-responses', undefined]],
+    ['custom-messages', ['openai-responses', undefined]],
+    ['dual-reasoner', ['anthropic-messages', ['off', 'medium']]],
+    ['dual-unrecognized', ['openai-responses', undefined]],
+    ['undeclared', false],
   ])
 })
