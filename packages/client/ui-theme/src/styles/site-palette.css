@@ -1,0 +1,52 @@
+/* Site overrides semantic roles only; upstream static colors, artwork, state colors
+ * and platform materials retain their original owners. */
+body {
+  color-scheme: light;
+}
+
+body[data-ds-dark-theme] {
+  color-scheme: dark;
+}
+
+body,
+body[data-ds-dark-theme] {
+  --dsw-alias-bg-base: light-dark(#f8fafc, #1e1e1e);
+  --dsw-alias-bg-layer-1: light-dark(#ffffff, #262626);
+  --dsw-alias-bg-layer-2: light-dark(#ffffff, #2b2b2b);
+  --dsw-alias-bg-layer-3: light-dark(#f1f5f9, #313131);
+  --dsw-alias-brand-primary: light-dark(#1677b8, #267caf);
+  --dsw-alias-button-primary-hover: light-dark(#12679f, #237aad);
+  --dsw-alias-label-primary: light-dark(#17212f, #f3f4f6);
+  --dsw-alias-label-secondary: light-dark(#576576, #c0c7cf);
+  --dsw-alias-label-tertiary: light-dark(#647385, #a5aeb9);
+  --dsw-alias-label-caption: light-dark(#647385, #a5aeb9);
+  --dsw-alias-link: light-dark(#1677b8, #83c6f2);
+  --dsw-alias-state-business-primary: light-dark(#1677b8, #83c6f2);
+  --dsw-alias-state-business-tertiary: light-dark(#e6f1fa, #263d4c);
+  --dsw-alias-border-l1: light-dark(#17212f0a, #ffffff0f);
+  --dsw-alias-border-l2: light-dark(#17212f14, #ffffff1a);
+  --dsw-alias-border-l3: light-dark(#17212f1c, #ffffff21);
+  --dsw-alias-border-l4: light-dark(#17212f24, #ffffff2b);
+  --dsw-alias-card-fill: light-dark(#f1f5f9, #292929);
+  --dsw-alias-card-fill-hover: light-dark(#eaf0f6, #313131);
+  --dsw-alias-card-tile-fill: light-dark(#ffffff, #353535);
+  --dsw-alias-brand-primary-new-colorprimary-new-color: var(--dsw-alias-brand-primary);
+  --dsw-alias-button-primary-fill: var(--dsw-alias-brand-primary);
+  --dsw-alias-border-selected: var(--dsw-alias-state-business-primary);
+  --dsw-alias-button-elevated-fill: var(--dsw-alias-bg-layer-2);
+  --dsw-alias-button-floating-fill: var(--dsw-alias-bg-layer-2);
+  --dsw-alias-button-floating-hover: var(--dsw-alias-bg-layer-3);
+  --dsw-alias-settings-card-fill: var(--dsw-alias-bg-layer-2);
+  --dsw-alias-settings-card-stroke: var(--dsw-alias-border-l2);
+  --dsw-alias-onboarding-accent: var(--dsw-alias-brand-primary);
+  --dsw-alias-onboarding-card-fill: var(--dsw-alias-bg-layer-2);
+  --dsw-alias-onboarding-secondary-fill: var(--dsw-alias-bg-layer-3);
+  --dsw-alias-onboarding-checkbox-border: var(--dsw-alias-border-l4);
+  --dsw-alias-label-primary-foreground: #ffffff;
+  --dsw-alias-label-on-color: #ffffff;
+  --dsw-specific-sidebar-fill: light-dark(#f1f5f9, #1c1c1c);
+  --dsw-specific-sidebar-nav-item-active-accent: var(--dsw-alias-state-business-tertiary);
+  --dsw-specific-input-major: var(--dsw-alias-bg-layer-2);
+  --dsw-linear-gradient-think: linear-gradient(180deg, var(--dsw-alias-bg-base) 20.19%, transparent);
+  --dsw-linear-think-select: linear-gradient(180deg, var(--dsw-alias-card-fill) 20.19%, transparent);
+}

@@ -1,0 +1,31 @@
+# Site deployment layer shared by the Web and Desktop profiles.
+# Later user/profile overlays retain their normal precedence.
+- id: deepseek-account
+  config:
+    authProtocol: site-device
+    platformOrigin: https://ai.vpss.eu.cc
+    inferenceOrigin: https://ai.vpss.eu.cc
+    desktopPlatform: !!js "ctx.get('profileContext')?.name === 'desktop' && ['darwin', 'win32'].includes(process.platform) ? process.platform : null"
+
+- id: llm-deepseek-account
+  config:
+    baseURL: https://ai.vpss.eu.cc
+    catalogProtocol: site
+    thinking: disabled
+    reasoningEffort: off
+    maxTokens: 4096
+    defaultContextWindow: 32768
+
+- id: agent-default-model
+  config:
+    provider: deepseek-account
+    fallbackToFirstAvailable: true
+    model: !!js "process.env.DSH_SITE_MODEL || 'deepseek-chat'"
+
+- id: ui-model-selection
+  config:
+    officialProvider: deepseek-account
+
+- id: ui-settings-models
+  config:
+    officialProvider: deepseek-account
