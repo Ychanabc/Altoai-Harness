@@ -462,6 +462,25 @@ export class JsonlBackendTracker {
   }
 
   /**
+   * Whether this process still owns a handle for the Session.
+   * @param id - Session identity to inspect.
+   * @returns whether any handle remains open.
+   */
+  hasOpenHandle(id: SessionId): boolean {
+    return [...this.openHandles].some(handle => handle.id === id)
+  }
+
+  /**
+   * Forget a pending Session that a permanent deletion consumed.
+   * @param id - Session identity to remove.
+   * @returns whether a pending Session was removed.
+   */
+  deletePending(id: SessionId): boolean {
+    if (this.hasOpenHandle(id)) return false
+    return this.pending.delete(id)
+  }
+
+  /**
    * Join an already-started writer close before reading its stored history.
    * @param id - Session whose writer may still be draining.
    * @returns completion of that writer's close, or undefined when no close is active.

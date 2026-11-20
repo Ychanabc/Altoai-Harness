@@ -327,6 +327,10 @@ export function apply(ctx: Context, config: SyncedConfig<WorkspaceNavigationConf
     if (workspace === undefined || !ctx.remoteAccess.source('workspace', workspaceId, `workspace/${action}`).getSnapshot()) return
     workspaceActionRequest.set({ action, workspaceId, displayTitle, storedTitle: workspace.title })
   }
+  const requestSessionDelete = (sessionId: SessionId, displayTitle: string): void => {
+    if (!ctx.remoteAccess.source('session', sessionId, 'workspace/deleteSession').getSnapshot()) return
+    workspaceActionRequest.set({ action: 'deleteSession', sessionId, displayTitle })
+  }
   ctx.slots.inject('contextMenu.icon', function* () {
     for (const [key, Icon] of Object.entries({
       'workspace.rename': IconEditOutlineRegular, 'workspace.delete': IconTrashOutlineRegular,
@@ -359,6 +363,7 @@ export function apply(ctx: Context, config: SyncedConfig<WorkspaceNavigationConf
     notifyArchivedNotOpenable: () => { notify({ kind: 'archivedNotOpenable' }) },
     renameWorkspace: async (workspaceId, title) => { await workspaces.rename(workspaceId, title) },
     deleteWorkspace: async (workspaceId) => { await workspaces.delete(workspaceId) },
+    deleteSession: async (sessionId) => { await workspaces.deleteSession(sessionId) },
     insertWorkspaceBefore: async (workspaceId, beforeWorkspaceId) => {
       await workspaces.insertBefore(workspaceId, beforeWorkspaceId)
     },
@@ -401,7 +406,7 @@ export function apply(ctx: Context, config: SyncedConfig<WorkspaceNavigationConf
   }, SessionMenu))
   registerSessionMenus(ctx, {
     ...pinInjected(), ...archiveInjected(), ...renameInjected(), ...forkInjected(), ...sessionIdInjected(),
-    markSession,
+    markSession, requestSessionDelete,
   })
   ctx.slots.inject('sidebar.workspaces.session.row.action', function* () {
     yield ctx.slots.register({ name: 'sidebar.workspaces.session.row.action', id: 'archive', order: 100, locale: NS, inject: archiveInjected }, ArchiveSessionRowButton)

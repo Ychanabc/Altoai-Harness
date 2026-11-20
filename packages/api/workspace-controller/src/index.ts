@@ -17,6 +17,8 @@ import type {
   WorkspaceCreateValue,
   WorkspaceDeleteRequest,
   WorkspaceDeleteValue,
+  WorkspaceDeleteSessionRequest,
+  WorkspaceDeleteSessionValue,
   WorkspaceFollowFrame,
   WorkspaceId,
   WorkspaceInsertBeforeRequest,
@@ -122,13 +124,23 @@ export class WorkspaceController extends TypertRemoteService {
   }
 
   /**
-   * Remove one Workspace registration while retaining files and Sessions.
+   * Permanently remove one Workspace and its accounted Sessions while retaining its project directory.
    * @param request - Workspace identity to remove.
    * @returns deletion confirmation.
    */
   @Remote('delete')
   delete(request: WorkspaceDeleteRequest): Promise<WorkspaceDeleteValue> {
     return this.commands.delete(request)
+  }
+
+  /**
+   * Permanently remove one Session and its durable history.
+   * @param request - Session identity to delete.
+   * @returns deletion confirmation.
+   */
+  @Remote('deleteSession')
+  deleteSession(request: WorkspaceDeleteSessionRequest): Promise<WorkspaceDeleteSessionValue> {
+    return this.commands.deleteSession(request)
   }
 
   /**

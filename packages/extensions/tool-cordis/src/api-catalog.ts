@@ -3569,6 +3569,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'options', description: 'optional cancellation.' }],
         returns: 'one snapshot per stored session.',
       },
+      {
+        signature: 'async delete(id: SessionId): Promise<boolean>',
+        description: 'Permanently remove one inactive stored Session. The operation is idempotent: an absent id resolves as `false`; a live writer or reader must be released before deletion can start.',
+        parameters: [{ name: 'id', description: 'stored Session identity.' }],
+        returns: '`true` when durable Session data was removed.',
+      },
     ],
   },
   {
@@ -4084,8 +4090,8 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   },
   {
     key: 'shellEnv',
-    summary: 'Registry (`ctx.shellEnv`) for trusted, per-execution `DSH_*` variables.',
-    description: 'Registry (`ctx.shellEnv`) for trusted, per-execution `DSH_*` variables. The namespace is rebuilt for every model shell call: ambient `DSH_*` values are discarded by the executor, then the registry\'s current snapshot is injected. Built-in shell facts remain owned by the registry itself while plugins can register additional, enumerable facts with effect-scoped disposal.',
+    summary: 'Registry (`ctx.shellEnv`) for trusted, per-execution `ALTOAIH_*` variables.',
+    description: 'Registry (`ctx.shellEnv`) for trusted, per-execution `ALTOAIH_*` variables. The namespace is rebuilt for every model shell call: ambient `ALTOAIH_*` values are discarded by the executor, then the registry\'s current snapshot is injected. Built-in shell facts remain owned by the registry itself while plugins can register additional, enumerable facts with effect-scoped disposal.',
     methods: [
       {
         signature: 'register(contributor: BashEnvContributor): () => void',
@@ -4095,7 +4101,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'collect(execution: ToolExecution): DshEnvironment',
-        description: 'Build the trusted `DSH_*` snapshot for one shell tool execution.',
+        description: 'Build the trusted `ALTOAIH_*` snapshot for one shell tool execution.',
         parameters: [{ name: 'execution', description: 'the current tool execution.' }],
         returns: 'an immutable environment overlay containing built-ins and current contributions.',
       },
@@ -5078,7 +5084,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     methods: [
       {
         signature: 'getAdvertisedUrl(): string',
-        description: 'The URL this GUI advertises, also used for `DSH_WEB_URL` and the startup URL line.',
+        description: 'The URL this GUI advertises, also used for `ALTOAIH_WEB_URL` and the startup URL line.',
         parameters: [],
         returns: 'the configured `publicUrl`, otherwise the listener origin.',
       },
@@ -5255,8 +5261,14 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote(\'delete\') delete(request: WorkspaceDeleteRequest): Promise<WorkspaceDeleteValue>',
-        description: 'Remove one Workspace registration while retaining files and Sessions.',
+        description: 'Permanently remove one Workspace and its accounted Sessions while retaining its project directory.',
         parameters: [{ name: 'request', description: 'Workspace identity to remove.' }],
+        returns: 'deletion confirmation.',
+      },
+      {
+        signature: '@Remote(\'deleteSession\') deleteSession(request: WorkspaceDeleteSessionRequest): Promise<WorkspaceDeleteSessionValue>',
+        description: 'Permanently remove one Session and its durable history.',
+        parameters: [{ name: 'request', description: 'Session identity to delete.' }],
         returns: 'deletion confirmation.',
       },
       {
@@ -5388,6 +5400,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Delete one workspace registration while retaining its directory and every session log. The durable order is updated before the table deletion; a failed table write restores the prior order and keeps the entity published. Unknown ids are an idempotent no-op for domain callers.',
         parameters: [{ name: 'id', description: 'Workspace registration to remove.' }],
         returns: '`true` when a record was deleted, `false` when it was unknown.',
+      },
+      {
+        signature: 'deletePermanently(id: WorkspaceId, options: ArchiveSessionOptions = {}): Promise<boolean>',
+        description: 'Permanently remove one Workspace, its accounted Sessions, and its registered project directory. The registration remains recoverable when directory removal fails.',
+        parameters: [{ name: 'id', description: 'Workspace identity to remove.' }, { name: 'options', description: 'whether active Session work is stopped before deletion.' }],
+        returns: '`true` when the Workspace existed.',
+      },
+      {
+        signature: 'deleteSession(sessionId: SessionId, options: ArchiveSessionOptions = {}): Promise<boolean>',
+        description: 'Permanently remove one Session, its Workspace membership, global archive/pin entries, durable log, and Session working directory. Active work is stopped before persistence deletion; any storage or filesystem failure propagates with the Session already hidden from the registry.',
+        parameters: [{ name: 'sessionId', description: 'Session identity to remove.' }, { name: 'options', description: 'whether to stop active work before deletion.' }],
+        returns: '`true` when a known Session was permanently removed.',
       },
       {
         signature: 'insertBefore(id: WorkspaceId, beforeId?: WorkspaceId): Promise<readonly WorkspaceId[]>',
@@ -11735,6 +11759,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WorkspaceDeleteRequest',
     declaration: 'export interface WorkspaceDeleteRequest {\n    readonly workspaceId: WorkspaceId;\n}',
+  },
+  {
+    name: 'WorkspaceDeleteSessionRequest',
+    declaration: 'export interface WorkspaceDeleteSessionRequest {\n    readonly sessionId: SessionId;\n}',
+  },
+  {
+    name: 'WorkspaceDeleteSessionValue',
+    declaration: 'export interface WorkspaceDeleteSessionValue {\n    readonly deleted: true;\n}',
   },
   {
     name: 'WorkspaceDeleteValue',

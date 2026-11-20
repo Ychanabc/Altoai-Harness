@@ -53,7 +53,7 @@ job 排队时，先对照 job 页面请求的标签与 **Settings → Actions �
 
 ## 机器配置
 
-保持 `DSH_PACKAGING_CONFIG_DIR` 指向现有机器打包目录。完成的构建复制到其同级 `releases/<run-id>/<attempt>/`；`DSH_DESKTOP_RELEASES_DIR` 可用绝对路径覆盖该根目录。文件清单包含安装包、更新归档、blockmap、完成记录和不含凭据的 manifest。调试包会留存，但不能发布。复制内容通过校验后才开放 attempt 目录，已有 attempt 不能被替换。GitHub 保留相同文件清单 14 天。本地文件保留到操作员删除；校验或发布期间不要删除对应 attempt。
+保持 `DSH_PACKAGING_CONFIG_DIR` 指向现有机器打包目录。完成的构建复制到其同级 `releases/<run-id>/<attempt>/`；`ALTOAIH_DESKTOP_RELEASES_DIR` 可用绝对路径覆盖该根目录。文件清单包含安装包、更新归档、blockmap、完成记录和不含凭据的 manifest。调试包会留存，但不能发布。复制内容通过校验后才开放 attempt 目录，已有 attempt 不能被替换。GitHub 保留相同文件清单 14 天。本地文件保留到操作员删除；校验或发布期间不要删除对应 attempt。
 
 从 [macOS test](../../config/publishing/macos/test.json.example)、[macOS production](../../config/publishing/macos/production.json.example)、[Windows test](../../config/publishing/windows/test.json.example) 或 [Windows production](../../config/publishing/windows/production.json.example) 模板开始，创建 `publishing/` 目录，将所选文件复制到 `DSH_PACKAGING_CONFIG_DIR` 下的 `publishing/<preset>.json`。用机器实际配置替换示例 bucket、test origin、绝对路径、macOS 签名身份和 Team ID 或 Windows 证书指纹，以及 production App client ID；保留固定的 production origin。模板不含凭据，也不授予 COS、GitHub 或签名权限。引用的秘密文件保存在 Git 之外，只允许发布账户访问。macOS 的 arm64 和 x64 共用配置，目标由留存包决定。
 

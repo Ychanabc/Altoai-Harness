@@ -20,7 +20,7 @@ async function fixture() {
   electron.getPath.mockReturnValue(root)
   const icon = {} as NativeImage
   electron.getFileIcon.mockResolvedValue(icon)
-  const frame = Object.assign({} as WebFrameMain, { url: 'dsh-app://app/' })
+  const frame = Object.assign({} as WebFrameMain, { url: 'altoaih-app://app/' })
   const window = Object.assign({} as BrowserWindow, { isDestroyed: () => false,
     webContents: Object.assign({} as WebContents, { mainFrame: frame, startDrag: vi.fn() }) })
   let current: BrowserWindow | undefined = window
@@ -68,8 +68,8 @@ it('uses shared sender authorization and releases failed native starts', async (
   await vi.waitFor(async () => { expect(await readdir(f.root)).toEqual([]) })
   f.frame.url = 'https://other.test/'
   await expect(f.call(DESKTOP_IPC.fileDragStart, handle)).rejects.toThrow('unowned renderer')
-  f.frame.url = 'dsh-app://app/'
-  Object.assign(f.event, { senderFrame: { url: 'dsh-app://app/' } })
+  f.frame.url = 'altoaih-app://app/'
+  Object.assign(f.event, { senderFrame: { url: 'altoaih-app://app/' } })
   await expect(f.call(DESKTOP_IPC.fileDragStart, handle)).rejects.toThrow('Unowned file drag request')
   Object.assign(f.event, { senderFrame: f.frame, sender: {} })
   await expect(f.call(DESKTOP_IPC.fileDragStart, handle)).rejects.toThrow('Unowned file drag request')

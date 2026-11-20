@@ -7,7 +7,7 @@ export interface DesktopElectronBuilderConfig {
   readonly executableName?: string
   readonly copyright: string
   readonly artifactName: string
-  readonly protocols: readonly [{ readonly name: string; readonly schemes: readonly ['dsh'] }]
+  readonly protocols: readonly [{ readonly name: string; readonly schemes: readonly ['altoaih'] }]
   readonly directories: {
     readonly output: string
   }
@@ -16,7 +16,7 @@ export interface DesktopElectronBuilderConfig {
     { readonly from: string, readonly to: 'dsh', readonly filter: readonly ['**/*'] },
     { readonly from: string, readonly to: 'dsh/node_modules', readonly filter: readonly ['**/*'] },
   ]
-  readonly extraMetadata: { readonly dshDesktopAppId: string }
+  readonly extraMetadata: { readonly altoaihDesktopAppId: string }
   readonly asarUnpack: readonly string[]
   readonly extraResources: readonly [
     { readonly from: string, readonly to: 'runtime' },

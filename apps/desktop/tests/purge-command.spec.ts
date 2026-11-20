@@ -42,7 +42,7 @@ it('forwards the documented pnpm purge command through both package scripts to t
   }
   // Only command forwarding and parsing are under test; all external work fails closed.
   const stubs = {
-    'desktop-package-environment.mjs': "export const loadDesktopPackageEnvironment = () => ({ DSH_DESKTOP_AUTO_UPDATE_ENV: 'production' })",
+    'desktop-package-environment.mjs': "export const loadDesktopPackageEnvironment = () => ({ ALTOAIH_DESKTOP_AUTO_UPDATE_ENV: 'production' })",
     'desktop-upload-plan.ts': "export const createDesktopUploadPlan = () => { throw new Error('unexpected installer read') }",
     'desktop-upload-run.ts': "export const uploadDesktopRelease = () => { throw new Error('unexpected upload') }",
     'desktop-release-tag.ts': "export const desktopReleaseTag = () => { throw new Error('unexpected tag') }; export const tagDesktopRelease = desktopReleaseTag",

@@ -61,7 +61,7 @@ it('uses the private readiness Cookie for every packaged runtime HTTP probe', as
     python: '3.12.0', pythonPackages: {},
   }))
   const secret = Buffer.alloc(32, 7).toString('base64url')
-  const cookie = `dsh-desktop-session=${secret}`
+  const cookie = `altoaih-desktop-session=${secret}`
   await ctx.plugin(WebServer, { host: '127.0.0.1', port: 0 }).await()
   await ctx.plugin(Connection).await()
   await ctx.plugin(DesktopAuthentication, { readSecret: () => secret }).await()

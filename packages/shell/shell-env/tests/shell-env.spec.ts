@@ -46,26 +46,26 @@ describe('ShellEnvRegistry', () => {
     const registry = new ShellEnvRegistry(ctx, { dshHome: './test-dsh-home' })
 
     expect(registry.collect(execution())).toEqual({
-      DSH_HOME: resolve('./test-dsh-home'),
-      DSH_NODE_EXECUTABLE: process.execPath,
-      DSH_SHELL: '1',
+      ALTOAIH_HOME: resolve('./test-dsh-home'),
+      ALTOAIH_NODE_EXECUTABLE: process.execPath,
+      ALTOAIH_SHELL: '1',
     })
     expect(registry.collect(execution('session-a'))).toEqual({
-      DSH_HOME: resolve('./test-dsh-home'),
-      DSH_NODE_EXECUTABLE: process.execPath,
-      DSH_SESSION_ID: 'session-a',
-      DSH_SHELL: '1',
+      ALTOAIH_HOME: resolve('./test-dsh-home'),
+      ALTOAIH_NODE_EXECUTABLE: process.execPath,
+      ALTOAIH_SESSION_ID: 'session-a',
+      ALTOAIH_SHELL: '1',
     })
   })
 
   it('omits the Node executable inside a single-executable application', () => {
     vi.spyOn(process, 'getBuiltinModule').mockReturnValue({ isSea: () => true })
-    expect(new ShellEnvRegistry(new Context()).collect(execution())).not.toHaveProperty('DSH_NODE_EXECUTABLE')
+    expect(new ShellEnvRegistry(new Context()).collect(execution())).not.toHaveProperty('ALTOAIH_NODE_EXECUTABLE')
   })
 
   it('keeps the Node executable where the runtime answers no single-executable module', () => {
     vi.spyOn(process, 'getBuiltinModule').mockReturnValue(undefined)
-    expect(new ShellEnvRegistry(new Context()).collect(execution()).DSH_NODE_EXECUTABLE).toBe(process.execPath)
+    expect(new ShellEnvRegistry(new Context()).collect(execution()).ALTOAIH_NODE_EXECUTABLE).toBe(process.execPath)
   })
 
   it('collects the launcher-provided profile name, directory, and installation directory when a profile context exists', () => {
@@ -76,9 +76,9 @@ describe('ShellEnvRegistry', () => {
     })
     const registry = new ShellEnvRegistry(ctx, { dshHome: './test-dsh-home' })
     expect(registry.collect(execution())).toMatchObject({
-      DSH_INSTALL_DIR: '/dsh', DSH_PROFILE: 'web', DSH_PROFILE_DIR: '/profiles/web',
+      ALTOAIH_INSTALL_DIR: '/dsh', ALTOAIH_PROFILE: 'web', ALTOAIH_PROFILE_DIR: '/profiles/web',
     })
-    for (const key of ['DSH_PROFILE', 'DSH_INSTALL_DIR', 'DSH_NODE_EXECUTABLE']) {
+    for (const key of ['ALTOAIH_PROFILE', 'ALTOAIH_INSTALL_DIR', 'ALTOAIH_NODE_EXECUTABLE']) {
       expect(() => registry.register({
         name: `${key}-claimer`,
         variables: { [key]: { description: 'Reserved key.' } },
@@ -87,14 +87,14 @@ describe('ShellEnvRegistry', () => {
     }
   })
 
-  it('resolves DSH_HOME from the ambient override or the user-home default', () => {
-    vi.stubEnv('DSH_HOME', './ambient-dsh-home')
+  it('resolves ALTOAIH_HOME from the ambient override or the user-home default', () => {
+    vi.stubEnv('ALTOAIH_HOME', './ambient-dsh-home')
     const fromEnvironment = new ShellEnvRegistry(new Context())
-    expect(fromEnvironment.collect(execution()).DSH_HOME).toBe(resolve('./ambient-dsh-home'))
+    expect(fromEnvironment.collect(execution()).ALTOAIH_HOME).toBe(resolve('./ambient-dsh-home'))
 
-    vi.stubEnv('DSH_HOME', undefined)
+    vi.stubEnv('ALTOAIH_HOME', undefined)
     const fromDefault = new ShellEnvRegistry(new Context())
-    expect(fromDefault.collect(execution()).DSH_HOME).toBe(join(homedir(), '.dsh'))
+    expect(fromDefault.collect(execution()).ALTOAIH_HOME).toBe(join(homedir(), '.altoaih'))
   })
 
   it('collects declared contributor variables and omits unavailable values', () => {
@@ -103,31 +103,31 @@ describe('ShellEnvRegistry', () => {
     registry.register({
       name: 'optional-session-fact',
       variables: {
-        DSH_SESSION_OPTIONAL: { description: 'Optional session-scoped test fact.' },
+        ALTOAIH_SESSION_OPTIONAL: { description: 'Optional session-scoped test fact.' },
       },
-      resolve: exec => exec.agent === undefined ? {} : { DSH_SESSION_OPTIONAL: exec.agent.session.header.id },
+      resolve: exec => exec.agent === undefined ? {} : { ALTOAIH_SESSION_OPTIONAL: exec.agent.session.header.id },
     })
     registry.register({
       name: 'always-available-fact',
       variables: {
-        DSH_ALWAYS_AVAILABLE: { description: 'Always-available test fact.' },
+        ALTOAIH_ALWAYS_AVAILABLE: { description: 'Always-available test fact.' },
       },
-      resolve: () => ({ DSH_ALWAYS_AVAILABLE: 'yes' }),
+      resolve: () => ({ ALTOAIH_ALWAYS_AVAILABLE: 'yes' }),
     })
 
-    expect(registry.collect(execution())).not.toHaveProperty('DSH_SESSION_OPTIONAL')
-    expect(registry.collect(execution()).DSH_ALWAYS_AVAILABLE).toBe('yes')
-    expect(registry.collect(execution('session-b')).DSH_SESSION_OPTIONAL).toBe('session-b')
+    expect(registry.collect(execution())).not.toHaveProperty('ALTOAIH_SESSION_OPTIONAL')
+    expect(registry.collect(execution()).ALTOAIH_ALWAYS_AVAILABLE).toBe('yes')
+    expect(registry.collect(execution('session-b')).ALTOAIH_SESSION_OPTIONAL).toBe('session-b')
     expect(registry.list()).toEqual([
       {
         contributor: 'always-available-fact',
         description: 'Always-available test fact.',
-        key: 'DSH_ALWAYS_AVAILABLE',
+        key: 'ALTOAIH_ALWAYS_AVAILABLE',
       },
       {
         contributor: 'optional-session-fact',
         description: 'Optional session-scoped test fact.',
-        key: 'DSH_SESSION_OPTIONAL',
+        key: 'ALTOAIH_SESSION_OPTIONAL',
       },
     ])
   })
@@ -137,48 +137,48 @@ describe('ShellEnvRegistry', () => {
     const registry = new ShellEnvRegistry(ctx, { dshHome: './test-dsh-home' })
     registry.register({
       name: 'first',
-      variables: { DSH_SHARED: { description: 'First owner.' } },
-      resolve: () => ({ DSH_SHARED: 'first' }),
+      variables: { ALTOAIH_SHARED: { description: 'First owner.' } },
+      resolve: () => ({ ALTOAIH_SHARED: 'first' }),
     })
 
     expect(() => registry.register({
       name: 'second',
-      variables: { DSH_SHARED: { description: 'Second owner.' } },
-      resolve: () => ({ DSH_SHARED: 'second' }),
-    })).toThrow(/DSH_SHARED.*first.*second|DSH_SHARED.*second.*first/)
+      variables: { ALTOAIH_SHARED: { description: 'Second owner.' } },
+      resolve: () => ({ ALTOAIH_SHARED: 'second' }),
+    })).toThrow(/ALTOAIH_SHARED.*first.*second|ALTOAIH_SHARED.*second.*first/)
   })
 
   it('rejects duplicate contributor names and malformed declarations', () => {
     const registry = new ShellEnvRegistry(new Context(), { dshHome: './test-dsh-home' })
     registry.register({
       name: 'declared',
-      variables: { DSH_DECLARED: { description: 'Declared fact.' } },
+      variables: { ALTOAIH_DECLARED: { description: 'Declared fact.' } },
       resolve: () => ({}),
     })
 
     expect(() => registry.register({
       name: 'declared',
-      variables: { DSH_ANOTHER: { description: 'Another fact.' } },
+      variables: { ALTOAIH_ANOTHER: { description: 'Another fact.' } },
       resolve: () => ({}),
     })).toThrow(/already registered/)
     expect(() => registry.register({
       name: ' ',
-      variables: { DSH_BLANK_NAME: { description: 'Blank owner.' } },
+      variables: { ALTOAIH_BLANK_NAME: { description: 'Blank owner.' } },
       resolve: () => ({}),
     })).toThrow(/name must be non-empty/)
     expect(() => registry.register({
       name: 'invalid-key',
-      variables: { dsh_invalid: { description: 'Invalid key.' } } as unknown as Record<'DSH_INVALID', { description: string }>,
+      variables: { altoaih_invalid: { description: 'Invalid key.' } } as unknown as Record<'ALTOAIH_INVALID', { description: string }>,
       resolve: () => ({}),
     })).toThrow(/invalid key/)
     expect(() => registry.register({
       name: 'reserved-key',
-      variables: { DSH_HOME: { description: 'Reserved key.' } },
+      variables: { ALTOAIH_HOME: { description: 'Reserved key.' } },
       resolve: () => ({}),
     })).toThrow(/reserved key/)
     expect(() => registry.register({
       name: 'blank-description',
-      variables: { DSH_BLANK_DESCRIPTION: { description: ' ' } },
+      variables: { ALTOAIH_BLANK_DESCRIPTION: { description: ' ' } },
       resolve: () => ({}),
     })).toThrow(/must describe/)
   })
@@ -188,11 +188,11 @@ describe('ShellEnvRegistry', () => {
     const registry = new ShellEnvRegistry(ctx, { dshHome: './test-dsh-home' })
     registry.register({
       name: 'drifted-provider',
-      variables: { DSH_DECLARED: { description: 'Declared fact.' } },
-      resolve: () => ({ DSH_UNDECLARED: 'bad' }),
+      variables: { ALTOAIH_DECLARED: { description: 'Declared fact.' } },
+      resolve: () => ({ ALTOAIH_UNDECLARED: 'bad' }),
     })
 
-    expect(() => registry.collect(execution())).toThrow(/drifted-provider.*DSH_UNDECLARED/)
+    expect(() => registry.collect(execution())).toThrow(/drifted-provider.*ALTOAIH_UNDECLARED/)
     expect(() => registry.collect(execution())).toThrow(expect.objectContaining({ name: 'ShellEnvError', code: 'SHELL_ENV_CONTRIBUTION_INVALID' }))
   })
 
@@ -200,11 +200,11 @@ describe('ShellEnvRegistry', () => {
     const registry = new ShellEnvRegistry(new Context(), { dshHome: './test-dsh-home' })
     registry.register({
       name: 'wrong-value-type',
-      variables: { DSH_STRING: { description: 'String fact.' } },
-      resolve: () => ({ DSH_STRING: 42 }) as unknown as Record<'DSH_STRING', string>,
+      variables: { ALTOAIH_STRING: { description: 'String fact.' } },
+      resolve: () => ({ ALTOAIH_STRING: 42 }) as unknown as Record<'ALTOAIH_STRING', string>,
     })
 
-    expect(() => registry.collect(execution())).toThrow(/wrong-value-type.*non-string.*DSH_STRING/)
+    expect(() => registry.collect(execution())).toThrow(/wrong-value-type.*non-string.*ALTOAIH_STRING/)
     expect(() => registry.collect(execution())).toThrow(expect.objectContaining({ name: 'ShellEnvError', code: 'SHELL_ENV_CONTRIBUTION_INVALID' }))
   })
 
@@ -216,28 +216,28 @@ describe('ShellEnvRegistry', () => {
       apply(inner: Context) {
         inner.shellEnv.register({
           name: 'temporary',
-          variables: { DSH_TEMPORARY: { description: 'Temporary fact.' } },
-          resolve: () => ({ DSH_TEMPORARY: 'present' }),
+          variables: { ALTOAIH_TEMPORARY: { description: 'Temporary fact.' } },
+          resolve: () => ({ ALTOAIH_TEMPORARY: 'present' }),
         })
       },
     })
 
-    expect(registry.collect(execution()).DSH_TEMPORARY).toBe('present')
+    expect(registry.collect(execution()).ALTOAIH_TEMPORARY).toBe('present')
     await fiber.dispose()
-    expect(registry.collect(execution())).not.toHaveProperty('DSH_TEMPORARY')
+    expect(registry.collect(execution())).not.toHaveProperty('ALTOAIH_TEMPORARY')
   })
 
   it('returns an explicit contributor disposer', () => {
     const registry = new ShellEnvRegistry(new Context(), { dshHome: './test-dsh-home' })
     const dispose = registry.register({
       name: 'explicit-disposal',
-      variables: { DSH_EXPLICIT_DISPOSAL: { description: 'Explicitly disposed fact.' } },
-      resolve: () => ({ DSH_EXPLICIT_DISPOSAL: 'present' }),
+      variables: { ALTOAIH_EXPLICIT_DISPOSAL: { description: 'Explicitly disposed fact.' } },
+      resolve: () => ({ ALTOAIH_EXPLICIT_DISPOSAL: 'present' }),
     })
 
-    expect(registry.collect(execution()).DSH_EXPLICIT_DISPOSAL).toBe('present')
+    expect(registry.collect(execution()).ALTOAIH_EXPLICIT_DISPOSAL).toBe('present')
     dispose()
-    expect(registry.collect(execution())).not.toHaveProperty('DSH_EXPLICIT_DISPOSAL')
+    expect(registry.collect(execution())).not.toHaveProperty('ALTOAIH_EXPLICIT_DISPOSAL')
   })
 
   it('the plugin registers the service with no contributors on load', async () => {

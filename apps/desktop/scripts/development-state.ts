@@ -35,7 +35,7 @@ function profileInUse(userData: string): boolean {
  * Resolve development state outside `.desktop-build`, which `pnpm run clean` removes.
  * A default location that does not exist yet receives the state an earlier launcher left under
  * `.desktop-build/development` unless a running Harness Dev still owns that browser profile;
- * explicit `DSH_HOME` and `DSH_DESKTOP_USER_DATA_DIR` are used as given.
+ * explicit `ALTOAIH_HOME` and `ALTOAIH_DESKTOP_USER_DATA_DIR` are used as given.
  * @param appRoot - Desktop application directory.
  * @param environment - Launch environment with optional location overrides.
  * @returns Harness home and Electron user-data directories.
@@ -63,7 +63,7 @@ export function prepareDevelopmentState(appRoot: string, environment: NodeJS.Pro
     return path
   }
   return {
-    home: select(environment.DSH_HOME, 'home'),
-    userData: select(environment.DSH_DESKTOP_USER_DATA_DIR, 'electron-user-data'),
+    home: select(environment.ALTOAIH_HOME, 'home'),
+    userData: select(environment.ALTOAIH_DESKTOP_USER_DATA_DIR, 'electron-user-data'),
   }
 }

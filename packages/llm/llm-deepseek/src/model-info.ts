@@ -44,7 +44,10 @@ const SITE_REASONING_EFFORTS = {
  * @param model - selected catalog entry, if any.
  * @returns reasoning metadata for the selected model.
  */
-export function modelReasoning(connection: DeepSeekConnectionOptions, model?: DeepSeekCatalogModel) {
+export function modelReasoning(connection: DeepSeekConnectionOptions, model?: DeepSeekCatalogModel): {
+  efforts: readonly { id: ReasoningEffortId; name: string; description?: string }[]
+  defaultEffort: ReasoningEffortId
+} {
   const declared = model?.messagesReasoningEfforts
   const routeDefault = connection.defaults.reasoningEffort ?? (connection.defaults.thinking === 'disabled' ? 'off' : 'high')
   if (declared !== undefined && declared[0] !== undefined) {

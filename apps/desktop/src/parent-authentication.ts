@@ -34,6 +34,6 @@ export class DesktopParentAuthentication {
   async readyCookie(): Promise<string> {
     if (this.#delivery === undefined) throw new Error('dsh desktop host became ready before the authentication handoff')
     await this.#delivery
-    return `dsh-desktop-session=${this.#secret}`
+    return `altoaih-desktop-session=${this.#secret}`
   }
 }

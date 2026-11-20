@@ -199,6 +199,7 @@ class FakeWorkspaces implements IWorkspaces {
   declare readonly create: IWorkspaces['create']
   declare readonly rename: IWorkspaces['rename']
   declare readonly delete: IWorkspaces['delete']
+  async deleteSession(_sessionId: SessionId): Promise<void> {}
   declare readonly insertBefore: IWorkspaces['insertBefore']
   declare readonly insertSessionBefore: IWorkspaces['insertSessionBefore']
   readonly pinCalls: SessionId[] = []

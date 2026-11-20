@@ -23,23 +23,23 @@ vi.mock('node:fs/promises', async importOriginal => ({
 describe('installer preparation preserves application dependencies', () => {
   it.each(['win32', 'darwin'] as const)('rejects a missing production policy before signing on %s', async (platform) => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
-    expect(() => createElectronBuilderConfig({ DSH_DESKTOP_APP_ID: 'com.example.installer',
-      DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
-      DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://test.example.com',
-    }, platform, 'x64')).toThrow('DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN')
+    expect(() => createElectronBuilderConfig({ ALTOAIH_DESKTOP_APP_ID: 'com.example.installer',
+      ALTOAIH_DESKTOP_AUTO_UPDATE_ENV: 'production',
+      ALTOAIH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://test.example.com',
+    }, platform, 'x64')).toThrow('ALTOAIH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN')
   })
   it.each(['win32', 'darwin'] as const)('preserves installer metadata and dependency ownership on %s', async (platform) => {
     execute.mockClear()
     write.mockClear()
     const env = {
-      DSH_DESKTOP_APP_ID: 'com.example.installer',
-      DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
-      DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
-      DSH_DESKTOP_TARGET_PLATFORM: platform,
-      DSH_DESKTOP_TARGET_ARCH: 'x64',
-      DSH_DESKTOP_UNSIGNED: platform === 'win32' ? '1' : '0',
-      DSH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Example Company (TEAMID1234)',
-      DSH_DESKTOP_MACOS_TEAM_ID: 'TEAMID1234',
+      ALTOAIH_DESKTOP_APP_ID: 'com.example.installer',
+      ALTOAIH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
+      ALTOAIH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
+      ALTOAIH_DESKTOP_TARGET_PLATFORM: platform,
+      ALTOAIH_DESKTOP_TARGET_ARCH: 'x64',
+      ALTOAIH_DESKTOP_UNSIGNED: platform === 'win32' ? '1' : '0',
+      ALTOAIH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Example Company (TEAMID1234)',
+      ALTOAIH_DESKTOP_MACOS_TEAM_ID: 'TEAMID1234',
       APPLE_KEYCHAIN_PROFILE: 'installer-test',
       DOWNLOAD_TEST_ORIGIN: 'https://desktop-updates.example.com', DOWNLOAD_TEST_RELEASE_ID: '0123456789abcdef0123456789abcdef',
     }
@@ -55,9 +55,9 @@ describe('installer preparation preserves application dependencies', () => {
       })
       const appInfo = new AppInfo(metadataPackager, undefined)
       expect(appInfo.companyName).toBe('Hangzhou DeepSeek Artificial Intelligence Co., Ltd.')
-      expect(appInfo.copyright).toBe(`Copyright © ${new Date().getFullYear()} DeepSeek Harness`)
+      expect(appInfo.copyright).toBe(`Copyright © ${new Date().getFullYear()} AltoaiH`)
       if (platform === 'win32') {
-        expect(expandMacro(config.nsis.uninstallDisplayName, null, appInfo, {}, false)).toBe('DeepSeek Harness')
+        expect(expandMacro(config.nsis.uninstallDisplayName, null, appInfo, {}, false)).toBe('AltoaiH')
         expect(config.nsis.installerLanguages).toEqual(readInstallerLocales().map(locale => locale.id))
       }
       const aboutIcon = config.extraResources.find(resource => resource.to === 'icon.png')
@@ -98,9 +98,9 @@ describe('installer preparation preserves application dependencies', () => {
     const { getWindowsInstallationDirName } = await import('app-builder-lib/out/targets/targetUtil.js')
     write.mockClear()
     execute.mockClear()
-    const config = createElectronBuilderConfig({ DSH_DESKTOP_APP_ID: 'com.example.installer',
-      DSH_DESKTOP_AUTH_PROTOCOL: 'site-device', DSH_DESKTOP_SITE_ORIGIN: 'https://site.example.com',
-      DSH_DESKTOP_UNSIGNED: '1',
+    const config = createElectronBuilderConfig({ ALTOAIH_DESKTOP_APP_ID: 'com.example.installer',
+      ALTOAIH_DESKTOP_AUTH_PROTOCOL: 'site-device', ALTOAIH_DESKTOP_SITE_ORIGIN: 'https://site.example.com',
+      ALTOAIH_DESKTOP_UNSIGNED: '1',
     }, 'win32', 'x64')
     const packager = new Packager({ projectDir: tmpdir() })
     Object.defineProperties(packager, {
@@ -109,10 +109,10 @@ describe('installer preparation preserves application dependencies', () => {
     })
     const appInfo = new AppInfo(packager, undefined)
     expect(appInfo.productName).toBe('Altoai Harness')
-    expect(appInfo.productFilename).toBe('DeepSeek Harness')
-    expect(getWindowsInstallationDirName(appInfo, true)).toBe('DeepSeek Harness')
+    expect(appInfo.productFilename).toBe('AltoaiH')
+    expect(getWindowsInstallationDirName(appInfo, true)).toBe('AltoaiH')
     expect(config.appId).toBe('com.example.installer')
-    expect(config.protocols).toEqual([{ name: 'Altoai Harness', schemes: ['dsh'] }])
+    expect(config.protocols).toEqual([{ name: 'Altoai Harness', schemes: ['altoaih'] }])
     expect(config.extraMetadata).toMatchObject({ author: { name: 'Altoai' } })
     for (const icon of [config.win.icon, config.nsis.installerIcon!, config.nsis.uninstallerIcon!]) {
       expect(readFileSync(icon)).toEqual(readFileSync(new URL('../resources/site/app.ico', import.meta.url)))
@@ -123,23 +123,23 @@ describe('installer preparation preserves application dependencies', () => {
       .toEqual(readFileSync(new URL('../resources/site/app.png', import.meta.url)))
     expect(config.nsis.shortcutName).toBe('Altoai Harness')
     expect(expandMacro(config.nsis.uninstallDisplayName, null, appInfo, {}, false)).toBe('Altoai Harness')
-    expect(config.artifactName).toBe('deepseek-harness-${version}-${os}-${arch}-unsigned.${ext}')
+    expect(config.artifactName).toBe('altoaih-${version}-${os}-${arch}-unsigned.${ext}')
     await config.beforeBuild()
     expect(execute.mock.lastCall?.[1]).toContain('-SiteBranding')
     const generated = String(vi.mocked((await import('node:fs/promises')).writeFile).mock.lastCall?.[1])
     expect(generated).toContain('Altoai Harness could not be launched')
     expect(generated).toContain('无法启动 Altoai Harness')
-    expect(generated).not.toContain('DeepSeek Harness')
+    expect(generated).not.toContain('AltoaiH')
   })
 
   it('keeps the legacy macOS bundle and executable names while branding the display name and icon', async () => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
-    const config = createElectronBuilderConfig({ DSH_DESKTOP_APP_ID: 'com.example.installer',
-      DSH_DESKTOP_AUTH_PROTOCOL: 'site-device', DSH_DESKTOP_SITE_ORIGIN: 'https://site.example.com',
-      DSH_DESKTOP_UNSIGNED: '1',
+    const config = createElectronBuilderConfig({ ALTOAIH_DESKTOP_APP_ID: 'com.example.installer',
+      ALTOAIH_DESKTOP_AUTH_PROTOCOL: 'site-device', ALTOAIH_DESKTOP_SITE_ORIGIN: 'https://site.example.com',
+      ALTOAIH_DESKTOP_UNSIGNED: '1',
     }, 'darwin', 'arm64')
-    expect(config.productName).toBe('DeepSeek Harness')
-    expect(config.executableName).toBe('DeepSeek Harness')
+    expect(config.productName).toBe('AltoaiH')
+    expect(config.executableName).toBe('AltoaiH')
     expect(config.mac.extendInfo).toMatchObject({ CFBundleDisplayName: 'Altoai Harness' })
     expect(config.mac.icon).toMatch(/resources[\\/]site[\\/]app\.png$/u)
   })
@@ -147,14 +147,14 @@ describe('installer preparation preserves application dependencies', () => {
   it('names unsigned Windows artifacts so they cannot pass for release builds', async () => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     const config = createElectronBuilderConfig({
-      DSH_DESKTOP_APP_ID: 'com.example.installer',
-      DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
-      DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
-      DSH_DESKTOP_TARGET_PLATFORM: 'win32',
-      DSH_DESKTOP_TARGET_ARCH: 'x64',
-      DSH_DESKTOP_UNSIGNED: '1',
+      ALTOAIH_DESKTOP_APP_ID: 'com.example.installer',
+      ALTOAIH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
+      ALTOAIH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
+      ALTOAIH_DESKTOP_TARGET_PLATFORM: 'win32',
+      ALTOAIH_DESKTOP_TARGET_ARCH: 'x64',
+      ALTOAIH_DESKTOP_UNSIGNED: '1',
     }, 'win32', 'x64')
-    expect(config.artifactName).toBe('deepseek-harness-${version}-${os}-${arch}-unsigned.${ext}')
+    expect(config.artifactName).toBe('altoaih-${version}-${os}-${arch}-unsigned.${ext}')
   })
 
   it('packages every preload entry point the shell loads', async () => {
@@ -168,12 +168,12 @@ describe('installer preparation preserves application dependencies', () => {
     expect(referenced.size).toBeGreaterThan(0)
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     const config = createElectronBuilderConfig({
-      DSH_DESKTOP_APP_ID: 'com.example.installer',
-      DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
-      DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://harness-test.deepseek.com',
-      DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://policy.example.com',
-      DSH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Example Company (TEAMID1234)',
-      DSH_DESKTOP_MACOS_TEAM_ID: 'TEAMID1234',
+      ALTOAIH_DESKTOP_APP_ID: 'com.example.installer',
+      ALTOAIH_DESKTOP_AUTO_UPDATE_ENV: 'production',
+      ALTOAIH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://harness-test.deepseek.com',
+      ALTOAIH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://policy.example.com',
+      ALTOAIH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Example Company (TEAMID1234)',
+      ALTOAIH_DESKTOP_MACOS_TEAM_ID: 'TEAMID1234',
       APPLE_KEYCHAIN_PROFILE: 'installer-test',
     }, 'darwin', 'arm64')
     const packaged = new Set(config.files.filter((entry): entry is string => typeof entry === 'string'))

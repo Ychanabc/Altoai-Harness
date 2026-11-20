@@ -382,11 +382,18 @@ Host service backing the generated `ctx.remote.workspace` namespace.
 @Remote('rename') rename(request: WorkspaceRenameRequest): Promise<WorkspaceValue>
 
 /**
- * Remove one Workspace registration while retaining files and Sessions.
+ * Permanently remove one Workspace and its accounted Sessions while retaining its project directory.
  * @param request - Workspace identity to remove.
  * @returns deletion confirmation.
  */
 @Remote('delete') delete(request: WorkspaceDeleteRequest): Promise<WorkspaceDeleteValue>
+
+/**
+ * Permanently remove one Session and its durable history.
+ * @param request - Session identity to delete.
+ * @returns deletion confirmation.
+ */
+@Remote('deleteSession') deleteSession(request: WorkspaceDeleteSessionRequest): Promise<WorkspaceDeleteSessionValue>
 
 /**
  * Move one Workspace within the registry display order.
@@ -590,6 +597,26 @@ list(): Workspace[]
  * @returns `true` when a record was deleted, `false` when it was unknown.
  */
 delete(id: WorkspaceId): Promise<boolean>
+
+/**
+ * Permanently remove one Workspace, its accounted Sessions, and its registered
+ * project directory. The registration remains recoverable when directory removal fails.
+ * @param id - Workspace identity to remove.
+ * @param options - whether active Session work is stopped before deletion.
+ * @returns `true` when the Workspace existed.
+ */
+deletePermanently(id: WorkspaceId, options: ArchiveSessionOptions = {}): Promise<boolean>
+
+/**
+ * Permanently remove one Session, its Workspace membership, global archive/pin
+ * entries, durable log, and Session working directory. Active work is stopped
+ * before persistence deletion; any storage or filesystem failure propagates
+ * with the Session already hidden from the registry.
+ * @param sessionId - Session identity to remove.
+ * @param options - whether to stop active work before deletion.
+ * @returns `true` when a known Session was permanently removed.
+ */
+deleteSession(sessionId: SessionId, options: ArchiveSessionOptions = {}): Promise<boolean>
 
 /**
  * Move one workspace within the durable display order, DOM-insertBefore-like.

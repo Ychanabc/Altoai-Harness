@@ -612,6 +612,21 @@ export class JsonlSessionPersistence extends SessionPersistence {
    * @param options - optional cancellation.
    * @returns one snapshot per session, in no promised order.
    */
+  /** Permanently remove all JSONL generations for an inactive Session. */
+  override async delete(id: SessionId): Promise<boolean> {
+    await this.ensureRootEncoding()
+    if (this.tracker.hasOpenHandle(id)) {
+      throw new Error(`cannot delete session "${id}": it still has an open persistence handle`)
+    }
+    if (this.tracker.deletePending(id)) return true
+    const selected = await this.findLog(id)
+    if (selected === undefined) return false
+    await rm(dirname(selected.currentPath), { recursive: true, force: false })
+    this.coldLogMemo.delete(id)
+    this.migrationPreparations.delete(id)
+    return true
+  }
+
   async list(options?: SessionPersistenceListOptions): Promise<readonly SessionPersistenceSnapshot[]> {
     const signal = options?.signal
     const snapshots: SessionPersistenceSnapshot[] = []

@@ -11,11 +11,11 @@ afterEach(() => { vi.resetAllMocks() })
 const signingIdentity = 'Example Company (TEAMID1234)'
 const teamId = 'TEAMID1234'
 const environment = {
-  DSH_DESKTOP_APP_ID: 'com.example.desktop', DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
-  DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://policy.example.com',
+  ALTOAIH_DESKTOP_APP_ID: 'com.example.desktop', ALTOAIH_DESKTOP_AUTO_UPDATE_ENV: 'production',
+  ALTOAIH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://policy.example.com',
   DOWNLOAD_PROD_ORIGIN: 'https://updates.example.com',
-  DSH_DESKTOP_MACOS_SIGNING_IDENTITY: signingIdentity, DSH_DESKTOP_MACOS_TEAM_ID: teamId,
-  DSH_DESKTOP_MACOS_SKIP_NOTARIZATION: '1',
+  ALTOAIH_DESKTOP_MACOS_SIGNING_IDENTITY: signingIdentity, ALTOAIH_DESKTOP_MACOS_TEAM_ID: teamId,
+  ALTOAIH_DESKTOP_MACOS_SKIP_NOTARIZATION: '1',
 }
 
 function toolResult(details = `Authority=Developer ID Application: ${signingIdentity}\nTeamIdentifier=${teamId}`) {

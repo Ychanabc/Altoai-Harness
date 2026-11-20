@@ -413,7 +413,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'delete(workspaceId: WorkspaceId): Promise<void>',
-        description: 'Delete a Workspace registration without deleting Sessions or files.',
+        description: 'Permanently delete a Workspace and its accounted Session logs while retaining its project directory.',
         parameters: [{ name: 'workspaceId', description: 'target Workspace.' }],
       },
       {

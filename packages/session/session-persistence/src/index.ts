@@ -231,6 +231,17 @@ export abstract class SessionPersistence extends Service {
    * @returns one snapshot per stored session.
    */
   abstract list(options?: SessionPersistenceListOptions): Promise<readonly SessionPersistenceSnapshot[]>
+
+  /**
+   * Permanently remove one inactive stored Session. The operation is idempotent:
+   * an absent id resolves as `false`; a live writer or reader must be released
+   * before deletion can start.
+   * @param id - stored Session identity.
+   * @returns `true` when durable Session data was removed.
+   */
+  async delete(id: SessionId): Promise<boolean> {
+    throw new Error(`Session persistence backend does not support permanent deletion for "${id}"`)
+  }
 }
 
 export default SessionPersistence

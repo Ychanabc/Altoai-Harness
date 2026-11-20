@@ -133,7 +133,7 @@ export function apply(ctx: Context, config: Config): void {
       ...resolved.catalogProtocol === 'site' && view.error !== undefined ? { listingError: view.error } : {},
     }
   }
-  const entry = { provider: PROVIDER, displayName: 'DeepSeek Account', settingsNs: ctx.fiber.entry?.options.id ?? name, settingsPath: [] }
+  const entry = { provider: PROVIDER, displayName: 'Altoai Official Models', settingsNs: ctx.fiber.entry?.options.id ?? name, settingsPath: [] }
   const directory = ctx.llm.registerConfigurableProviders([entry])
   let reportedError: string | undefined
   /** Publish override diagnostics on the provider directory. */
@@ -155,7 +155,7 @@ export function apply(ctx: Context, config: Config): void {
     const connection = connectionOf(catalog.current())
     return resolveProfiles({
       [PROVIDER]: {
-        displayName: 'DeepSeek Account',
+        displayName: 'Altoai Official Models',
         api: 'openai-responses',
         baseURL: new URL('/v1', connection.baseURL).href,
         models: connection.catalog.offered
@@ -188,7 +188,7 @@ export function apply(ctx: Context, config: Config): void {
   const ownsResponses = (model: string): boolean =>
     connectionOf(catalog.current()).catalog.protocols.get(model) === 'openai-responses'
   registerDeepSeekProvider<AccountConnection>(ctx, PROVIDER, {
-    providerName: 'DeepSeek Account',
+    providerName: 'Altoai Official Models',
     options: () => connectionOf(catalog.current()),
     connect: async signal => connectionOf(await catalog.view(settings().catalog, signal)),
     resolveAuth,

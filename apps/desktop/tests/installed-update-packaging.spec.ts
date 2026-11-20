@@ -56,8 +56,8 @@ async function fixture(body: (manifest: string, root: string) => Promise<void>):
     await writeFile(join(run.root, versions[0], 'dsh/desktop-runtime.json'), '{}')
     state.settings = { ...Object.fromEntries(Object.entries(process.env)
       .filter(([name]) => !/KEY|SECRET|TOKEN|PASSWORD|^NODE_OPTIONS$/iu.test(name))),
-    DSH_DESKTOP_WINDOWS_CER_FILE: certificate, DSH_DESKTOP_WINDOWS_SIGNTOOL: tool,
-    DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'fixture-secret-pin', DSH_DESKTOP_WINDOWS_KEY_CONTAINER: 'fixture-container' }
+    ALTOAIH_DESKTOP_WINDOWS_CER_FILE: certificate, ALTOAIH_DESKTOP_WINDOWS_SIGNTOOL: tool,
+    ALTOAIH_DESKTOP_WINDOWS_TOKEN_PIN: 'fixture-secret-pin', ALTOAIH_DESKTOP_WINDOWS_KEY_CONTAINER: 'fixture-container' }
     await body(join(run.root, 'run.json'), root)
   } finally { Object.assign(state, previous); await rm(root, { recursive: true, force: true }) }
 }
@@ -79,11 +79,11 @@ describe('operator-driven packaging entry', () => {
   })
 
   it('strips unrelated secrets and preload overrides while retaining signing inputs and the Windows archive filter', () => {
-    expect(installedUpdatePackagingEnvironment({ DSH_DESKTOP_TARGET_PLATFORM: 'win32', PATH: 'tool-path',
-      DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'pin', DSH_DESKTOP_WINDOWS_KEY_CONTAINER: 'container',
+    expect(installedUpdatePackagingEnvironment({ ALTOAIH_DESKTOP_TARGET_PLATFORM: 'win32', PATH: 'tool-path',
+      ALTOAIH_DESKTOP_WINDOWS_TOKEN_PIN: 'pin', ALTOAIH_DESKTOP_WINDOWS_KEY_CONTAINER: 'container',
       DEEPSEEK_API_KEY: 'llm', DOWNLOAD_TEST_COS_SECRET_KEY: 'cos', NODE_OPTIONS: 'preload', NODE_PATH: 'injected' }))
-      .toEqual({ DSH_DESKTOP_TARGET_PLATFORM: 'win32', PATH: 'tool-path', DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'pin',
-        DSH_DESKTOP_WINDOWS_KEY_CONTAINER: 'container', DSH_DESKTOP_UNSIGNED: '0', ELECTRON_BUILDER_7Z_FILTER: 'BCJ' })
+      .toEqual({ ALTOAIH_DESKTOP_TARGET_PLATFORM: 'win32', PATH: 'tool-path', ALTOAIH_DESKTOP_WINDOWS_TOKEN_PIN: 'pin',
+        ALTOAIH_DESKTOP_WINDOWS_KEY_CONTAINER: 'container', ALTOAIH_DESKTOP_UNSIGNED: '0', ELECTRON_BUILDER_7Z_FILTER: 'BCJ' })
   })
 
   it('checks without confirmation or allocating a packaging directory', async () => {

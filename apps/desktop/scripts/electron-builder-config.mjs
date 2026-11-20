@@ -53,20 +53,21 @@ export function createElectronBuilderConfig(
   preparedRuntimeVersion = undefined,
 ) {
   const siteUpdate = resolveSiteUpdateEnvironment(env)
-  const productName = siteUpdate === undefined ? 'DeepSeek Harness' : SITE_CLIENT_PRODUCT_NAME
+  const upstreamEnvironment = Object.fromEntries(Object.entries(env).map(([name, value]) => [name.startsWith('ALTOAIH_DESKTOP_') ? `DSH_DESKTOP_${name.slice('ALTOAIH_DESKTOP_'.length)}` : name, value]))
+  const productName = siteUpdate === undefined ? 'AltoaiH' : SITE_CLIENT_PRODUCT_NAME
   const resource = name => fileURLToPath(new URL(`../resources/${name}`, import.meta.url))
   const windowsIcon = resource(siteUpdate === undefined ? 'icon-windows.png' : 'site/app.ico')
   const appId = resolveDesktopAppId(env)
-  const targetPlatform = env.DSH_DESKTOP_TARGET_PLATFORM
+  const targetPlatform = env.ALTOAIH_DESKTOP_TARGET_PLATFORM
   const resolvedPlatform = targetPlatform ?? hostPlatform
-  const resolvedArch = env.DSH_DESKTOP_TARGET_ARCH ?? hostArch
-  if (env.DSH_DESKTOP_UNSIGNED !== undefined && !['0', '1'].includes(env.DSH_DESKTOP_UNSIGNED)) {
-    throw new Error('desktop package: DSH_DESKTOP_UNSIGNED must be 0 or 1')
+  const resolvedArch = env.ALTOAIH_DESKTOP_TARGET_ARCH ?? hostArch
+  if (env.ALTOAIH_DESKTOP_UNSIGNED !== undefined && !['0', '1'].includes(env.ALTOAIH_DESKTOP_UNSIGNED)) {
+    throw new Error('desktop package: ALTOAIH_DESKTOP_UNSIGNED must be 0 or 1')
   }
-  const unsigned = env.DSH_DESKTOP_UNSIGNED === '1'
-  const skipNotarization = env.DSH_DESKTOP_MACOS_SKIP_NOTARIZATION === '1'
-  if (env.DSH_DESKTOP_MACOS_SKIP_NOTARIZATION !== undefined && !['0', '1'].includes(env.DSH_DESKTOP_MACOS_SKIP_NOTARIZATION)) {
-    throw new Error('desktop package: DSH_DESKTOP_MACOS_SKIP_NOTARIZATION must be 0 or 1')
+  const unsigned = env.ALTOAIH_DESKTOP_UNSIGNED === '1'
+  const skipNotarization = env.ALTOAIH_DESKTOP_MACOS_SKIP_NOTARIZATION === '1'
+  if (env.ALTOAIH_DESKTOP_MACOS_SKIP_NOTARIZATION !== undefined && !['0', '1'].includes(env.ALTOAIH_DESKTOP_MACOS_SKIP_NOTARIZATION)) {
+    throw new Error('desktop package: ALTOAIH_DESKTOP_MACOS_SKIP_NOTARIZATION must be 0 or 1')
   }
   if (skipNotarization && (unsigned || resolvedPlatform !== 'darwin')) throw new Error('Skipping notarization requires a signed macOS build')
   const packagesMacOS = targetPlatform === 'darwin' || (targetPlatform === undefined && hostPlatform === 'darwin')
@@ -87,14 +88,14 @@ export function createElectronBuilderConfig(
     '**/node_modules/@deepseek-ai/dsh-cua-macos/native/bin/**/*']
   const windowsSigner = packagesWindows && !unsigned
     ? createWindowsTokenSigner({
-        certificateFile: env.DSH_DESKTOP_WINDOWS_CER_FILE,
-        signTool: env.DSH_DESKTOP_WINDOWS_SIGNTOOL,
-        tokenPin: env.DSH_DESKTOP_WINDOWS_TOKEN_PIN,
-        keyContainer: env.DSH_DESKTOP_WINDOWS_KEY_CONTAINER,
+        certificateFile: env.ALTOAIH_DESKTOP_WINDOWS_CER_FILE,
+        signTool: env.ALTOAIH_DESKTOP_WINDOWS_SIGNTOOL,
+        tokenPin: env.ALTOAIH_DESKTOP_WINDOWS_TOKEN_PIN,
+        keyContainer: env.ALTOAIH_DESKTOP_WINDOWS_KEY_CONTAINER,
         preserveSignature: async path => {
           for (const [sourceRoot, destinationRoot] of [[join(buildPaths.runtime, 'primary-runtime'), primaryRuntimeDestination], [buildPaths.dsh, dshDestination]]) {
             if (destinationRoot !== undefined && await preserveWindowsRuntimeSignature(path, {
-              sourceRoot, destinationRoot, runDirectory: env.DSH_DESKTOP_PACKAGING_RUN_DIR,
+              sourceRoot, destinationRoot, runDirectory: env.ALTOAIH_DESKTOP_PACKAGING_RUN_DIR,
             })) return true
           }
           return false
@@ -104,7 +105,7 @@ export function createElectronBuilderConfig(
   if (windowsSigner !== undefined) {
     installWindowsNsisBootstrapSigner({ sign: windowsSigner })
   }
-  const update = siteUpdate !== undefined || unsigned ? undefined : resolveDesktopAutoUpdateConfig(env, resolvedPlatform, resolvedArch)
+  const update = siteUpdate !== undefined || unsigned ? undefined : resolveDesktopAutoUpdateConfig(upstreamEnvironment, resolvedPlatform, resolvedArch)
   if (preparedRuntime !== undefined) buildPaths.dsh = preparedRuntime
   // electron-builder merges extraMetadata into the packaged manifest, so a build version here reaches
   // the artifact names, the update feed, and the installed app.getVersion() the updater compares against.
@@ -113,23 +114,23 @@ export function createElectronBuilderConfig(
   const packaged = resolveDesktopBuildCommit(env)
   return {
     appId,
-    protocols: [{ name: productName, schemes: ['dsh'] }],
+    protocols: [{ name: productName, schemes: ['altoaih'] }],
     extraMetadata: {
-      dshDesktopAppId: appId,
-      ...(siteUpdate === undefined ? {} : { dshSiteUpdate: siteUpdate, author: { name: 'Altoai' } }),
-      dshDesktopUpdateChannel: update?.channel ?? 'nightly',
-      ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
+      altoaihDesktopAppId: appId,
+      ...(siteUpdate === undefined ? {} : { altoaihSiteUpdate: siteUpdate, author: { name: 'Altoai' } }),
+      altoaihDesktopUpdateChannel: update?.channel ?? 'nightly',
+      ...(policy === undefined ? {} : { altoaihMandatoryUpdatePolicy: policy }),
       ...buildVersion === productVersion ? {} : { version: buildVersion },
-      ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
+      ...packaged === undefined ? {} : { altoaihBuildCommit: packaged.commit, altoaihBuildDirty: packaged.dirty },
     },
     // Electron also uses this field to name macOS helper bundles and executables.
-    productName: packagesMacOS ? 'DeepSeek Harness' : productName,
+    productName: packagesMacOS ? 'AltoaiH' : productName,
     // The CLI launchers, bundle verification and NSIS installation directory use this filename.
-    ...(siteUpdate === undefined ? {} : { executableName: 'DeepSeek Harness' }),
+    ...(siteUpdate === undefined ? {} : { executableName: 'AltoaiH' }),
     // The default copyright uses author.name; this line names the product instead.
     copyright: `Copyright © ${new Date().getFullYear()} ${productName}`,
     // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.
-    artifactName: `deepseek-harness-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
+    artifactName: `altoaih-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
     directories: { output: output.directory },
     asar: true,
     electronDist: buildPaths.electron,
@@ -229,9 +230,9 @@ export function createElectronBuilderConfig(
     afterSign: async context => {
       if (windowsSigner !== undefined) {
         await signWindowsCode(context.appOutDir, {
-          thumbprint: new X509Certificate(await readFile(env.DSH_DESKTOP_WINDOWS_CER_FILE)).fingerprint.replaceAll(':', ''),
+          thumbprint: new X509Certificate(await readFile(env.ALTOAIH_DESKTOP_WINDOWS_CER_FILE)).fingerprint.replaceAll(':', ''),
           sign: windowsSigner,
-          record: event => recordPackagingEvent(env.DSH_DESKTOP_PACKAGING_RUN_DIR, event),
+          record: event => recordPackagingEvent(env.ALTOAIH_DESKTOP_PACKAGING_RUN_DIR, event),
         })
         await verifyWindowsAsarUnpack(buildPaths.dsh, context.packager.getResourcesDir(context.appOutDir), windowsCode)
       }
@@ -260,7 +261,7 @@ export function createElectronBuilderConfig(
       forceCodeSigning: !unsigned,
       signtoolOptions: {
         sign: windowsSigner,
-        publisherName: windowsSigner === undefined ? undefined : resolveWindowsUpdatePublisher(env.DSH_DESKTOP_WINDOWS_CER_FILE),
+        publisherName: windowsSigner === undefined ? undefined : resolveWindowsUpdatePublisher(env.ALTOAIH_DESKTOP_WINDOWS_CER_FILE),
         signingHashAlgorithms: ['sha256'],
       },
       target: ['nsis'],

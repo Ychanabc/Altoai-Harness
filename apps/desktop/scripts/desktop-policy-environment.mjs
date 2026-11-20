@@ -16,13 +16,14 @@ function origin(value, name) {
  * @returns {{ origin: string, allowedPageOrigins: string[], authentication: 'anonymous' | 'feishu-test', [key: string]: unknown }} Selected policy.
  */
 export function resolveDesktopPolicyEnvironment(environment) {
-  const deployment = resolveDesktopAutoUpdateEnvironment(environment)
-  const name = deployment === 'test' ? 'DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN' : 'DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN'
+  const upstreamEnvironment = Object.fromEntries(Object.entries(environment).map(([name, value]) => [name.startsWith('ALTOAIH_DESKTOP_') ? `DSH_DESKTOP_${name.slice('ALTOAIH_DESKTOP_'.length)}` : name, value]))
+  const deployment = resolveDesktopAutoUpdateEnvironment(upstreamEnvironment)
+  const name = deployment === 'test' ? 'ALTOAIH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN' : 'ALTOAIH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN'
   const selected = origin(environment[name], name)
   let settings = {}
-  if (environment.DSH_DESKTOP_MANDATORY_UPDATE_CONFIG !== undefined) {
-    try { settings = JSON.parse(environment.DSH_DESKTOP_MANDATORY_UPDATE_CONFIG) }
-    catch { throw new Error('desktop package: DSH_DESKTOP_MANDATORY_UPDATE_CONFIG must be valid JSON') }
+  if (environment.ALTOAIH_DESKTOP_MANDATORY_UPDATE_CONFIG !== undefined) {
+    try { settings = JSON.parse(environment.ALTOAIH_DESKTOP_MANDATORY_UPDATE_CONFIG) }
+    catch { throw new Error('desktop package: ALTOAIH_DESKTOP_MANDATORY_UPDATE_CONFIG must be valid JSON') }
   }
   if (typeof settings !== 'object' || settings === null || Array.isArray(settings)
     || 'origin' in settings || 'authentication' in settings) {

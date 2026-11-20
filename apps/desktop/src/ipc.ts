@@ -10,40 +10,40 @@ import type { DesktopFileDrag } from '@deepseek-ai/dsh-util-file-drag'
 
 /** IPC channel names kept private to the desktop application bundle. */
 export const DESKTOP_IPC = {
-  fileSave: 'dsh-desktop:file-save',
-  clipboardImageRead: 'dsh-desktop:clipboard-image-read',
-  shortcutsInput: 'dsh-desktop:shortcuts-input',
-  shortcutsCloseWindow: 'dsh-desktop:shortcuts-close-window',
-  shortcutsGet: 'dsh-desktop:shortcuts-get',
-  shortcutsEdit: 'dsh-desktop:shortcuts-edit',
-  shortcutsChanged: 'dsh-desktop:shortcuts-changed',
-  shortcutsRecording: 'dsh-desktop:shortcuts-recording',
-  boot: 'dsh-desktop:boot',
-  enterWorkspace: 'dsh-desktop:enter-workspace',
-  onboardingActive: 'dsh-desktop:onboarding-active',
-  onboardingApiKey: 'dsh-desktop:onboarding-api-key',
-  bootFailed: 'dsh-desktop:boot-failed',
-  browserAcquire: 'dsh-desktop:browser-acquire',
-  browserRelease: 'dsh-desktop:browser-release',
-  browserOpenRequested: 'dsh-desktop:browser-open-requested',
-  directoryPick: 'dsh-desktop:directory-pick',
-  fileDragPrepare: 'dsh-desktop:file-drag-prepare',
-  fileDragCancel: 'dsh-desktop:file-drag-cancel',
-  fileDragStart: 'dsh-desktop:file-drag-start',
-  fileDragRelease: 'dsh-desktop:file-drag-release',
-  deviceInfo: 'dsh-desktop:device-info',
-  localeBootstrap: 'dsh-desktop:locale-bootstrap',
-  localeChanged: 'dsh-desktop:locale-changed',
-  updatesChannelGet: 'dsh-desktop:updates-channel-get',
-  updatesChannelSet: 'dsh-desktop:updates-channel-set',
-  updatesChannelChanged: 'dsh-desktop:updates-channel-changed',
-  updatesStatus: 'dsh-desktop:updates-status',
-  updatesOpen: 'dsh-desktop:updates-open',
-  updatesPresentation: 'dsh-desktop:updates-presentation',
-  nativeThemeSet: 'dsh-desktop:native-theme-set',
-  windowFullscreen: 'dsh-desktop:window-fullscreen',
-  windowsAppearance: 'dsh-desktop:windows-appearance',
-  windowsMenu: 'dsh-desktop:windows-menu',
+  fileSave: 'altoaih-desktop:file-save',
+  clipboardImageRead: 'altoaih-desktop:clipboard-image-read',
+  shortcutsInput: 'altoaih-desktop:shortcuts-input',
+  shortcutsCloseWindow: 'altoaih-desktop:shortcuts-close-window',
+  shortcutsGet: 'altoaih-desktop:shortcuts-get',
+  shortcutsEdit: 'altoaih-desktop:shortcuts-edit',
+  shortcutsChanged: 'altoaih-desktop:shortcuts-changed',
+  shortcutsRecording: 'altoaih-desktop:shortcuts-recording',
+  boot: 'altoaih-desktop:boot',
+  enterWorkspace: 'altoaih-desktop:enter-workspace',
+  onboardingActive: 'altoaih-desktop:onboarding-active',
+  onboardingApiKey: 'altoaih-desktop:onboarding-api-key',
+  bootFailed: 'altoaih-desktop:boot-failed',
+  browserAcquire: 'altoaih-desktop:browser-acquire',
+  browserRelease: 'altoaih-desktop:browser-release',
+  browserOpenRequested: 'altoaih-desktop:browser-open-requested',
+  directoryPick: 'altoaih-desktop:directory-pick',
+  fileDragPrepare: 'altoaih-desktop:file-drag-prepare',
+  fileDragCancel: 'altoaih-desktop:file-drag-cancel',
+  fileDragStart: 'altoaih-desktop:file-drag-start',
+  fileDragRelease: 'altoaih-desktop:file-drag-release',
+  deviceInfo: 'altoaih-desktop:device-info',
+  localeBootstrap: 'altoaih-desktop:locale-bootstrap',
+  localeChanged: 'altoaih-desktop:locale-changed',
+  updatesChannelGet: 'altoaih-desktop:updates-channel-get',
+  updatesChannelSet: 'altoaih-desktop:updates-channel-set',
+  updatesChannelChanged: 'altoaih-desktop:updates-channel-changed',
+  updatesStatus: 'altoaih-desktop:updates-status',
+  updatesOpen: 'altoaih-desktop:updates-open',
+  updatesPresentation: 'altoaih-desktop:updates-presentation',
+  nativeThemeSet: 'altoaih-desktop:native-theme-set',
+  windowFullscreen: 'altoaih-desktop:window-fullscreen',
+  windowsAppearance: 'altoaih-desktop:windows-appearance',
+  windowsMenu: 'altoaih-desktop:windows-menu',
 } as const
 
 /** Desktop release update state rendered by desktop-owned UI. */
@@ -111,7 +111,7 @@ export interface DshDesktopProductApi {
 }
 
 /** Scheme of Desktop-owned application documents. */
-export const SCHEME = 'dsh-app'
+export const SCHEME = 'altoaih-app'
 
 /**
  * Reject IPC outside the allowed Desktop document origins.

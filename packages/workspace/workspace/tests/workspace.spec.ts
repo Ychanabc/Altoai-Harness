@@ -57,7 +57,8 @@ async function harness(options: HarnessOptions = {}) {
     listed.map(header => ({ header, revision: brandString<SessionPersistenceRevision>(`rev-${header.id}`) })))
   const open = vi.fn(() => { throw new Error('event bodies must not be opened') })
   const stat = vi.fn(() => { throw new Error('per-session stat must not be needed') })
-  ctx.provide('sessionPersistence', { list, open, stat } as never)
+  const deleteSession = vi.fn(async () => true)
+  ctx.provide('sessionPersistence', { list, open, stat, delete: deleteSession } as never)
 
   if (options.sessionStore === true) {
     await ctx.plugin(SessionStore)
@@ -84,6 +85,7 @@ async function harness(options: HarnessOptions = {}) {
     list,
     open,
     stat,
+    deleteSession,
     setSessions: (headers: SessionHeader[]) => { listed = headers },
   }
 }
@@ -534,6 +536,26 @@ describe('WorkspaceRegistry create and lookup', () => {
     expect(reregistered.id).not.toBe(workspace.id)
     expect(reregistered.path).toBe(dir)
     expect(reregistered.sessionIds).toEqual([])
+  })
+
+  it('permanently deletes accounted sessions and clears global archive and pin sets', async () => {
+    const dir = await makeDir('permanent-delete')
+    const result = await harness({ sessions: [header('gone', dir), header('kept', dir)] })
+    const workspace = await result.registry.create(dir)
+    await workspace.attachSession(brandString<SessionId>('gone'))
+    await workspace.attachSession(brandString<SessionId>('kept'))
+    await result.registry.archiveSession(brandString<SessionId>('gone'))
+    await result.registry.pinSession(brandString<SessionId>('kept'))
+
+    await expect(result.registry.deletePermanently(workspace.id)).resolves.toBe(true)
+
+    expect(result.deleteSession).toHaveBeenCalledTimes(2)
+    expect(result.deleteSession).toHaveBeenCalledWith('gone')
+    expect(result.deleteSession).toHaveBeenCalledWith('kept')
+    expect(result.registry.list()).toEqual([])
+    expect(result.registry.archivedSessionIds).toEqual([])
+    expect(result.registry.pinnedSessionIds).toEqual([])
+    await expect(realpath(dir)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   it('rolls registry order and cache back when record deletion fails', async () => {

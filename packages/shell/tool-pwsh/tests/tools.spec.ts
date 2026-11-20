@@ -464,10 +464,10 @@ describe('execution through the bash seam', () => {
     expect(request?.workdir).toBe('/sessions/s1')
     expect(request?.timeoutMs).toBe(1234)
     expect(request?.dshEnv).toEqual({
-      DSH_HOME: dshHome,
+      ALTOAIH_HOME: dshHome,
       DSH_NODE_EXECUTABLE: process.execPath,
-      DSH_SHELL: '1',
-      DSH_SESSION_ID: 'session-1',
+      ALTOAIH_SHELL: '1',
+      ALTOAIH_SESSION_ID: 'session-1',
     })
     expect(bash.specs[0]?.workdir).toBe('/sessions/s1')
   })
@@ -490,9 +490,9 @@ describe('execution through the bash seam', () => {
     expect(bash.requests[0]).not.toHaveProperty('workdir')
     const dshEnv = bash.requests[0]?.dshEnv
     expect(dshEnv).toBeDefined()
-    expect(dshEnv?.['DSH_SHELL']).toBe('1')
-    expect(dshEnv?.['DSH_HOME']).toEqual(expect.any(String))
-    expect(dshEnv).not.toHaveProperty('DSH_SESSION_ID')
+    expect(dshEnv?.['ALTOAIH_SHELL']).toBe('1')
+    expect(dshEnv?.['ALTOAIH_HOME']).toEqual(expect.any(String))
+    expect(dshEnv).not.toHaveProperty('ALTOAIH_SESSION_ID')
   })
 
   it('forwards exec.signal into the resolved request', async () => {

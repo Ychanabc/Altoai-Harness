@@ -59,7 +59,7 @@ it('keeps localized desktop wording while branding every site-client locale', ()
     const upstream = resolveDesktopLocale(locale).messages
     const site = resolveDesktopLocale(locale, 'Altoai Harness').messages
     expect(site.aboutProduct).toBe('Altoai Harness')
-    expect(site.aboutMenu).toBe(upstream.aboutMenu.replace('DeepSeek Harness', 'Altoai Harness'))
+    expect(site.aboutMenu).toBe(upstream.aboutMenu.replace('AltoaiH', 'Altoai Harness'))
     expect(site.openApplication).toContain('Altoai Harness')
     expect(site.quitApplication).toContain('Altoai Harness')
     expect(site.welcomeTitle).toBe('Altoai Harness')
@@ -67,7 +67,7 @@ it('keeps localized desktop wording while branding every site-client locale', ()
     expect(site.startupAddressInUse).not.toContain('DSH')
     expect(site.welcomeKeyDescription).toBe(upstream.welcomeKeyDescription)
     expect(site.undo).toBe(upstream.undo)
-    expect(resolveDesktopLocale(locale).messages.aboutProduct).toBe('DeepSeek Harness')
+    expect(resolveDesktopLocale(locale).messages.aboutProduct).toBe('AltoaiH')
   }
   expect(resolveDesktopStartupLocale('zh', ['en-US'], 'Altoai Harness').messages.aboutMenu).toBe('关于 Altoai Harness')
 })

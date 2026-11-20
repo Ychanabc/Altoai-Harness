@@ -3,38 +3,38 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/shell/shell-env/README.md
 /:
-  en: c54342d0151b089c
-  zh: 9ad6284f24c5e3f6
+  en: 346aaef0ffd3862e
+  zh: 2ea30107594af8bf
 /deepseek-ai-dsh-shell-env:
   en: d26b77029fa722ab
   zh: 8e6bed763372b561
 /deepseek-ai-dsh-shell-env/summary:
-  en: 021be213f32988e1
-  zh: f3ce1ef82377b4f4
+  en: 37bbb47d414d19da
+  zh: 9878f51676579d52
 /deepseek-ai-dsh-shell-env/table-of-contents:
   en: d152484eb41ac6b4
   zh: 09388d293f9be9cb
 /deepseek-ai-dsh-shell-env/use-this-package:
-  en: 34d2f05183df200f
-  zh: 7753b97c91743901
+  en: 31a19bea1cc5946b
+  zh: 12bce2f424096730
 /deepseek-ai-dsh-shell-env/use-this-package/what-every-shell-call-receives:
   en: bab0b75fb967d41a
   zh: 8f636d9965d01ad1
 /deepseek-ai-dsh-shell-env/use-this-package/adding-your-own-environment-facts:
-  en: 14da34f853d089be
-  zh: 5ad3942aa5321893
+  en: 60b55e2128b7cc05
+  zh: cdd50700868b6cf8
 /deepseek-ai-dsh-shell-env/use-this-package/choosing-the-harness-home:
   en: 0041438f2b7f7e4f
   zh: 93fa165b07adcdf4
 /deepseek-ai-dsh-shell-env/use-this-package/what-can-go-wrong:
-  en: 737e5607cb1229cc
-  zh: 835b3f225d91f6ea
+  en: 0baaa9d0e3b8f066
+  zh: 5c67ca94a9280e3b
 /deepseek-ai-dsh-shell-env/understand-the-implementation:
   en: f782557ca8da3138
   zh: e8f0082b9692cacc
 /deepseek-ai-dsh-shell-env/understand-the-implementation/design-philosophy:
-  en: 5438a951817526d9
-  zh: 66459cdea830a8c8
+  en: 00ff842d0da29dce
+  zh: 99dd6b43b2211c7e
 /deepseek-ai-dsh-shell-env/understand-the-implementation/source-map:
   en: da18240c8c1dc687
   zh: a854ddaca8953832
@@ -45,8 +45,8 @@
   en: 6a4175df7b7341c7
   zh: 7885831274008502
 /deepseek-ai-dsh-shell-env/model-experience:
-  en: 8acf3cd9aeef5f55
-  zh: 69725e78f73c2f16
+  en: a48d71a3ae51143d
+  zh: 5dc773514697c326
 /deepseek-ai-dsh-shell-env/model-experience/kv-cache-effect:
   en: e95e649f0410fa75
   zh: b3d64877420b4c0d

@@ -146,6 +146,7 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     notifyArchivedNotOpenable: vi.fn(),
     renameWorkspace: vi.fn(async () => {}),
     deleteWorkspace: vi.fn(async () => {}),
+    deleteSession: vi.fn(async () => {}),
     unarchiveSession: vi.fn(async () => {}),
     insertWorkspaceBefore: vi.fn(async () => {}),
     createWorkspace: vi.fn(async () => workspace('created', [])),
@@ -2556,29 +2557,29 @@ describe('WorkspaceBrowser', () => {
       deleteWorkspace,
     })
     browser.openDialog(wid('alpha'), 'Alpha', 'delete')
-    const dialog = screen.getByRole('dialog', { name: '删除工作区' })
-    expect(dialog.textContent).toContain('将把“Alpha”从工作区列表中移除')
-    expect(dialog.textContent).toContain('文件夹与会话记录会保留')
-    expect(dialog.textContent).toContain('其会话将显示在“未分组”下')
+    const dialog = screen.getByRole('dialog', { name: '删除工作目录' })
+    expect(dialog.textContent).toContain('将永久删除“Alpha”及其中的会话记录')
+    expect(dialog.textContent).toContain('工作目录会被递归删除')
+    expect(dialog.textContent).toContain('此操作无法撤销')
 
-    const confirm = screen.getByRole<HTMLButtonElement>('button', { name: '删除工作区' })
+    const confirm = screen.getByRole<HTMLButtonElement>('button', { name: '删除工作目录' })
     fireEvent.click(confirm)
     fireEvent.click(confirm)
     expect(deleteWorkspace).toHaveBeenCalledOnce()
     expect(deleteWorkspace).toHaveBeenCalledWith(wid('alpha'))
     expect(confirm.disabled).toBe(true)
     expect(screen.getByRole<HTMLButtonElement>('button', { name: '取消' }).disabled).toBe(true)
-    expect(screen.getByRole('status').textContent).toBe('正在删除工作区…')
+    expect(screen.getByRole('status').textContent).toBe('正在删除工作目录…')
     fireEvent.keyDown(document, { key: 'Escape' })
     fireEvent.click(screen.getByRole('button', { name: '关闭' }))
-    expect(screen.getByRole('dialog', { name: '删除工作区' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: '删除工作目录' })).toBeTruthy()
     await act(async () => { resolveDelete() })
     // RPC success alone does not close: the component waits until its
     // useWorkspaces projection has committed the removal, preventing a stale
     // Workspace frame from leaking into the next gesture.
-    expect(screen.getByRole('dialog', { name: '删除工作区' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: '删除工作目录' })).toBeTruthy()
     rerender(browser, { useWorkspaces: hook(workspaceState([])) })
-    expect(screen.queryByRole('dialog', { name: '删除工作区' })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: '删除工作目录' })).toBeNull()
   })
 
   it('keeps the delete dialog open on failure and allows retry or cancellation', async () => {
@@ -2590,13 +2591,13 @@ describe('WorkspaceBrowser', () => {
       deleteWorkspace,
     })
     browser.openDialog(wid('alpha'), 'Alpha', 'delete')
-    fireEvent.click(screen.getByRole('button', { name: '删除工作区' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除工作目录' }))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('storage unavailable') })
-    expect(screen.getByRole('dialog', { name: '删除工作区' })).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '删除工作区' }))
+    expect(screen.getByRole('dialog', { name: '删除工作目录' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '删除工作目录' }))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('denied') })
     fireEvent.click(screen.getByRole('button', { name: '取消' }))
-    expect(screen.queryByRole('dialog', { name: '删除工作区' })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: '删除工作目录' })).toBeNull()
   })
 
   it('Cancel, Escape, and Close dismiss deletion without calling the action', () => {

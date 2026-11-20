@@ -29,7 +29,7 @@ import { decodeFrame, encodeFrame } from './frame.ts'
 import type { EncodedFrame, FrameCompression } from './frame.ts'
 
 /** Private Segment storage database schema version; incompatible versions are refused, never reset. */
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 const APPLICATION_ID = 0x44535043
 // SQLite primary result codes; extended result codes retain the low byte.
 const SQLITE_BUSY = 5, SQLITE_CORRUPT = 11, SQLITE_NOTADB = 26
@@ -238,6 +238,8 @@ export class SqliteStore {
           const tables = opened.prepare("SELECT name FROM sqlite_schema WHERE type = 'table'").all()
           if (tables.length !== 0) throw new HarnessError('Refusing an unrelated SQLite database', 'SESSION_STORAGE_FORMAT')
           this.createSchema(opened)
+        } else if (current.version === 1 && current.application === APPLICATION_ID) {
+          this.migrateV1ToV2(opened)
         } else if (current.version !== SCHEMA_VERSION || current.application !== APPLICATION_ID) {
           throw new HarnessError('Unsupported SQLite persistence schema; database left intact', 'SESSION_STORAGE_FORMAT')
         }
@@ -303,7 +305,6 @@ export class SqliteStore {
       codec INTEGER NOT NULL CHECK(codec IN (0, 1)), payload BLOB NOT NULL, PRIMARY KEY(segment_uuid, start_seq)
     ) STRICT;
     CREATE TRIGGER frames_no_update BEFORE UPDATE ON frames BEGIN SELECT RAISE(ABORT, 'frames are append-only'); END;
-    CREATE TRIGGER frames_no_delete BEFORE DELETE ON frames BEGIN SELECT RAISE(ABORT, 'frames are append-only'); END;
     CREATE TRIGGER segments_no_reparent BEFORE UPDATE OF parent_segment_uuid, parent_end_seq, base_seq ON segments
       BEGIN SELECT RAISE(ABORT, 'segment ancestry is immutable'); END;
     PRAGMA application_id = ${APPLICATION_ID}; PRAGMA user_version = ${SCHEMA_VERSION};`)
@@ -324,9 +325,12 @@ export class SqliteStore {
         FROM segment_ancestors WHERE segment_uuid = NEW.parent_segment_uuid;
     END;
     CREATE TRIGGER ancestors_no_update BEFORE UPDATE ON segment_ancestors
-      BEGIN SELECT RAISE(ABORT, 'segment ancestry is immutable'); END;
-    CREATE TRIGGER ancestors_no_delete BEFORE DELETE ON segment_ancestors
       BEGIN SELECT RAISE(ABORT, 'segment ancestry is immutable'); END;`)
+  }
+
+  /** Permit physical reclamation while retaining append-only updates for stored frames. */
+  private migrateV1ToV2(db: DatabaseSync): void {
+    db.exec(`DROP TRIGGER frames_no_delete; DROP TRIGGER ancestors_no_delete; PRAGMA user_version = ${SCHEMA_VERSION};`)
   }
 
   private transaction<T>(db: DatabaseSync, operation: () => T, mode: 'IMMEDIATE' | 'DEFERRED' = 'IMMEDIATE'): T {
@@ -903,6 +907,32 @@ export class SqliteStore {
     const row = this.row(await this.database(), id)
     if (row === undefined) return undefined
     return this.snapshot(id, row, this.parseHeader(id, row.header))
+  }
+
+  /**
+   * Permanently remove a trace and its now-unreachable encrypted event frames.
+   * @param id - Session identity to remove.
+   * @returns whether a stored trace was deleted.
+   */
+  async delete(id: SessionId): Promise<boolean> {
+    this.check()
+    if (this.writers.has(id) || [...this.handles].some(handle => handle.id === id)) {
+      throw new Error(`cannot delete session "${id}": it still has an open persistence handle`)
+    }
+    if (this.pendingCreates.delete(id)) return true
+    if (!await this.exists()) return false
+    const db = await this.database()
+    return this.transaction(db, () => {
+      if (this.row(db, id) === undefined) return false
+      this.statement(db, 'DELETE FROM traces WHERE trace_uuid = ?').run(id)
+      const retained = `SELECT tail_segment_uuid FROM traces
+        UNION
+        SELECT a.ancestor_uuid FROM segment_ancestors a JOIN traces t ON t.tail_segment_uuid = a.segment_uuid`
+      db.exec(`DELETE FROM segment_ancestors WHERE segment_uuid NOT IN (${retained})`)
+      db.exec(`DELETE FROM frames WHERE segment_uuid NOT IN (${retained})`)
+      db.exec(`DELETE FROM segments WHERE segment_uuid NOT IN (${retained})`)
+      return true
+    })
   }
 
   private snapshot(id: SessionId, row: Metadata, header: SessionHeader): SessionPersistenceSnapshot {

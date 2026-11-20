@@ -239,6 +239,20 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
       }
     })
 
+    it('permanently deletes a closed stored session and reports absence on repeat', async () => {
+      const { persistence, dispose } = await make()
+      try {
+        const handle = await persistence.create(meta('permanent-delete'))
+        await handle.append(oneTurnLog())
+        await handle.close()
+        await expect(persistence.delete(handle.id)).resolves.toBe(true)
+        await expect(persistence.stat(handle.id)).resolves.toBeUndefined()
+        await expect(persistence.delete(handle.id)).resolves.toBe(false)
+      } finally {
+        await dispose()
+      }
+    })
+
     it('open of an absent session rejects with SessionPersistenceNotFoundError for both accesses', async () => {
       const { persistence, dispose } = await make()
       try {

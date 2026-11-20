@@ -37,8 +37,8 @@ if (-not (Test-Path apps/desktop/.env.windows)) {
 Verify these values in `apps/desktop/.env.windows`:
 
 ```dotenv
-DSH_DESKTOP_AUTH_PROTOCOL=site-device
-DSH_DESKTOP_SITE_ORIGIN=https://ai.vpss.eu.cc
+ALTOAIH_DESKTOP_AUTH_PROTOCOL=site-device
+ALTOAIH_DESKTOP_SITE_ORIGIN=https://ai.vpss.eu.cc
 ```
 
 Do not add account tokens, API keys, signing credentials, or upload credentials. The installed client opens the system browser for Altoai device authorization. The site supplies the signed-in account details and available models.

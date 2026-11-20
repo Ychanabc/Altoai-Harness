@@ -1,0 +1,16 @@
+# Bilingual-pair consistency record for guide.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/upgrade-guide/v0.2.2-rc.5/altoaih-runtime-identifiers/guide.md
+/:
+  en: d79147628f257c4b
+  zh: d79147628f257c4b
+/altoaih-runtime-identifiers:
+  en: 04bb3529e9d8f9f0
+  zh: 8675924034cff469
+/altoaih-runtime-identifiers/change:
+  en: 50d19be40fa6dd42
+  zh: 7450a706a83ccda8
+/altoaih-runtime-identifiers/migration:
+  en: 3792fdce3e0995e4
+  zh: fc1a2b7453fac376

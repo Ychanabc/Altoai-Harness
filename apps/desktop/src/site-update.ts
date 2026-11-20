@@ -20,12 +20,12 @@ export type SiteReleaseResult = { kind: 'unpublished' } | { kind: 'current' } | 
  */
 export function resolveSiteUpdate(manifest: unknown, env?: NodeJS.ProcessEnv): SiteUpdateConfig | undefined {
   if (env !== undefined) return resolveSiteUpdateEnvironment(env)
-  if (typeof manifest !== 'object' || manifest === null || !('dshSiteUpdate' in manifest)) return undefined
-  const config: unknown = manifest.dshSiteUpdate
+  if (typeof manifest !== 'object' || manifest === null || !('altoaihSiteUpdate' in manifest)) return undefined
+  const config: unknown = manifest.altoaihSiteUpdate
   if (typeof config !== 'object' || config === null || !('origin' in config) || typeof config.origin !== 'string') {
     throw new Error('desktop update: invalid site metadata')
   }
-  return resolveSiteUpdateEnvironment({ DSH_DESKTOP_AUTH_PROTOCOL: 'site-device', DSH_DESKTOP_SITE_ORIGIN: config.origin })
+  return resolveSiteUpdateEnvironment({ ALTOAIH_DESKTOP_AUTH_PROTOCOL: 'site-device', ALTOAIH_DESKTOP_SITE_ORIGIN: config.origin })
 }
 
 /**

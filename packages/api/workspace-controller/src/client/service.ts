@@ -67,10 +67,15 @@ export interface IWorkspaces {
    */
   rename(workspaceId: WorkspaceId, title: string): Promise<WorkspaceView>
   /**
-   * Delete a Workspace registration without deleting Sessions or files.
+   * Permanently delete a Workspace and its accounted Session logs while retaining its project directory.
    * @param workspaceId - target Workspace.
    */
   delete(workspaceId: WorkspaceId): Promise<void>
+  /**
+   * Permanently delete a Session and remove it from Workspace grouping.
+   * @param sessionId - Session identity to delete.
+   */
+  deleteSession(sessionId: SessionId): Promise<void>
   /**
    * Move a Workspace within the Host registry order.
    * @param workspaceId - Workspace to move.
@@ -148,6 +153,11 @@ export class WorkspaceController extends Service implements IWorkspaces {
   async delete(workspaceId: WorkspaceId): Promise<void> {
     const result = await this.model.delete(workspaceId)
     if (!result.ok) throw commandError('delete', result.error)
+  }
+
+  async deleteSession(sessionId: SessionId): Promise<void> {
+    const result = await this.model.deleteSession(sessionId)
+    if (!result.ok) throw commandError('session delete', result.error)
   }
 
   async insertBefore(workspaceId: WorkspaceId, beforeWorkspaceId?: WorkspaceId): Promise<void> {

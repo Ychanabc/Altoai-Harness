@@ -63,7 +63,7 @@ async function harness(options: { systemDocuments?: boolean } = {}) {
   const storageDomain = new DomainFacility(ctx, { backend: 'memory', routes: {} })
   ctx.storage.mount('domain', storageDomain)
   ctx.provide('storageDomain', storageDomain)
-  ctx.provide('sessionPersistence', { list: () => Promise.resolve([]) } as never)
+  ctx.provide('sessionPersistence', { delete: () => Promise.resolve(true), list: () => Promise.resolve([]) } as never)
   await ctx.plugin(WorkspaceRegistry)
   const dispose = (): void => {}
   ctx.provide('typert', {
@@ -497,6 +497,8 @@ describe('WorkspaceController follow', () => {
     await controller.delete({ workspaceId: hiddenId })
     await expect(nextFrame(iterator)).resolves.toEqual({ type: 'order', workspaceIds: [shownId] })
     await controller.delete({ workspaceId: shownId })
+    await expect(nextFrame(iterator)).resolves.toEqual({ type: 'archived', archivedSessionIds: [shared.id] })
+    await expect(nextFrame(iterator)).resolves.toEqual({ type: 'archived', archivedSessionIds: [] })
     await expect(nextFrame(iterator)).resolves.toEqual({ type: 'order', workspaceIds: [] })
     await expect(nextFrame(iterator)).resolves.toEqual({ type: 'remove', workspaceId: shownId })
 

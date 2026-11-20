@@ -6,8 +6,10 @@
  */
 
 import { randomUUID } from 'node:crypto'
+import { homedir } from 'node:os'
+import { parse, resolve } from 'node:path'
 import { brandString } from '@deepseek-ai/dsh-brand'
-import { mkdir, stat } from 'node:fs/promises'
+import { mkdir, realpath, rm, stat } from 'node:fs/promises'
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-persistence'
@@ -334,6 +336,100 @@ export class WorkspaceRegistry extends Service {
    */
   delete(id: WorkspaceId): Promise<boolean> {
     return this.enqueueOperation(() => this.deleteKnown(id))
+  }
+
+  /**
+   * Permanently remove one Workspace, its accounted Sessions, and its registered
+   * project directory. The registration remains recoverable when directory removal fails.
+   * @param id - Workspace identity to remove.
+   * @param options - whether active Session work is stopped before deletion.
+   * @returns `true` when the Workspace existed.
+   */
+  deletePermanently(id: WorkspaceId, options: ArchiveSessionOptions = {}): Promise<boolean> {
+    return this.enqueueOperation(async () => {
+      const workspace = this.entities.get(id)
+      if (workspace === undefined) return false
+      await this.assertDeletableWorkspaceDirectory(workspace.path)
+      for (const sessionId of [...workspace.sessionIds]) {
+        await this.deleteSessionKnown(sessionId, options, false)
+      }
+      await this.removeWorkspaceDirectory(workspace.path)
+      return await this.deleteKnown(id)
+    })
+  }
+
+  /**
+   * Permanently remove one Session, its Workspace membership, global archive/pin
+   * entries, durable log, and Session working directory. Active work is stopped
+   * before persistence deletion; any storage or filesystem failure propagates
+   * with the Session already hidden from the registry.
+   * @param sessionId - Session identity to remove.
+   * @param options - whether to stop active work before deletion.
+   * @returns `true` when a known Session was permanently removed.
+   */
+  deleteSession(sessionId: SessionId, options: ArchiveSessionOptions = {}): Promise<boolean> {
+    return this.enqueueOperation(async () => {
+      if (!(await this.sessionKnown(sessionId))) return false
+      return await this.deleteSessionKnown(sessionId, options)
+    })
+  }
+
+  /** Validate exactly one registered non-root, non-home canonical Workspace directory. */
+  private async assertDeletableWorkspaceDirectory(path: string): Promise<void> {
+    if (!fullyQualifiedWorkspacePath(path) || resolve(path) !== path) {
+      throw new Error(`cannot delete Workspace directory '${path}': registration is not a canonical absolute path`)
+    }
+    const home = await realpath(homedir())
+    const root = parse(path).root
+    if (path === root || path === home) {
+      throw new Error(`cannot delete Workspace directory '${path}': refusing home or filesystem root`)
+    }
+    const current = await realpath(path)
+    if (current !== path) {
+      throw new Error(`cannot delete Workspace directory '${path}': path no longer resolves to its registered canonical directory`)
+    }
+  }
+
+  /** Revalidate and recursively remove a previously accepted Workspace directory. */
+  private async removeWorkspaceDirectory(path: string): Promise<void> {
+    await this.assertDeletableWorkspaceDirectory(path)
+    await rm(path, { recursive: true, force: false })
+  }
+
+  /** Permanently remove a known Session while holding the registry operation queue. */
+  private async deleteSessionKnown(
+    sessionId: SessionId,
+    options: ArchiveSessionOptions,
+    detachMembership = true,
+  ): Promise<boolean> {
+    if (options.stopActivity !== true) {
+      const activity = await this.ctx.waterfall(
+        'workspace/session-activity', { sessionId }, () => Promise.resolve([]),
+      )
+      if (activity.length > 0) throw new WorkspaceActiveSessionError(sessionId, activity)
+    }
+    if (options.stopActivity === true) await this.stopSessionActivity(sessionId)
+    // A persistence provider owns its open-handle and filesystem safety checks;
+    // do not hide the Session from Workspace state until it accepts deletion.
+    const deleted = await this.ctx.sessionPersistence.delete(sessionId)
+    if (!deleted) throw new Error(`cannot delete session '${sessionId}': persistence no longer contains it`)
+    const state = this.requireState()
+    if (detachMembership) {
+      for (const workspace of this.entities.values()) {
+        if (!workspace.sessionIds.includes(sessionId)) continue
+        await workspace.detachSession(sessionId)
+      }
+    }
+    await this.setState({
+      ...state,
+      archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
+      pinnedSessionIds: state.pinnedSessionIds.filter(id => id !== sessionId),
+    })
+    this.headers.delete(sessionId)
+    this.sessionPaths.delete(sessionId)
+    this.missingSessionPaths.delete(sessionId)
+    this.invalidSessionPaths.delete(sessionId)
+    return deleted
   }
 
   /**

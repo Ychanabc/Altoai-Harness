@@ -70,6 +70,10 @@ export type WorkspaceActionRequest = {
   readonly workspaceId: WorkspaceId
   readonly displayTitle: string
   readonly storedTitle: string
+} | {
+  readonly action: 'deleteSession'
+  readonly sessionId: SessionId
+  readonly displayTitle: string
 }
 
 /**
@@ -286,6 +290,8 @@ export type WorkspaceBrowserInjected = {
     workspaceShortcuts: HostObservable<WorkspaceShortcutState>
     shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
   }
+  /** Permanently delete a Session and its durable history. */
+  deleteSession: (sessionId: SessionId) => Promise<void>
   /** Open the browser search and focus its input. */
   requestSearch: () => void
   /** Request the existing directory picker. */
@@ -318,7 +324,7 @@ export type WorkspaceBrowserInjected = {
   notifyArchivedNotOpenable: () => void
   /** Rename a Host Workspace (rejects on name conflict; resolves on durability). */
   renameWorkspace: (workspaceId: WorkspaceId, title: string) => Promise<void>
-  /** Delete only a Host Workspace registration; directory and Session logs remain. */
+  /** Permanently delete a Host Workspace and its accounted Session logs; its project directory remains. */
   deleteWorkspace: (workspaceId: WorkspaceId) => Promise<void>
   /**
    * Reorder a Workspace in the durable registry display order.

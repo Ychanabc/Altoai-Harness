@@ -88,6 +88,16 @@ export interface WorkspaceDeleteRequest {
   readonly workspaceId: WorkspaceId
 }
 
+/** Session permanently removed from durable history and Workspace grouping. */
+export interface WorkspaceDeleteSessionRequest {
+  readonly sessionId: SessionId
+}
+
+/** Receipt after one Session is permanently deleted. */
+export interface WorkspaceDeleteSessionValue {
+  readonly deleted: true
+}
+
 /** Receipt after one Workspace registration is deleted. */
 export interface WorkspaceDeleteValue {
   readonly deleted: true

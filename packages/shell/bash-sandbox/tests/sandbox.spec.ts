@@ -225,11 +225,11 @@ describe('the provider hand-off', () => {
     const dir = mkdtempSync(join(tmpdir(), 'dsh-bash-env-order-'))
     const hook = join(dir, 'hook.sh')
     const order = join(dir, 'order.txt')
-    writeFileSync(hook, 'printf "hook\\n" >> "$DSH_ORDER_FILE"\n')
+    writeFileSync(hook, 'printf "hook\\n" >> "$ALTOAIH_ORDER_FILE"\n')
     const runnerScript = [
       'const { appendFileSync } = require("node:fs");',
       'const { spawnSync } = require("node:child_process");',
-      'appendFileSync(process.env.DSH_ORDER_FILE, "runner\\n");',
+      'appendFileSync(process.env.ALTOAIH_ORDER_FILE, "runner\\n");',
       'const child = spawnSync(process.argv[1], process.argv.slice(2), { env: process.env, stdio: "inherit" });',
       'process.exit(child.status ?? 125);',
     ].join('')
@@ -244,7 +244,7 @@ describe('the provider hand-off', () => {
       const result = await run(bash, bash.resolve({
         command: 'true',
         env: { BASH_ENV: hook },
-        dshEnv: { DSH_ORDER_FILE: order },
+        dshEnv: { ALTOAIH_ORDER_FILE: order },
       }))
       expect(result.exitCode).toBe(0)
       expect(readFileSync(order, 'utf8')).toBe('runner\nhook\n')

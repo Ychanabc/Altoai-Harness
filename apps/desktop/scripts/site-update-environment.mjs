@@ -5,12 +5,12 @@ export const SITE_CLIENT_PRODUCT_NAME = 'Altoai Harness'
 
 /** Resolve the site's manual update source without inheriting upstream release settings. */
 export function resolveSiteUpdateEnvironment(env) {
-  const protocol = env.DSH_DESKTOP_AUTH_PROTOCOL
+  const protocol = env.ALTOAIH_DESKTOP_AUTH_PROTOCOL
   if (protocol === undefined || protocol === '' || protocol === 'platform') return undefined
-  if (protocol !== 'site-device') throw new Error('desktop update: invalid DSH_DESKTOP_AUTH_PROTOCOL')
-  const origin = new URL(env.DSH_DESKTOP_SITE_ORIGIN ?? '')
+  if (protocol !== 'site-device') throw new Error('desktop update: invalid ALTOAIH_DESKTOP_AUTH_PROTOCOL')
+  const origin = new URL(env.ALTOAIH_DESKTOP_SITE_ORIGIN ?? '')
   if (origin.protocol !== 'https:' || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) {
-    throw new Error('desktop update: DSH_DESKTOP_SITE_ORIGIN must be an HTTPS origin')
+    throw new Error('desktop update: ALTOAIH_DESKTOP_SITE_ORIGIN must be an HTTPS origin')
   }
   return { origin: origin.origin }
 }

@@ -11,6 +11,7 @@ import type {
   WorkspaceCreateRequest,
   WorkspaceCreateValue,
   WorkspaceDeleteValue,
+  WorkspaceDeleteSessionValue,
   WorkspaceInsertSessionBeforeRequest,
   WorkspaceOrderValue,
   WorkspacePinSessionRequest,
@@ -132,6 +133,24 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
   async delete(workspaceId: WorkspaceId): Promise<RemoteResult<WorkspaceDeleteValue>> {
     const result = await this.remote.delete({ workspaceId })
     if (result.ok) this.remove(workspaceId, true)
+    return result
+  }
+
+  /**
+   * Permanently delete one Session and remove it from local grouping state.
+   * @param sessionId - target Session.
+   * @returns generated Remote result.
+   */
+  async deleteSession(sessionId: WorkspaceArchiveSessionRequest['sessionId']): Promise<RemoteResult<WorkspaceDeleteSessionValue>> {
+    const result = await this.remote.deleteSession({ sessionId })
+    if (result.ok) {
+      this.installArchived(this.archivedSessionIds.filter(id => id !== sessionId))
+      this.installPinned(this.pinnedSessionIds.filter(id => id !== sessionId))
+      for (const workspace of this.items) {
+        if (!workspace.sessionIds.includes(sessionId)) continue
+        this.upsert({ ...workspace, sessionIds: workspace.sessionIds.filter(id => id !== sessionId) })
+      }
+    }
     return result
   }
 

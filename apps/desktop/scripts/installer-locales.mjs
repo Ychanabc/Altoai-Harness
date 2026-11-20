@@ -65,11 +65,11 @@ export function readInstallerLocales(directory = defaultDirectory) {
  * @param {string} productName - Display name to insert into the localized installer text.
  * @returns {string} UTF-8 NSIS source, with literal dollar signs, quotes and line breaks escaped.
  */
-export function renderInstallerStrings(locales, productName = 'DeepSeek Harness') {
+export function renderInstallerStrings(locales, productName = 'AltoaiH') {
   const escape = (/** @type {string} */ text) => text.replace(/\$|"|\r|\n/gu, character => ({ '$': '$$', '"': '$\\"', '\r': '$\\r', '\n': '$\\n' })[character])
   return '; Generated from installer/locales/*.json.\n' + locales.map(locale =>
     `!ifdef LANG_${locale.nsisLanguage}\n` + Object.entries(locale.strings).map(([key, text]) =>
-      `LangString ${key} \${LANG_${locale.nsisLanguage}} "${escape(text.replaceAll('DeepSeek Harness', productName))}"\n`).join('') + '!endif\n').join('')
+      `LangString ${key} \${LANG_${locale.nsisLanguage}} "${escape(text.replaceAll('AltoaiH', productName))}"\n`).join('') + '!endif\n').join('')
 }
 
 if (import.meta.main) {

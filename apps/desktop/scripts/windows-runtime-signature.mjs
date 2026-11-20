@@ -56,7 +56,7 @@ export async function preserveWindowsRuntimeSignature(path, options) {
  * @returns {Promise<string[]>} Sorted real PE files; eight bounded readers reject links or malformed executables and drain open handles before failure.
  */
 export async function windowsRuntimeCode(root) {
-  return packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'windows:enumerate-code', async () => {
+  return packagingStep(process.env.ALTOAIH_DESKTOP_PACKAGING_RUN_DIR, 'windows:enumerate-code', async () => {
     const candidates = []
     async function collect(directory) {
       const rootStat = await lstat(directory)
@@ -110,7 +110,7 @@ async function inspectPortableExecutables(candidates) {
 
 /** Drain each public-key verification batch before signing or reporting a failure. */
 async function inspectWindowsCode(files, inspect) {
-  return packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'windows:inspect-signatures',
+  return packagingStep(process.env.ALTOAIH_DESKTOP_PACKAGING_RUN_DIR, 'windows:inspect-signatures',
     () => inspectWindowsCodeBatch(files, inspect))
 }
 

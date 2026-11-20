@@ -5,78 +5,78 @@
 /:
   en: 0d36989eb614345d
   zh: a0a1a18c07621393
-/deepseek-harness-desktop:
-  en: 69a6e0c6712e463b
-  zh: 84e1d0b09c803704
-/deepseek-harness-desktop/summary:
+/altoaih-desktop:
+  en: 8e57650ea340f7b3
+  zh: b173de1c3c71f461
+/altoaih-desktop/summary:
   en: 7bc8bf30de693222
   zh: e85993d8852b6cab
-/deepseek-harness-desktop/table-of-contents:
+/altoaih-desktop/table-of-contents:
   en: 127ea90553cb6af7
   zh: 7b1c5aec8558c684
-/deepseek-harness-desktop/application-overview:
-  en: 7414f87908fbffaf
-  zh: 8ff4fc1d83879c25
-/deepseek-harness-desktop/terminal-command:
+/altoaih-desktop/application-overview:
+  en: 774d377cffb4e658
+  zh: a865630726daa051
+/altoaih-desktop/terminal-command:
   en: 5f2d25a1d8472647
   zh: 2acb5c5d7d1917e2
-/deepseek-harness-desktop/closing-the-window-and-quitting:
-  en: bb35a022c37955c9
-  zh: ab2ef22d398d83a0
-/deepseek-harness-desktop/key-technical-decisions:
-  en: 3724c53da4f7647b
-  zh: 76ae549d43c99bb4
-/deepseek-harness-desktop/key-technical-decisions/bundled-workspace-dependencies:
-  en: 764bdc09fa8f5701
-  zh: da7897e14434b43c
-/deepseek-harness-desktop/bundled-command-runtime:
+/altoaih-desktop/closing-the-window-and-quitting:
+  en: a6eca3ab48d0b7da
+  zh: be64fa07e5706d73
+/altoaih-desktop/key-technical-decisions:
+  en: 70876cc73e300ac3
+  zh: b21fc89bb4cc96ff
+/altoaih-desktop/key-technical-decisions/bundled-workspace-dependencies:
+  en: f29407eb849457ae
+  zh: e53958a799f8e861
+/altoaih-desktop/bundled-command-runtime:
   en: 372297005b57a08b
   zh: 074a635ac17e4362
-/deepseek-harness-desktop/installation-ownership:
-  en: 575d82acb5d61018
-  zh: b1064786f63863f7
-/deepseek-harness-desktop/installation-ownership/runtime-and-plugin-activation:
+/altoaih-desktop/installation-ownership:
+  en: bc6e29e3140ee4c6
+  zh: 706a95ca10fd42e0
+/altoaih-desktop/installation-ownership/runtime-and-plugin-activation:
   en: 4951cd3ee659eb33
   zh: 96bdd6358dad587a
-/deepseek-harness-desktop/installation-ownership/host-environment:
-  en: 98cf848762482d48
-  zh: 74f9100a39ec8c2f
-/deepseek-harness-desktop/develop:
-  en: 4e4b26cfaaa098ee
-  zh: e0a2965606020041
-/deepseek-harness-desktop/develop/startup-onboarding:
-  en: 67dc7ef3e293236a
-  zh: 1b224db684a2d1d7
-/deepseek-harness-desktop/develop/welcome-window-appearance:
+/altoaih-desktop/installation-ownership/host-environment:
+  en: 9f50117616c843b1
+  zh: 8f0a1126fe3b1a56
+/altoaih-desktop/develop:
+  en: af3f5268763c5707
+  zh: 4510abfc72766691
+/altoaih-desktop/develop/startup-onboarding:
+  en: 9b2cffcbaa6a6bd6
+  zh: 7d1c51f78116db61
+/altoaih-desktop/develop/welcome-window-appearance:
   en: 617a89aeb28131b9
   zh: 4d84bd5d86501c86
-/deepseek-harness-desktop/package:
+/altoaih-desktop/package:
   en: 7200a35dbed997c3
   zh: 511d6961530757f1
-/deepseek-harness-desktop/windows-installer-interface:
-  en: eb9d30bca4134f80
-  zh: bf201d18ae5ba697
-/deepseek-harness-desktop/updates:
+/altoaih-desktop/windows-installer-interface:
+  en: 92bdec4904e76084
+  zh: c68c10eeb4834d22
+/altoaih-desktop/updates:
   en: df7af3fd0693c757
   zh: 12765993e1bc7552
-/deepseek-harness-desktop/updates/site-manual-releases:
-  en: cc830de9294e96ff
-  zh: e44b7a119be41609
-/deepseek-harness-desktop/updates/local-desktop-settings:
-  en: dbe57394894b7368
-  zh: a3bb788c2ce631a4
-/deepseek-harness-desktop/updates/mandatory-update-policy:
-  en: 182a9c6705213e13
-  zh: 681762f83490f4c6
-/deepseek-harness-desktop/updates/local-updater-qualification:
-  en: db5e898140a73d53
-  zh: 80a9d58c74b4bb24
-/deepseek-harness-desktop/low-level-development-overrides:
-  en: 8264b135871e8978
-  zh: 0939aafb1b2961fc
-/deepseek-harness-desktop/known-limitations:
-  en: b1eeadfefb338056
-  zh: 28683fbdf1e98685
-/deepseek-harness-desktop/dev-note:
+/altoaih-desktop/updates/site-manual-releases:
+  en: f54b0fe8dbf41f83
+  zh: 10cdb756b93bd8af
+/altoaih-desktop/updates/local-desktop-settings:
+  en: 7cdbc7ac5b6c5722
+  zh: 6271db61dc21d631
+/altoaih-desktop/updates/mandatory-update-policy:
+  en: 8145862303d2aeb2
+  zh: e6d4b8fe2bb6907a
+/altoaih-desktop/updates/local-updater-qualification:
+  en: 280863c4752f6cc8
+  zh: 5ec3865af0a04843
+/altoaih-desktop/low-level-development-overrides:
+  en: 9db21c7e1d86f161
+  zh: 869223113e1cbf50
+/altoaih-desktop/known-limitations:
+  en: 84602578d865da49
+  zh: f0ecbe924d4876b8
+/altoaih-desktop/dev-note:
   en: 8e26b460ba31f21b
   zh: fbcd0307b3867125

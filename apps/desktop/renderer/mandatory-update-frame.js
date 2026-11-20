@@ -22,8 +22,8 @@ if (window.parent !== window && window.dshMandatoryUpdate === undefined) {
     }
   }
   window.addEventListener('message', event => {
-    if (!event.isTrusted || event.source !== window.parent || event.origin !== 'dsh-app://app'
-      || event.data?.type !== 'dsh-mandatory-connect' || event.ports.length !== 1 || port) return
+    if (!event.isTrusted || event.source !== window.parent || event.origin !== 'altoaih-app://app'
+      || event.data?.type !== 'altoaih-mandatory-connect' || event.ports.length !== 1 || port) return
     port = event.ports[0]
     port.onmessage = receive
   })

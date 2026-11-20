@@ -43,10 +43,10 @@ describe('site manual releases', () => {
   })
   it('keeps upstream as default and validates site origins even without signing', () => {
     expect(resolveSiteUpdate({}, {})).toBeUndefined()
-    expect(resolveSiteUpdate({ dshSiteUpdate: config })).toEqual(config)
-    expect(resolveSiteUpdateEnvironment({ DSH_DESKTOP_AUTH_PROTOCOL: 'site-device', DSH_DESKTOP_SITE_ORIGIN: config.origin })).toEqual(config)
+    expect(resolveSiteUpdate({ altoaihSiteUpdate: config })).toEqual(config)
+    expect(resolveSiteUpdateEnvironment({ ALTOAIH_DESKTOP_AUTH_PROTOCOL: 'site-device', ALTOAIH_DESKTOP_SITE_ORIGIN: config.origin })).toEqual(config)
     for (const origin of ['', 'http://site.invalid', 'https://site.invalid/path', 'https://user@site.invalid']) {
-      expect(() => resolveSiteUpdateEnvironment({ DSH_DESKTOP_AUTH_PROTOCOL: 'site-device', DSH_DESKTOP_SITE_ORIGIN: origin })).toThrow()
+      expect(() => resolveSiteUpdateEnvironment({ ALTOAIH_DESKTOP_AUTH_PROTOCOL: 'site-device', ALTOAIH_DESKTOP_SITE_ORIGIN: origin })).toThrow()
     }
   })
   it('bundles the shared helper from the relocated TypeScript output without a runtime import', async () => {
@@ -68,19 +68,19 @@ describe('site manual releases', () => {
       expect(chunk.type).toBe('chunk')
       if (chunk.type !== 'chunk') throw new Error('expected bundled JavaScript')
       expect(chunk.imports.filter(specifier => !specifier.startsWith('node:'))).toEqual([])
-      expect(chunk.code).toContain('DSH_DESKTOP_SITE_ORIGIN')
+      expect(chunk.code).toContain('ALTOAIH_DESKTOP_SITE_ORIGIN')
       expect(chunk.code).not.toContain('../scripts/site-update-environment.mjs')
     } finally { await bundle.close() }
   })
   it.each(['0', '1'])('omits upstream feeds and mandatory policy for site packaging with unsigned=%s', (unsigned) => {
     const packaged = createElectronBuilderConfig({
-      DSH_DESKTOP_AUTH_PROTOCOL: 'site-device', DSH_DESKTOP_SITE_ORIGIN: config.origin,
-      DSH_DESKTOP_APP_ID: 'com.example.site', DSH_DESKTOP_UNSIGNED: unsigned,
+      ALTOAIH_DESKTOP_AUTH_PROTOCOL: 'site-device', ALTOAIH_DESKTOP_SITE_ORIGIN: config.origin,
+      ALTOAIH_DESKTOP_APP_ID: 'com.example.site', ALTOAIH_DESKTOP_UNSIGNED: unsigned,
       // Invalid upstream settings must never be resolved for site packages.
-      DSH_DESKTOP_AUTO_UPDATE_ENV: 'invalid', DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: '{',
+      ALTOAIH_DESKTOP_AUTO_UPDATE_ENV: 'invalid', ALTOAIH_DESKTOP_MANDATORY_UPDATE_CONFIG: '{',
     }, 'win32', 'x64')
-    expect(packaged.extraMetadata).toMatchObject({ dshSiteUpdate: config })
-    expect(packaged.extraMetadata).not.toHaveProperty('dshMandatoryUpdatePolicy')
+    expect(packaged.extraMetadata).toMatchObject({ altoaihSiteUpdate: config })
+    expect(packaged.extraMetadata).not.toHaveProperty('altoaihMandatoryUpdatePolicy')
     expect(packaged.publish).toBeNull()
   })
   it('guards every automatic upstream entry and uses the manual site prompt first', () => {
@@ -91,6 +91,6 @@ describe('site manual releases', () => {
     expect(main).toContain('undefined, siteUpdate === undefined ? undefined : () => false, undefined,')
     const builder = readFileSync(new URL('../scripts/electron-builder-config.mjs', import.meta.url), 'utf8')
     expect(builder).toContain('const update = siteUpdate !== undefined || unsigned ? undefined')
-    expect(builder).toContain('dshSiteUpdate: siteUpdate')
+    expect(builder).toContain('altoaihSiteUpdate: siteUpdate')
   })
 })

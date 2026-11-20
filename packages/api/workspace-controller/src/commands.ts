@@ -20,6 +20,8 @@ import type {
   WorkspaceCreateValue,
   WorkspaceDeleteRequest,
   WorkspaceDeleteValue,
+  WorkspaceDeleteSessionRequest,
+  WorkspaceDeleteSessionValue,
   WorkspaceInsertBeforeRequest,
   WorkspaceInsertSessionBeforeRequest,
   WorkspaceOrderValue,
@@ -92,14 +94,28 @@ export class WorkspaceCommands {
   }
 
   /**
-   * Delete one Workspace registration without deleting its directory or Sessions.
+   * Permanently delete one Workspace and its accounted Session logs while retaining its project directory.
    * @param request - Workspace identity to remove.
    * @returns deletion confirmation.
    */
   delete(request: WorkspaceDeleteRequest): Promise<WorkspaceDeleteValue> {
     return this.enqueue(async () => {
-      if (!await this.ctx.workspaceRegistry.delete(brandString<WorkspaceId>(request.workspaceId))) {
+      if (!await this.ctx.workspaceRegistry.deletePermanently(brandString<WorkspaceId>(request.workspaceId), { stopActivity: true })) {
         throw workspaceNotFound(request.workspaceId)
+      }
+      return { deleted: true }
+    })
+  }
+
+  /**
+   * Permanently delete one Session after stopping any active work.
+   * @param request - Session identity to delete.
+   * @returns deletion confirmation.
+   */
+  deleteSession(request: WorkspaceDeleteSessionRequest): Promise<WorkspaceDeleteSessionValue> {
+    return this.enqueue(async () => {
+      if (!await this.ctx.workspaceRegistry.deleteSession(request.sessionId, { stopActivity: true })) {
+        throw new RemoteError('session/not-found', `Session "${request.sessionId}" not found`, { sessionId: request.sessionId })
       }
       return { deleted: true }
     })

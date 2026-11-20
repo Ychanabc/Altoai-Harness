@@ -5,13 +5,15 @@ import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-
 import type { WorkspaceActionRequest, WorkspaceBrowserProps } from '../contract/slots.ts'
 import css from './WorkspaceBrowser.module.css'
 
-type Props = Pick<WorkspaceBrowserProps, 'renameWorkspace' | 'deleteWorkspace' | 'settleWorkspaceAction' | 't'> & {
+type Props = Pick<WorkspaceBrowserProps, 'renameWorkspace' | 'deleteWorkspace' | 'deleteSession' | 'settleWorkspaceAction' | 't'> & {
   request: WorkspaceActionRequest
   workspaces: readonly WorkspaceView[]
 }
 
 /** @param props - captured request, current Workspace list, and existing mutations. @returns the active dialog. */
-export function WorkspaceDialogs({ request, workspaces, renameWorkspace, deleteWorkspace, settleWorkspaceAction, t }: Props) {
+export function WorkspaceDialogs({
+  request, workspaces, renameWorkspace, deleteWorkspace, deleteSession, settleWorkspaceAction, t,
+}: Props) {
   const composingRef = useRef(false)
   const renameTarget = request.action === 'rename' ? request : null
   const [renameDraft, setRenameDraft] = useState(request.displayTitle)
@@ -44,6 +46,7 @@ export function WorkspaceDialogs({ request, workspaces, renameWorkspace, deleteW
   }
 
   const deleteTarget = request.action === 'delete' ? request : null
+  const deleteSessionTarget = request.action === 'deleteSession' ? request : null
   const [deleting, setDeleting] = useState(false)
   const [deleteCommittedId, setDeleteCommittedId] = useState<WorkspaceId | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -61,15 +64,23 @@ export function WorkspaceDialogs({ request, workspaces, renameWorkspace, deleteW
   }
   const confirmDelete = () => {
     /* v8 ignore next -- the Modal is absent without a target and its button is disabled while deleting. */
-    if (deleting || deleteTarget === null) return
+    if (deleting || (deleteTarget === null && deleteSessionTarget === null)) return
     setDeleting(true)
     setDeleteCommittedId(null)
     setDeleteError(null)
-    deleteWorkspace(deleteTarget.workspaceId).then(() => {
-      // Keep the confirmation pending until this component has rendered the
-      // committed list projection without the deleted id. Closing earlier
-      // exposes one stale React frame to the next Create Workspace gesture.
-      setDeleteCommittedId(deleteTarget.workspaceId)
+    const deletion = deleteSessionTarget === null
+      ? deleteTarget === null
+        ? Promise.resolve()
+        : deleteWorkspace(deleteTarget.workspaceId)
+      : deleteSession(deleteSessionTarget.sessionId)
+    deletion.then(() => {
+      // Keep Workspace confirmation pending until its list projection commits.
+      if (deleteTarget !== null) {
+        setDeleteCommittedId(deleteTarget.workspaceId)
+        return
+      }
+      setDeleting(false)
+      settleWorkspaceAction()
     }).catch((reason: unknown) => {
       setDeleting(false)
       setDeleteError(reason instanceof Error ? reason.message : String(reason))
@@ -113,13 +124,13 @@ export function WorkspaceDialogs({ request, workspaces, renameWorkspace, deleteW
     </Modal>
 
     <Modal
-      open={deleteTarget !== null}
+      open={deleteTarget !== null || deleteSessionTarget !== null}
       onClose={closeDelete}
       closeLabel={t('close')}
-      title={t('delete.workspace')}
-      {...deleteTarget === null
-        ? {}
-        : { description: t('delete.desc', { name: deleteTarget.displayTitle }) }}
+      title={deleteSessionTarget === null ? t('delete.workspace') : t('delete.session')}
+      {...deleteTarget !== null
+        ? { description: t('delete.desc', { name: deleteTarget.displayTitle }) }
+        : deleteSessionTarget === null ? {} : { description: t('delete.session.desc', { name: deleteSessionTarget.displayTitle }) }}
       footer={(
         <>
           <Button variant="outline" disabled={deleting} onClick={closeDelete}>{t('cancel')}</Button>
@@ -129,7 +140,7 @@ export function WorkspaceDialogs({ request, workspaces, renameWorkspace, deleteW
             disabled={deleting}
             onClick={confirmDelete}
           >
-            {t('delete.workspace')}
+            {deleteSessionTarget === null ? t('delete.workspace') : t('delete.session')}
           </Button>
         </>
       )}

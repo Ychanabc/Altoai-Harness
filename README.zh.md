@@ -7,6 +7,7 @@ Altoai Harness 是 [Altoai](https://ai.vpss.eu.cc) 的官方桌面客户端。�
 - 源码：<https://github.com/Ychanabc/Altoai-Harness.git>
 - 服务：<https://ai.vpss.eu.cc>
 
+<a id="use-the-client"></a>
 ## 使用客户端
 
 1. 从 Altoai 部署渠道获取 Windows 安装包并完成安装。
@@ -17,6 +18,7 @@ Altoai Harness 是 [Altoai](https://ai.vpss.eu.cc) 的官方桌面客户端。�
 
 模型列表、账号信息和设备授权状态由 Altoai 提供。模型未显示时，表示当前账号或部署未提供该模型。
 
+<a id="build-from-source"></a>
 ## 从源码构建
 
 需要 Node.js 24.9.0 或更高版本、pnpm 11.28.5 和 Git。

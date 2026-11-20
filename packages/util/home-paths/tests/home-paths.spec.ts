@@ -26,41 +26,41 @@ afterEach(() => {
 
 describe('dsh path helpers', () => {
   it('owns the shared default DSH home directory name', () => {
-    expect(DSH_HOME_DIR_NAME).toBe('.dsh')
-    expect(DEFAULT_DSH_HOME_DISPLAY).toBe('~/.dsh')
-    expect(defaultDshHome()).toBe(join(homedir(), '.dsh'))
+    expect(DSH_HOME_DIR_NAME).toBe('.altoaih')
+    expect(DEFAULT_DSH_HOME_DISPLAY).toBe('~/.altoaih')
+    expect(defaultDshHome()).toBe(join(homedir(), '.altoaih'))
   })
 
   it('expands tilde paths without changing non-tilde paths', () => {
     expect(expandHomePath('~')).toBe(homedir())
-    expect(expandHomePath('~/.dsh')).toBe(join(homedir(), '.dsh'))
-    expect(expandHomePath('~\\.dsh')).toBe(join(homedir(), '.dsh'))
-    expect(expandHomePath('/tmp/.dsh')).toBe('/tmp/.dsh')
-    expect(expandHomePath('~other/.dsh')).toBe('~other/.dsh')
+    expect(expandHomePath('~/.altoaih')).toBe(join(homedir(), '.altoaih'))
+    expect(expandHomePath('~\\.altoaih')).toBe(join(homedir(), '.altoaih'))
+    expect(expandHomePath('/tmp/.altoaih')).toBe('/tmp/.altoaih')
+    expect(expandHomePath('~other/.altoaih')).toBe('~other/.altoaih')
   })
 
-  it('resolves explicit path before DSH_HOME and the default', () => {
+  it('resolves explicit path before ALTOAIH_HOME and the default', () => {
     const envHome = join(homedir(), 'env-dsh')
 
-    expect(resolveDshHome('/tmp/explicit-dsh', { DSH_HOME: '~/env-dsh' })).toBe(resolve('/tmp/explicit-dsh'))
-    expect(resolveDshHome(undefined, { DSH_HOME: '~/env-dsh' })).toBe(envHome)
+    expect(resolveDshHome('/tmp/explicit-dsh', { ALTOAIH_HOME: '~/env-dsh' })).toBe(resolve('/tmp/explicit-dsh'))
+    expect(resolveDshHome(undefined, { ALTOAIH_HOME: '~/env-dsh' })).toBe(envHome)
     expect(resolveDshHome(undefined, {})).toBe(defaultDshHome())
   })
 
-  it('treats an empty or whitespace-only DSH_HOME as unset', () => {
-    expect(resolveDshHome(undefined, { DSH_HOME: '' })).toBe(defaultDshHome())
-    expect(resolveDshHome(undefined, { DSH_HOME: '   ' })).toBe(defaultDshHome())
+  it('treats an empty or whitespace-only ALTOAIH_HOME as unset', () => {
+    expect(resolveDshHome(undefined, { ALTOAIH_HOME: '' })).toBe(defaultDshHome())
+    expect(resolveDshHome(undefined, { ALTOAIH_HOME: '   ' })).toBe(defaultDshHome())
   })
 
-  it('joins child segments onto the resolved DSH_HOME', () => {
-    vi.stubEnv('DSH_HOME', '~/env-dsh')
+  it('joins child segments onto the resolved ALTOAIH_HOME', () => {
+    vi.stubEnv('ALTOAIH_HOME', '~/env-dsh')
     expect(dshHomePath()).toBe(join(homedir(), 'env-dsh'))
     expect(dshHomePath('storages', 'cache')).toBe(join(homedir(), 'env-dsh', 'storages', 'cache'))
   })
 
   it('labels a resolved home by whether it is the default root', () => {
-    expect(dshHomeDisplay(resolve(defaultDshHome()))).toBe('~/.dsh')
-    expect(dshHomeDisplay('/some/other/root')).toBe('$DSH_HOME')
+    expect(dshHomeDisplay(resolve(defaultDshHome()))).toBe('~/.altoaih')
+    expect(dshHomeDisplay('/some/other/root')).toBe('$ALTOAIH_HOME')
   })
 
   it('owns the shared default agents home directory name', () => {
@@ -88,13 +88,13 @@ describe('dsh path helpers', () => {
   })
 
   it.each([
-    [undefined, join(homedir(), '.dsh')],
-    ['', join(homedir(), '.dsh')],
-    ['   ', join(homedir(), '.dsh')],
+    [undefined, join(homedir(), '.altoaih')],
+    ['', join(homedir(), '.altoaih')],
+    ['   ', join(homedir(), '.altoaih')],
     ['~/env-dsh', join(homedir(), 'env-dsh')],
     ['./relative-dsh', resolve('./relative-dsh')],
-  ] as const)('resolves cache paths with DSH_HOME=%j', (home, expectedHome) => {
-    vi.stubEnv('DSH_HOME', home)
+  ] as const)('resolves cache paths with ALTOAIH_HOME=%j', (home, expectedHome) => {
+    vi.stubEnv('ALTOAIH_HOME', home)
     try {
       expect(dshCachePath()).toBe(join(expectedHome, 'cache'))
       expect(dshCachePath('models', 'index.json')).toBe(join(expectedHome, 'cache', 'models', 'index.json'))
@@ -104,7 +104,7 @@ describe('dsh path helpers', () => {
   })
 
   it('resolves configured cache homes before the environment', () => {
-    vi.stubEnv('DSH_HOME', '~/env-dsh')
+    vi.stubEnv('ALTOAIH_HOME', '~/env-dsh')
     try {
       expect(dshCachePath({ dshHome: '~/explicit-dsh' })).toBe(join(homedir(), 'explicit-dsh', 'cache'))
       expect(dshCachePath({ dshHome: './explicit-dsh' }, 'attachments', 'request-images'))
@@ -116,12 +116,12 @@ describe('dsh path helpers', () => {
   })
 
   it.each([
-    [undefined, join(homedir(), '.dsh')],
-    ['', join(homedir(), '.dsh')],
+    [undefined, join(homedir(), '.altoaih')],
+    ['', join(homedir(), '.altoaih')],
     ['~/env-dsh', join(homedir(), 'env-dsh')],
     ['./relative-dsh', resolve('./relative-dsh')],
-  ] as const)('resolves category paths with DSH_HOME=%j', (home, expectedHome) => {
-    vi.stubEnv('DSH_HOME', home)
+  ] as const)('resolves category paths with ALTOAIH_HOME=%j', (home, expectedHome) => {
+    vi.stubEnv('ALTOAIH_HOME', home)
     for (const category of ['config', 'data', 'state', 'cache', 'backup'] as const) {
       expect(dshPath(category)).toBe(join(expectedHome, category))
       expect(dshPath(category, 'owner', 'file.json')).toBe(join(expectedHome, category, 'owner', 'file.json'))
@@ -129,7 +129,7 @@ describe('dsh path helpers', () => {
   })
 
   it('resolves a configured category home before the environment', () => {
-    vi.stubEnv('DSH_HOME', '~/env-dsh')
+    vi.stubEnv('ALTOAIH_HOME', '~/env-dsh')
     expect(dshPath({ category: 'state', dshHome: '~/explicit-dsh' }, 'logs')).toBe(join(homedir(), 'explicit-dsh', 'state', 'logs'))
     expect(dshPath({ category: 'data', dshHome: undefined })).toBe(join(homedir(), 'env-dsh', 'data'))
   })

@@ -9,13 +9,13 @@ import { homedir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 
 /** Directory name for the default DeepSeek Harness home under the OS home. */
-export const DSH_HOME_DIR_NAME = '.dsh'
+export const DSH_HOME_DIR_NAME = '.altoaih'
 
 /** Stable user-facing display form for the default DeepSeek Harness home. */
 export const DEFAULT_DSH_HOME_DISPLAY = `~/${DSH_HOME_DIR_NAME}`
 
 /** Environment variable that overrides the default DeepSeek Harness home. */
-export const DSH_HOME_ENV = 'DSH_HOME'
+export const DSH_HOME_ENV = 'ALTOAIH_HOME'
 
 /** Directory name for the default shared agent configuration root under the OS home. */
 export const AGENTS_HOME_DIR_NAME = '.agents'
@@ -124,12 +124,12 @@ function rootDisplay(resolvedRoot: string, defaultRoot: string, defaultLabel: st
 /**
  * Resolve the single-root DeepSeek Harness home.
  *
- * Precedence, highest first: an explicit configured path, `$DSH_HOME`, then
- * `~/.dsh`. The harness keeps all user data under one root. An empty or
- * whitespace-only `$DSH_HOME` is treated as unset, so a blank override never
+ * Precedence, highest first: an explicit configured path, `$ALTOAIH_HOME`, then
+ * `~/.altoaih`. The harness keeps all user data under one root. An empty or
+ * whitespace-only `$ALTOAIH_HOME` is treated as unset, so a blank override never
  * resolves the home to the current working directory.
  * @param configured - explicit harness-home override, which has highest precedence.
- * @param env - environment mapping used to read `DSH_HOME`.
+ * @param env - environment mapping used to read `ALTOAIH_HOME`.
  * @returns the normalized absolute harness home path.
  */
 export function resolveDshHome(configured?: string, env: Record<string, string | undefined> = process.env): string {
@@ -175,7 +175,7 @@ export function dshCachePath(optionsOrSegment: { dshHome?: string } | string = {
 
 /**
  * Category directory under the Harness home, named after the XDG Base Directory
- * kinds. A new file kept under `$DSH_HOME` belongs to exactly one category, and
+ * kinds. A new file kept under `$ALTOAIH_HOME` belongs to exactly one category, and
  * the category directory name equals the category. Existing top-level entries,
  * such as `sessions/`, `profiles/`, and `.credentials.yaml`, keep their current
  * locations; the [home path categories proposal](../../../../.agents/notes/proposed/architecture/2026-11-04-dsh-home-path-categories.md)
@@ -196,7 +196,7 @@ export type DshHomeCategory = 'config' | 'data' | 'state' | 'cache' | 'backup'
 export interface DshPathLocation {
   /** Category directory to join under. */
   category: DshHomeCategory
-  /** Explicit harness-home override, resolved by {@link resolveDshHome}; omission uses `$DSH_HOME`, then `~/.dsh`. */
+  /** Explicit harness-home override, resolved by {@link resolveDshHome}; omission uses `$ALTOAIH_HOME`, then `~/.altoaih`. */
   dshHome?: string | undefined
 }
 
@@ -217,9 +217,9 @@ export function dshPath(location: DshHomeCategory | DshPathLocation, ...segments
  * Describe a resolved harness home symbolically for user-facing display.
  *
  * It never returns an absolute machine path: the default home is labelled
- * `~/.dsh`, and any configured home is labelled `$DSH_HOME`.
+ * `~/.altoaih`, and any configured home is labelled `$ALTOAIH_HOME`.
  * @param resolvedHome - the absolute path returned by {@link resolveDshHome}.
- * @returns `~/.dsh` for the default home, otherwise `$DSH_HOME`.
+ * @returns `~/.altoaih` for the default home, otherwise `$ALTOAIH_HOME`.
  */
 export function dshHomeDisplay(resolvedHome: string): string {
   return rootDisplay(resolvedHome, defaultDshHome(), DEFAULT_DSH_HOME_DISPLAY, DSH_HOME_ENV)

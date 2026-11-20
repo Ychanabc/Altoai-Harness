@@ -16,7 +16,7 @@ const require = createRequire(import.meta.url)
 const pnpmEntry = join(dirname(require.resolve('pnpm')), 'bin/pnpm.cjs')
 const tsxHook = pathToFileURL(require.resolve('tsx/esm')).href
 const roots: string[] = []
-const metadata = { DSH_CLIENT_COMMIT_HASH: 'abcdef0', DSH_CLIENT_VERSION: '1.2.3' }
+const metadata = { DSH_CLIENT_COMMIT_HASH: 'abcdef0', ALTOAIH_CLIENT_VERSION: '1.2.3' }
 const testTimeout = Math.max(120_000, coverageTestTimeoutOptions(process.env[COVERAGE_TEST_TIMEOUT_ENV]).testTimeout ?? 0)
 const activeRuns = new Map<AbortController, ReturnType<typeof runGate>>()
 

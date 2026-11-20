@@ -72,6 +72,7 @@ kind: "package-reference"
 `catalogProtocol: site` 显式启用需凭据访问的 `/v1/models`，只准入 `supported_endpoint_types` 包含 `anthropic` 的条目。账号服务提供 Bearer relay key，路由不会将其转为 dashboard 凭据。本站模型仅支持文本、前置 system/tools 和保守的配置容量。模型声明 `messages_reasoning_efforts` 时，只显示其声明且客户端识别的档位。`off` 禁用思考；其他档位发送 adaptive thinking 和 `output_config.effort`。未声明时保持本站配置的仅关闭档位。未列出的模型和缺少 Messages 声明的条目均以 `MODEL_UNSUPPORTED` 失败；首次目录成功前也不会提供内置回退模型。本站目录拒绝 `modelOverrides`，避免未经验证的能力扩展。上游解码与准入策略仍为通用默认。共享传输包的 `tests/site-device-composition.spec.ts` 通过真实 Loader 覆盖登录、目录筛选、Messages 输出、凭据重启、本地退出与退出后重启。
 
 HTTP 或解码失败会清空站点目录，并在提供方目录中公布错误代码；`MODEL_CATALOG_EMPTY` 表示明确的空目录，`MODEL_CATALOG_INCOMPATIBLE` 表示非空目录中没有可调用的 Messages 模型。成功的空响应会替换之前的模型。账号授权记录更新、退登和动态配置更新会使缓存及在途列表失效；同 token 的分组切换必须在提交新分组后，为 `deepseek-account-platform/default` 发布 `credentials/record-updated`。选择器消费刷新的目录，负责保留仍有效的选择或选取第一个可调用条目。
+
 本站请求只有收到网关的 `invalid_relay_token` 响应才会清除匹配的设备登录。没有该标记的 Messages HTTP 401 保留登录，并提示检查本站模型或上游渠道。模型目录返回 HTTP 401 时不再发出推理请求，并提示退出后重新登录。
 
 

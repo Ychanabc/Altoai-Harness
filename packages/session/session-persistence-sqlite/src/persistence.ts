@@ -18,6 +18,7 @@ import { SessionWriteLease } from './lease.ts'
 import { sessionDir } from './paths.ts'
 import { LegacySessionMigration } from './migration.ts'
 import type { JsonlBackend } from './migration.ts'
+import type { JsonlSessionPersistence } from '@deepseek-ai/dsh-session-persistence-jsonl'
 
 const marker = z.object({ id: z.string().transform(SessionId), database: z.string() }).strict()
 
@@ -203,4 +204,17 @@ export class SqliteSessionPersistence extends SessionPersistence {
   }
 
   async flush(): Promise<void> { await this.sqlite.flush() }
+
+  /** Permanently remove the routed SQLite Session and its route record. */
+  override async delete(id: SessionId): Promise<boolean> {
+    await this.start()
+    const sqliteSnapshot = await this.sqlite.stat(id)
+    if (sqliteSnapshot === undefined) return await (this.jsonl as JsonlSessionPersistence).delete(id)
+    const deleted = await this.sqlite.delete(id)
+    if (!deleted) return false
+    await rm(this.markerPath(id), { force: true })
+    await rm(sessionDir(this.rootPath, sqliteSnapshot.header.cwd, id), { recursive: true, force: true })
+    this.publishedRoutes.delete(id)
+    return true
+  }
 }

@@ -29,7 +29,7 @@ async function mockPlatform() {
     }
     if (req.headers.cookie !== 'test_gate=synthetic') { res.writeHead(403).end(); return }
     if (req.url === '/auth-api/v0/users/logout' && req.method === 'POST') {
-      if (req.headers['x-dsh-auth-token'] !== 'dsh_mock_composition_test') { res.writeHead(401).end(); return }
+      if (req.headers['x-altoaih-auth-token'] !== 'dsh_mock_composition_test') { res.writeHead(401).end(); return }
       res.writeHead(503).end()
       return
     }
