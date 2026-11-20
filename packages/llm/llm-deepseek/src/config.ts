@@ -209,6 +209,7 @@ function resolveModels(models: readonly DeepSeekCatalogModel[] | undefined): Dee
       ...model.toolUpdate === undefined ? {} : { toolUpdate: model.toolUpdate },
       inputModalities: [...inputModalities],
       ...model.messagesReasoningEfforts === undefined ? {} : { messagesReasoningEfforts: [...model.messagesReasoningEfforts] },
+      ...model.responsesReasoningEfforts === undefined ? {} : { responsesReasoningEfforts: [...model.responsesReasoningEfforts] },
       ...hasImage
         ? {
           ...model.imagePixelBudget === undefined ? {} : { imagePixelBudget: model.imagePixelBudget },

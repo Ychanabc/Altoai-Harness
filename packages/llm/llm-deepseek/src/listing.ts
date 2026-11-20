@@ -2,9 +2,10 @@
 import { APP_IDENTITY, attributionHeaders, LlmError } from '@deepseek-ai/dsh-llm'
 import type { LlmModelBadge, LlmModelBadgeTone, ModelModality } from '@deepseek-ai/dsh-llm'
 import { timeoutOf } from '@deepseek-ai/dsh-timeout'
-import type { MessagesReasoningEffort } from './types.ts'
+import type { MessagesReasoningEffort, ResponsesReasoningEffort } from './types.ts'
 
 const SITE_EFFORTS = ['off', 'low', 'medium', 'high', 'xhigh', 'max'] as const satisfies readonly MessagesReasoningEffort[]
+const RESPONSES_EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh'] as const satisfies readonly ResponsesReasoningEffort[]
 const LISTED_MODALITIES = ['text', 'image'] as const satisfies readonly ModelModality[]
 const BADGE_TONES = ['neutral', 'info', 'success', 'warning'] as const satisfies readonly LlmModelBadgeTone[]
 const LANGUAGE_ID = /^[a-z]{2,8}(?:-[a-z0-9]{1,8})*$/u
@@ -41,6 +42,8 @@ export interface ListedFacts {
   readonly inputModalities: readonly ModelModality[]
   /** Explicit Messages reasoning levels from a site listing. */
   readonly messagesReasoningEfforts?: readonly MessagesReasoningEffort[]
+  /** Explicit Responses reasoning levels from a site listing. */
+  readonly responsesReasoningEfforts?: readonly ResponsesReasoningEffort[]
   /** Combined request and response context, when declared. */
   readonly contextWindow?: number
   /** Output capability, when declared. */
@@ -231,7 +234,10 @@ export function parseModelListing(body: unknown, format: 'deepseek' | 'site' = '
       ? entry.supported_endpoint_types
       : undefined
     const messages = endpoints?.includes('anthropic') === true
-    const openai = endpoints?.includes('openai') === true
+    const openai = endpoints?.includes('openai-response') === true || endpoints?.includes('openai') === true
+    const declaredResponses: readonly unknown[] = Array.isArray(entry.responses_reasoning_efforts)
+      ? entry.responses_reasoning_efforts : []
+    const responsesEfforts = RESPONSES_EFFORTS.filter(effort => declaredResponses.includes(effort))
     entries.push({
       id,
       ...typeof entry.name === 'string' && entry.name.length > 0 ? { name: entry.name } : {},
@@ -245,7 +251,10 @@ export function parseModelListing(body: unknown, format: 'deepseek' | 'site' = '
               messagesReasoningEfforts: efforts.length === 0 ? ['off'] : efforts,
             } }
             : openai
-              ? { usable: true, facts: { protocol: 'openai-responses', inputModalities: ['text'] } }
+              ? { usable: true, facts: {
+                protocol: 'openai-responses', inputModalities: ['text'],
+                ...responsesEfforts.length === 0 ? {} : { responsesReasoningEfforts: responsesEfforts },
+              } }
               : { usable: false, reason: 'declares neither an OpenAI nor Anthropic endpoint' }
         : capabilitiesOf(entry),
       ...badge === undefined ? {} : { badge },

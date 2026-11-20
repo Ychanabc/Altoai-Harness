@@ -166,6 +166,9 @@ export function apply(ctx: Context, config: Config): void {
             ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
             ...model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens },
             input: [...model.inputModalities ?? ['text']],
+            ...model.responsesReasoningEfforts === undefined ? {} : {
+              reasoningEfforts: Object.fromEntries(model.responsesReasoningEfforts.map(level => [level, level])),
+            },
           })),
       },
     })

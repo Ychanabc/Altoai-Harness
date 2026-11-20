@@ -48,7 +48,12 @@ export interface DeepSeekCatalogModel {
   toolUpdate?: ToolUpdate
   /** Explicit site listing levels; non-off levels use the adaptive Messages wire mode. */
   messagesReasoningEfforts?: readonly MessagesReasoningEffort[]
+  /** Explicit site listing levels for Responses reasoning.effort. */
+  responsesReasoningEfforts?: readonly ResponsesReasoningEffort[]
 }
+
+/** Reasoning effort values accepted by the Responses catalog declaration. */
+export type ResponsesReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
 
 /**
  * Validated connection facts for one operation. The plugin's

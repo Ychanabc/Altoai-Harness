@@ -15,7 +15,8 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
   start: () => Promise<void>
   cancel: (id: SignInAttemptId) => Promise<void>
   close: () => void
-  useApiKey: () => void
+  /** Model setup supplies this action; standalone account sign-in does not. */
+  useApiKey?: () => void
   t: (key: AccountKey) => string
 }) {
   const [busy, setBusy] = useState(false)
@@ -60,6 +61,11 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
     } catch { setCopyResult({ messageKey: 'copyFailed' }) }
   }
   const title = error ? t('failureTitle') : active ? t('browserTitle') : expired ? t('timeoutTitle') : t('loginTitle')
+  const site = account.view?.brand !== undefined
+  const introKey = useApiKey === undefined
+    ? (site ? 'siteAccountLoginDescription' : 'accountLoginDescription')
+    : (site ? 'siteLoginDescription' : 'loginDescription')
+  const secondaryAction = active ? dismiss : useApiKey
   return <Modal open headless title={title} onClose={dismiss} className={css.dialog as string}>
     <div className={css.content}>
       <div className={css.header}>
@@ -75,12 +81,12 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
           {t(copyResult?.messageKey ?? 'copyLink')}
         </button>{t('browserDescription')}
       </p> : <p className={css.description}>
-        {error ? t(failureKey) : expired ? t('timeoutDescription') : account.view?.brand !== undefined ? t('siteLoginDescription') : t('loginDescription')}
+        {error ? t(failureKey) : expired ? t('timeoutDescription') : t(introKey)}
       </p>}
     </div>
     <div className={css.actions}>
-      <Button variant="outline" className={css.secondaryButton} disabled={committing || busy}
-        onClick={active ? dismiss : useApiKey}>{t(active ? 'cancel' : 'addApiKey')}</Button>
+      {secondaryAction && <Button variant="outline" className={css.secondaryButton} disabled={committing || busy}
+        onClick={secondaryAction}>{t(active ? 'cancel' : 'addApiKey')}</Button>}
       <Button variant="primary" className={css.primaryButton} disabled={busy || committing || waiting || account.view === undefined}
         aria-label={waiting ? t('waiting') : undefined} onClick={() => { void run(retry) }}>
         {waiting ? <IconLoadingOutlineRegular className={css.spinner} /> : t(expired || error ? 'retry' : 'signIn')}

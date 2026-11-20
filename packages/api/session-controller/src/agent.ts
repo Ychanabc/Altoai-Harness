@@ -284,6 +284,15 @@ export class ApiSessionAgentController {
     }
   }
 
+  /**
+   * Check whether Workspace deletion owns the Session teardown.
+   * @param sessionId - disposing Session identity.
+   * @returns whether durable deletion has not yet settled.
+   */
+  isDeleting(sessionId: SessionId): boolean {
+    return this.deleting.has(sessionId)
+  }
+
   private deletionInProgress(sessionId: SessionId): ApiSessionAgentError {
     return new RemoteError('session/agent-busy', `session "${sessionId}" is being deleted`, { reason: 'session deletion in progress' })
   }
@@ -298,6 +307,7 @@ export class ApiSessionAgentController {
         if (this.handles.get(sessionId) === handle) this.handles.delete(sessionId)
       }
       await next()
+      this.ctx.emit('api-session/deleted', sessionId)
     } finally {
       this.deleting.delete(sessionId)
     }

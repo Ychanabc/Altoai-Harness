@@ -98,6 +98,11 @@ export interface UiWorkspace {
    */
   archiveSession(sessionId: SessionId, options?: { readonly stopActivity?: boolean }): Promise<void>
   /**
+   * Permanently delete a Session and clear it if it is still selected on success.
+   * @param sessionId - Session to delete.
+   */
+  deleteSession(sessionId: SessionId): Promise<void>
+  /**
    * Unarchive a Session, restoring it to its recorded Workspace position.
    * @param sessionId - Session to unarchive.
    */
@@ -393,6 +398,11 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     if (this.mainReference?.sessionId === sessionId) this.clearMain()
   }
 
+  async deleteSession(sessionId: SessionId): Promise<void> {
+    await this.workspaces.deleteSession(sessionId)
+    this.clearDeletedSession(sessionId)
+  }
+
   async unarchiveSession(sessionId: SessionId): Promise<void> {
     await this.workspaces.unarchiveSession(sessionId)
   }
@@ -510,6 +520,14 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       if (!signal.aborted) this.notify({ kind: 'defaultWorkspaceFailed' })
       return undefined
     }
+  }
+
+  /**
+   * Clear the main view if it still shows this permanently deleted Session.
+   * @param sessionId - identity from a committed deletion.
+   */
+  clearDeletedSession(sessionId: SessionId): void {
+    if (!this.lifetime.signal.aborted && this.mainReference?.sessionId === sessionId) this.clearMain()
   }
 
   /** @returns true when an archived current selection was cleared. */

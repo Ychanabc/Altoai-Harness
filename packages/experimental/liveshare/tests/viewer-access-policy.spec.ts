@@ -60,7 +60,7 @@ const SESSION_READS = [
   'workspace/follow',
 ] as const
 const SESSION_EVENTS = [
-  'event:api-session/activity', 'event:api-session/added', 'event:api-session/error',
+  'event:api-session/activity', 'event:api-session/added', 'event:api-session/deleted', 'event:api-session/error',
   'event:api-session/removed', 'event:api-session/status',
 ] as const
 

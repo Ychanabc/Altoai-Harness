@@ -5617,6 +5617,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'summary', description: 'current list row for the Session.' }],
   },
   {
+    name: 'api-session/deleted',
+    mode: 'emit',
+    signature: '\'api-session/deleted\'(sessionId: SessionId): void',
+    summary: 'A Workspace operation committed permanent Session deletion.',
+    description: 'A Workspace operation committed permanent Session deletion.',
+    parameters: [{ name: 'sessionId', description: 'permanently deleted Session identity.' }],
+  },
+  {
     name: 'api-session/error',
     mode: 'emit',
     signature: '\'api-session/error\'(sessionId: SessionId, message: string): void',

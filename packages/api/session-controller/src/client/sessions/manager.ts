@@ -680,10 +680,11 @@ export class SessionManager {
   /**
    * Apply one Session removal forwarded through `ctx.remote.$on`.
    * @param sessionId - removed Session identity.
+   * @param permanent - whether the log was deleted; defaults to a live registry removal only.
    */
-  handleSessionRemoved(sessionId: SessionId): void {
-    const durableSubagent = this.subagentAddress(sessionId) !== undefined
-      || this.summaries.some(summary => summary.sessionId === sessionId && summary.origin === 'subagent')
+  handleSessionRemoved(sessionId: SessionId, permanent = false): void {
+    const durableSubagent = !permanent && (this.subagentAddress(sessionId) !== undefined
+      || this.summaries.some(summary => summary.sessionId === sessionId && summary.origin === 'subagent'))
     this.recordMutation(durableSubagent
       ? { kind: 'status', sessionId, running: false, agentAvailable: false }
       : { kind: 'remove', sessionId })

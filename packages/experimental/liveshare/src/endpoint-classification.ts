@@ -270,6 +270,7 @@ export const VIEWER_ENDPOINT_CLASSES = {
 export const VIEWER_FORWARDED_EVENTS = [
   'event:api-session/activity',
   'event:api-session/added',
+  'event:api-session/deleted',
   'event:api-session/error',
   'event:api-session/removed',
   'event:api-session/status',

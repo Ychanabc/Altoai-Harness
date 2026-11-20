@@ -32,6 +32,8 @@ export const en = {
   siteManageWallet: 'Manage wallet',
 
   siteLoginDescription: 'Sign in to your website account or add an API key. Projects and files stay on this device.',
+  siteAccountLoginDescription: 'Sign in to your website account. Projects and files stay on this device.',
+  accountLoginDescription: 'Sign in to your DeepSeek account to get started. Your projects and files are stored locally.',
   siteSignOutDescription: 'Signing out removes the account credential from this device only. Website sessions and issued API keys are not revoked; manage or revoke them on the website.',
   siteAccountDescription: 'Balance and notifications are managed on the website.',
   siteDocs: 'Documentation',
@@ -100,6 +102,8 @@ export const zh: Record<AccountKey, string> = {
   siteManageWallet: '管理钱包',
 
   siteLoginDescription: '登录网站账号或添加 API Key，项目和文件保存在本机',
+  siteAccountLoginDescription: '登录网站账号。你的项目和文件保存在本地。',
+  accountLoginDescription: '登录 Altoai 账号即可开始使用。你的项目和文件保存在本地。',
   siteSignOutDescription: '退出仅移除本机账号凭据，不会撤销网站会话或已签发的 API Key；请前往网站管理或撤销授权',
   siteAccountDescription: '余额和通知请前往网站查看',
   siteDocs: '使用文档',
@@ -167,6 +171,8 @@ export const ja = {
   siteManageWallet: 'Manage wallet',
 
   siteLoginDescription: 'サイトのアカウントにログインするか、API Key を追加してください。プロジェクトとファイルはこの端末に保存されます。',
+  siteAccountLoginDescription: 'サイトのアカウントにログインしてください。プロジェクトとファイルはこの端末に保存されます。',
+  accountLoginDescription: 'DeepSeek アカウントにログインして開始します。プロジェクトとファイルはローカルに保存されます。',
   siteSignOutDescription: 'ログアウトはこの端末の認証情報のみ削除します。サイトのセッションや発行済み API Key は失効しません。サイトで管理または取り消してください。',
   siteAccountDescription: '残高と通知はサイトで確認してください。',
   siteDocs: 'ドキュメント',
@@ -259,6 +265,8 @@ export const es = {
   siteManageWallet: 'Manage wallet',
 
   siteLoginDescription: 'Inicia sesión en tu cuenta del sitio o añade una API Key. Los proyectos y archivos se guardan en este dispositivo.',
+  siteAccountLoginDescription: 'Inicia sesión en tu cuenta del sitio. Los proyectos y archivos se guardan en este dispositivo.',
+  accountLoginDescription: 'Inicia sesión en tu cuenta de DeepSeek para empezar. Tus proyectos y archivos se guardan en este dispositivo.',
   siteSignOutDescription: 'Cerrar sesión solo elimina las credenciales de este dispositivo. No revoca las sesiones del sitio ni las API Keys emitidas; gestiónalas o revócalas en el sitio.',
   siteAccountDescription: 'Consulta el saldo y las notificaciones en el sitio.',
   siteDocs: 'Documentación',
@@ -326,6 +334,8 @@ export const fr = {
   siteManageWallet: 'Manage wallet',
 
   siteLoginDescription: 'Connectez-vous à votre compte du site ou ajoutez une API Key. Les projets et fichiers restent sur cet appareil.',
+  siteAccountLoginDescription: 'Connectez-vous à votre compte sur le site. Les projets et fichiers restent sur cet appareil.',
+  accountLoginDescription: 'Connectez-vous à votre compte DeepSeek pour commencer. Vos projets et fichiers restent sur cet appareil.',
   siteSignOutDescription: 'La déconnexion supprime uniquement les identifiants de cet appareil. Les sessions du site et les API Keys émises ne sont pas révoquées ; gérez-les ou révoquez-les sur le site.',
   siteAccountDescription: 'Consultez le solde et les notifications sur le site.',
   siteDocs: 'Documentation',
@@ -393,6 +403,8 @@ export const de = {
   siteManageWallet: 'Manage wallet',
 
   siteLoginDescription: 'Melde dich mit deinem Website-Konto an oder füge einen API Key hinzu. Projekte und Dateien bleiben auf diesem Gerät.',
+  siteAccountLoginDescription: 'Melde dich mit deinem Website-Konto an. Projekte und Dateien bleiben auf diesem Gerät.',
+  accountLoginDescription: 'Melden Sie sich bei Ihrem DeepSeek-Konto an, um loszulegen. Ihre Projekte und Dateien werden lokal gespeichert.',
   siteSignOutDescription: 'Die Abmeldung entfernt nur die Zugangsdaten auf diesem Gerät. Website-Sitzungen und ausgestellte API Keys werden nicht widerrufen; verwalte oder widerrufe sie auf der Website.',
   siteAccountDescription: 'Guthaben und Benachrichtigungen findest du auf der Website.',
   siteDocs: 'Dokumentation',
@@ -460,6 +472,8 @@ export const ru = {
   siteManageWallet: 'Manage wallet',
 
   siteLoginDescription: 'Войдите в аккаунт сайта или добавьте API Key. Проекты и файлы остаются на этом устройстве.',
+  siteAccountLoginDescription: 'Войдите в аккаунт сайта. Проекты и файлы остаются на этом устройстве.',
+  accountLoginDescription: 'Войдите в аккаунт DeepSeek, чтобы начать. Ваши проекты и файлы хранятся на этом устройстве.',
   siteSignOutDescription: 'Выход удаляет данные входа только с этого устройства. Сеансы сайта и выданные API Keys не отзываются; управляйте ими или отзовите их на сайте.',
   siteAccountDescription: 'Баланс и уведомления доступны на сайте.',
   siteDocs: 'Документация',
@@ -527,6 +541,8 @@ export const pt = {
   siteManageWallet: 'Manage wallet',
 
   siteLoginDescription: 'Entre na sua conta do site ou adicione uma API Key. Os projetos e arquivos ficam neste dispositivo.',
+  siteAccountLoginDescription: 'Entre na sua conta do site. Os projetos e arquivos ficam neste dispositivo.',
+  accountLoginDescription: 'Entre na sua conta DeepSeek para começar. Seus projetos e arquivos ficam neste dispositivo.',
   siteSignOutDescription: 'Sair remove apenas as credenciais deste dispositivo. As sessões do site e as API Keys emitidas não são revogadas; gerencie ou revogue-as no site.',
   siteAccountDescription: 'Consulte o saldo e as notificações no site.',
   siteDocs: 'Documentação',

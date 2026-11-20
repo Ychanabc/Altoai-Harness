@@ -412,9 +412,10 @@ export class ClientSessions implements ISessions {
   /**
    * Apply one remotely forwarded Session removal.
    * @param sessionId - removed Session identity.
+   * @param permanent - whether to remove a durable subagent row as well as an ordinary row; defaults to false.
    */
-  handleSessionRemoved(sessionId: Parameters<SessionManager['handleSessionRemoved']>[0]): void {
-    this.manager.handleSessionRemoved(sessionId)
+  handleSessionRemoved(sessionId: SessionId, permanent = false): void {
+    this.manager.handleSessionRemoved(sessionId, permanent)
   }
 
   /**

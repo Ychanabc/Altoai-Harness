@@ -114,3 +114,5 @@ HTTP 或解码失败会清空站点目录，并在提供方目录中公布错误
 ### 开发备注
 
 注册与鉴权的测试也覆盖共享传输包中的 Loader 组合场景。
+
+对于 Responses 模型，本站目录可声明 `responses_reasoning_efforts`。输入框提供声明的档位，并将明确选择的档位作为 `reasoning.effort` 发送，不根据模型名称推断档位。

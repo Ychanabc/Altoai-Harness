@@ -48,13 +48,15 @@ it('uses a persisted site grant only for Messages models and never for dashboard
         return new Response(JSON.stringify({ data: [
           { id: 'site-text', supported_endpoint_types: ['anthropic'] },
           { id: 'site-reasoner', supported_endpoint_types: ['openai', 'anthropic'], messages_reasoning_efforts: ['high', 'off', 'medium', 'max', 'unknown', 'medium', {}] },
-          { id: 'openai-only', supported_endpoint_types: ['openai'] },
+          { id: 'openai-only', supported_endpoint_types: ['openai-response'],
+            responses_reasoning_efforts: ['high', 'invalid', 'medium', 'medium'] },
           { id: 'undeclared' },
         ] }))
       case '/v1/responses': {
         expect(request.headers.get('authorization')).toBe('Bearer site-relay-key')
-        const body = await request.json()
-        expect(body.model).toBe('openai-only')
+        const body: unknown = await request.json()
+        expect(body).toMatchObject({ model: 'openai-only' })
+        if (!responsesRejected) expect(body).toMatchObject({ reasoning: { effort: 'high' } })
         if (responsesRejected) return Response.json({ error: { message: 'route is unavailable' } }, { status: 403 })
         const item = { type: 'message', id: 'site-reply', role: 'assistant', content: [{ type: 'output_text', text: 'Hello 世界', annotations: [] }] }
         return new Response(sse([
@@ -69,10 +71,10 @@ it('uses a persisted site grant only for Messages models and never for dashboard
       case '/v1/messages':
         expect(request.headers.get('authorization')).toBe('Bearer site-relay-key')
         expect(request.headers.get('anthropic-version')).toBe('2023-06-01')
-        const body = await request.json()
+        const body: unknown = await request.json()
         if (rejection === 'relay') return Response.json({ error: { type: 'new_api_error', code: 'invalid_relay_token', message: 'untrusted error detail' } }, { status: 401 })
         if (rejection === 'upstream') return Response.json({ type: 'error', error: { type: 'authentication_error', message: 'untrusted error detail' } }, { status: 401 })
-        if (body.model === 'site-reasoner') {
+        if (typeof body === 'object' && body !== null && 'model' in body && body.model === 'site-reasoner') {
           expect(body).toMatchObject({ thinking: { type: 'adaptive' }, output_config: { effort: 'medium' } })
         } else {
           expect(body).toMatchObject({ model: 'site-text', max_tokens: 4096, thinking: { type: 'disabled' } })
@@ -137,12 +139,16 @@ it('uses a persisted site grant only for Messages models and never for dashboard
   for (const model of ['undeclared', 'not-listed']) {
     expect((await infer(first, model)).at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'error', failure: { code: 'MODEL_UNSUPPORTED' } } })
   }
-  const openai = await infer(first, 'openai-only')
-  expect(openai).toContainEqual(expect.objectContaining({ type: 'block-end', block: { type: 'text', text: 'Hello 世界' } }))
+  const responsesInfo = await first.llm.resolveModelInfo('deepseek-account', 'openai-only')
+  expect(responsesInfo.reasoning?.efforts.map(effort => effort.id)).toEqual(['medium', 'high'])
+  const openai = await chunks(first.llm.stream({ provider: 'deepseek-account', model: 'openai-only',
+    reasoningEffort: brandString<ReasoningEffortId>('high'), messages: [user()] }))
+  expect(openai.some(event => event.type === 'block-end' && event.block.type === 'text' && event.block.text === 'Hello 世界')).toBe(true)
   expect(requests.filter(request => new URL(request.url).pathname === '/v1/responses')).toHaveLength(1)
   responsesRejected = true
   const responseFailure = (await infer(first, 'openai-only')).at(-1)
-  expect(responseFailure).toMatchObject({ reason: { kind: 'error', failure: { code: 'AUTH', message: expect.stringContaining('route') } } })
+  expect(responseFailure).toMatchObject({ reason: { kind: 'error', failure: { code: 'AUTH' } } })
+  expect(JSON.stringify(responseFailure)).toContain('route')
   expect(JSON.stringify(responseFailure)).not.toContain('credential in Models settings')
   expect(await first.deepseekAccount.getState()).toMatchObject({ status: 'credential-stored' })
   responsesRejected = false
@@ -157,7 +163,8 @@ it('uses a persisted site grant only for Messages models and never for dashboard
   expect(requests.filter(request => new URL(request.url).pathname === '/v1/messages')).toHaveLength(2)
   rejection = 'upstream'
   const failure = (await infer(first)).at(-1)
-  expect(failure).toMatchObject({ reason: { kind: 'error', failure: { code: 'AUTH', status: 401, message: expect.stringContaining('Your site sign-in is unchanged') } } })
+  expect(failure).toMatchObject({ reason: { kind: 'error', failure: { code: 'AUTH', status: 401 } } })
+  expect(JSON.stringify(failure)).toContain('Your site sign-in is unchanged')
   expect(JSON.stringify(failure)).not.toContain('untrusted error detail')
   expect(await first.deepseekAccount.getState()).toMatchObject({ status: 'credential-stored' })
   rejection = undefined

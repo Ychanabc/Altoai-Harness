@@ -114,3 +114,5 @@ Credentials and catalog availability do not enter model input; the protocol tran
 ### Dev Note
 
 Registration and authentication tests also cover the Loader composition in the shared transport package.
+
+For Responses models, the site catalog can declare `responses_reasoning_efforts`. The composer offers the declared levels and sends an explicit choice as `reasoning.effort`; it does not infer levels from the model name.

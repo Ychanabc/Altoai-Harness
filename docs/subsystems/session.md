@@ -1292,6 +1292,25 @@ A Session became visible or its Agent was created or disposed. Consumers upsert 
 
 Source: [`packages/api/session-controller/src/types.ts`](../../packages/api/session-controller/src/types.ts)
 
+<a id="api-sessiondeleted--emit"></a>
+
+#### `api-session/deleted` — emit
+
+A Workspace operation committed permanent Session deletion.
+
+```ts cordis-catalog
+/**
+ * A Workspace operation committed permanent Session deletion.
+ * @mode emit
+ * @param sessionId - permanently deleted Session identity.
+ */
+'api-session/deleted'(sessionId: SessionId): void
+```
+
+Types: [SessionId](core.md)
+
+Source: [`packages/api/session-controller/src/types.ts`](../../packages/api/session-controller/src/types.ts)
+
 <a id="api-sessionerror--emit"></a>
 
 #### `api-session/error` — emit

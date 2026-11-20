@@ -72,6 +72,29 @@ describe('Session Controller Client apply', () => {
     await vi.waitFor(() => { expect(connected).toHaveBeenCalledTimes(2) })
   }, COLD_BOOT_TIMEOUT_MS)
 
+  it('keeps a committed deletion out of a delayed list without hiding another ungrouped conversation', async ({ mock, start }) => {
+    const deleted = sid('deleted')
+    const kept = sid('kept')
+    const items = [deleted, kept].map(sessionId => ({
+      sessionId, cwd: '/project', updatedAt: 1, running: false, blank: false, agentAvailable: false,
+    }))
+    mock.remote.session.list.mockResolvedValue(ok({ items }))
+    const { sessions } = await bench(start)
+    await vi.waitFor(() => { expect(sessions.list.getSnapshot().ids).toEqual([deleted, kept]) })
+
+    const delayed = Promise.withResolvers<RemoteResult<SessionListValue>>()
+    mock.remote.session.list.mockReturnValueOnce(delayed.promise)
+    const refresh = sessions.refresh()
+    try {
+      await emit(mock, 'api-session/deleted', deleted)
+      await vi.waitFor(() => { expect(sessions.list.getSnapshot().ids).toEqual([kept]) })
+    } finally {
+      delayed.resolve(ok({ items }))
+      await refresh
+    }
+    expect(sessions.list.getSnapshot().ids).toEqual([kept])
+  }, COLD_BOOT_TIMEOUT_MS)
+
   it('runs handleConnected at apply when the Host is already connected, as a reload of the row does', async ({ start }) => {
     const connected = vi.spyOn(ClientSessions.prototype, 'handleConnected')
     const { client } = await bench(start)

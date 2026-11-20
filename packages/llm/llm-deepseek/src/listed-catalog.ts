@@ -79,6 +79,7 @@ function listed(base: DeepSeekCatalogModel, entry: ListingEntry, facts: ListedFa
     ...facts.toolUpdate === undefined || facts.toolUpdate === 'leading-only' ? {} : { toolUpdate: facts.toolUpdate },
     inputModalities: [...facts.inputModalities],
     ...facts.messagesReasoningEfforts === undefined ? {} : { messagesReasoningEfforts: facts.messagesReasoningEfforts },
+    ...facts.responsesReasoningEfforts === undefined ? {} : { responsesReasoningEfforts: facts.responsesReasoningEfforts },
   })
 }
 

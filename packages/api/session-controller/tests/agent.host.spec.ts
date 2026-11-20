@@ -138,16 +138,26 @@ describe('ApiSession Agent lookup and recovery', () => {
     const deleted = await agents.createSession({ cwd, reusable: () => false })
     const kept = await agents.createSession({ cwd, reusable: () => false })
     const id = deleted.agent.id
+    const notify = vi.fn()
+    ctx.on('api-session/deleted', notify)
     await ctx.sessionPersistence.flush()
     await expect(ctx.sessionPersistence.delete(id)).rejects.toThrow('open persistence handle')
     await ctx.waterfall('workspace/session-delete', { sessionId: id }, async () => {
       expect(ctx.agents.get(id)).toBeUndefined()
       expect(ctx.sessions.get(id)).toBeUndefined()
       await expect(ctx.sessionPersistence.delete(id)).resolves.toBe(true)
+      expect(notify).not.toHaveBeenCalled()
     })
+    expect(notify).toHaveBeenCalledExactlyOnceWith(id)
     await expect(ctx.sessionPersistence.stat(id)).resolves.toBeUndefined()
     await expect(agents.resolveAgent(id)).resolves.toMatchObject({ error: { code: 'session/not-found' } })
     await expect(agents.resolveAgent(kept.agent.id)).resolves.toEqual({ agent: kept.agent })
+    const failure = new Error('storage unavailable')
+    await expect(ctx.waterfall('workspace/session-delete', { sessionId: kept.agent.id }, async () => {
+      throw failure
+    })).rejects.toBe(failure)
+    expect(notify).toHaveBeenCalledExactlyOnceWith(id)
+    await expect(ctx.sessionPersistence.stat(kept.agent.id)).resolves.toBeDefined()
   })
 
   it('drains a racing resume and refuses another activation until permanent deletion settles', async () => {

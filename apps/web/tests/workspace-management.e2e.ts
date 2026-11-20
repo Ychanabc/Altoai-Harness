@@ -1041,6 +1041,55 @@ describe('web e2e: workspace management (create / rename / grouping / hover affo
   })
 })
 
+describe('web e2e: permanent conversation deletion', () => {
+  it('clears the open conversation and keeps another ungrouped conversation', async () => {
+    const scaffold = await launchWebScaffold({})
+    let browser: Browser | undefined
+    try {
+      const fixture = await readFile(SEED, 'utf8')
+      const deleted = await seedSession(scaffold, fixture, 'permanent-delete-target')
+      const kept = await seedSession(scaffold, fixture, 'permanent-delete-survivor')
+      const workspace = await scaffold.ctx.workspaceRegistry.create(scaffold.workspaceCwd, 'Delete regression')
+      await workspace.attachSession(deleted)
+      browser = await chromium.launch()
+      const page = await newEnglishPage(browser)
+      const tripwire = watchConsole(page)
+      onTestFailed(() => saveFailureShot(page, 'web-e2e-permanent-conversation-delete'))
+
+      await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+      const tree = page.getByRole('tree', { name: 'Sessions', exact: true })
+      const group = tree.getByRole('treeitem', { name: /Delete regression/ })
+      const groupSection = group.locator('xpath=ancestor::*[contains(@class, "groupSection")][1]')
+      const ungrouped = tree.getByRole('treeitem', { name: /Ungrouped/ })
+      const ungroupedSection = ungrouped.locator('xpath=ancestor::*[contains(@class, "groupSection")][1]')
+      const row = groupSection.getByRole('treeitem', { name: /^(Use the read tool twice|Untitled)/ })
+      if (await group.getAttribute('aria-expanded') !== 'true') await group.click()
+      await row.click()
+      await page.locator(`[data-conversation-session="${deleted}"]`).waitFor()
+      await page.getByRole('tab', { name: 'Chat', exact: true }).waitFor()
+      await row.click({ button: 'right' })
+      await page.getByRole('menuitem', { name: 'Permanently delete conversation' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Delete conversation' })
+      await dialog.getByRole('button', { name: 'Delete conversation' }).click()
+      await dialog.waitFor({ state: 'hidden' })
+
+      await page.locator(`[data-conversation-session="${deleted}"]`).waitFor({ state: 'detached' })
+      await expect.poll(() => tree.locator('[role="treeitem"][aria-selected="true"]').count()).toBe(0)
+      if (await ungrouped.getAttribute('aria-expanded') !== 'true') await ungrouped.click()
+      const survivor = ungroupedSection.getByRole('treeitem', { name: /^(Use the read tool twice|Untitled)/ })
+      await expect.poll(() => survivor.count()).toBe(1)
+      await survivor.click()
+      await page.locator(`[data-conversation-session="${kept}"]`).waitFor()
+      expect(await scaffold.ctx.sessionPersistence.stat(deleted)).toBeUndefined()
+      expect(await scaffold.ctx.sessionPersistence.stat(kept)).toBeDefined()
+      expect(tripwire.pageErrors).toEqual([])
+    } finally {
+      await browser?.close()
+      await scaffold.close()
+    }
+  }, 90_000)
+})
+
 describe('web e2e: New Session after an outdated blank cache', () => {
   it('returns to the startup blank instead of reusing the recorded conversation', async () => {
     const scaffold = await launchWebScaffold({})

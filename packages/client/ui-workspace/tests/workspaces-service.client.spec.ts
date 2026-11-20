@@ -199,7 +199,7 @@ class FakeWorkspaces implements IWorkspaces {
   declare readonly create: IWorkspaces['create']
   declare readonly rename: IWorkspaces['rename']
   declare readonly delete: IWorkspaces['delete']
-  async deleteSession(_sessionId: SessionId): Promise<void> {}
+  readonly deleteSession = vi.fn<IWorkspaces['deleteSession']>(async () => {})
   declare readonly insertBefore: IWorkspaces['insertBefore']
   declare readonly insertSessionBefore: IWorkspaces['insertSessionBefore']
   readonly pinCalls: SessionId[] = []
@@ -1610,6 +1610,44 @@ describe('UiWorkspaceService', () => {
 
     expect(b.sessions.retained[0]!.release).toHaveBeenCalledOnce()
     expect(b.selectPanel).toHaveBeenCalledTimes(2)
+  })
+
+  it('preserves the current view on failed deletion and clears the saved selection on success', async () => {
+    const sessionId = sid('current')
+    const saved = persistSelection({})
+    const b = bench()
+    b.uiWorkspace.openSession(sessionId)
+    b.workspaces.deleteSession.mockRejectedValueOnce(new Error('delete rejected'))
+
+    await expect(b.uiWorkspace.deleteSession(sessionId)).rejects.toThrow('delete rejected')
+    expect(b.sessions.retained[0]!.release).not.toHaveBeenCalled()
+    expect(saved.get('dsh.sessions.current')).toBe(JSON.stringify({ sessionId }))
+
+    await b.uiWorkspace.deleteSession(sessionId)
+    expect(b.workspaces.deleteSession).toHaveBeenLastCalledWith(sessionId)
+    expect(b.sessions.retained[0]!.release).toHaveBeenCalledOnce()
+    expect(saved.get('dsh.sessions.current')).toBe('{}')
+  })
+
+  it('does not clear a different conversation opened while deletion was pending', async () => {
+    const current = sid('current')
+    const other = sid('other')
+    const saved = persistSelection({})
+    const b = bench()
+    const deleting = Promise.withResolvers<undefined>()
+    b.workspaces.deleteSession.mockReturnValueOnce(deleting.promise)
+    b.uiWorkspace.openSession(current)
+    const result = b.uiWorkspace.deleteSession(current)
+
+    b.uiWorkspace.openSession(other)
+    b.uiWorkspace.clearDeletedSession(current)
+    deleting.resolve(undefined)
+    await result
+    expect(b.sessions.retained[1]!.release).not.toHaveBeenCalled()
+    expect(saved.get('dsh.sessions.current')).toBe(JSON.stringify({ sessionId: other }))
+
+    b.uiWorkspace.clearDeletedSession(other)
+    expect(b.sessions.retained[1]!.release).toHaveBeenCalledOnce()
   })
 
   it('forwards archive commands and preserves failures', async () => {

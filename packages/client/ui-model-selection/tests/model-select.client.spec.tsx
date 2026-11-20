@@ -1115,6 +1115,19 @@ describe('ModelSelect search', () => {
   })
 })
 
+it('explains unavailable reasoning instead of hiding the entry for a selected model', () => {
+  const groups = [{ id: 'deepseek-account', name: 'Altoai Official Models', models: [{ id: 'plain', name: 'Plain' }] }]
+  const directory = createSnapshotStore(state({ groups, current: { provider: 'deepseek-account', model: 'plain' } }))
+  const select = vi.fn()
+  render(<ModelSelect renderSlot={renderLabel} locked={false} available directory={directory}
+    load={vi.fn()} resolveText={resolveText} select={select} t={t} />)
+  fireEvent.click(screen.getByRole('button', { name: /^选择模型/ }))
+  fireEvent.click(screen.getByRole('menuitem', { name: zh['menu.effort'] }))
+  expect(screen.getByText(zh['empty.efforts'])).toBeTruthy()
+  expect(screen.queryByRole('menuitemradio')).toBeNull()
+  expect(select).not.toHaveBeenCalled()
+})
+
 it('hides the inherited effort until a listed model is selected', async () => {
   const directory = createSnapshotStore<ModelDirectoryState>(state({ current: null, routable: false, retainedEffort: 'High' }))
   render(<ModelSelect renderSlot={renderLabel} locked={false} available directory={directory} load={vi.fn()}

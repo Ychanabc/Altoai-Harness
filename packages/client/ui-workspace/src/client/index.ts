@@ -167,6 +167,7 @@ export function apply(ctx: Context, config: SyncedConfig<WorkspaceNavigationConf
   const uiWorkspace = new UiWorkspaceService(
     ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify, config.recentViewLimit,
   )
+  ctx.remote.$on('api-session/deleted', (sessionId) => { uiWorkspace.clearDeletedSession(sessionId) })
   ctx.slots.provideRoot({
     hooks: { workspaces: workspaces.list },
     keyedHooks: {
@@ -363,7 +364,7 @@ export function apply(ctx: Context, config: SyncedConfig<WorkspaceNavigationConf
     notifyArchivedNotOpenable: () => { notify({ kind: 'archivedNotOpenable' }) },
     renameWorkspace: async (workspaceId, title) => { await workspaces.rename(workspaceId, title) },
     deleteWorkspace: async (workspaceId) => { await workspaces.delete(workspaceId) },
-    deleteSession: async (sessionId) => { await workspaces.deleteSession(sessionId) },
+    deleteSession: sessionId => uiWorkspace.deleteSession(sessionId),
     insertWorkspaceBefore: async (workspaceId, beforeWorkspaceId) => {
       await workspaces.insertBefore(workspaceId, beforeWorkspaceId)
     },

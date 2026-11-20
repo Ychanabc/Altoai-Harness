@@ -77,7 +77,8 @@ const effortLocaleKeys = {
 } satisfies Record<string, ModelKey>
 
 function localizedEffort(t: PropsLocale<'model'>['t'], effort: ModelReasoningEffort): string {
-  const key = effortLocaleKeys[effort.id as keyof typeof effortLocaleKeys]
+  const keys: Partial<Record<string, ModelKey>> = effortLocaleKeys
+  const key = keys[effort.id]
   return key === undefined ? effort.name : t(key)
 }
 
@@ -593,10 +594,10 @@ export function ModelSelect(
                 </span>
                 <IconChevronRightOutlineRegular className={css.cellChevron} />
               </button>
-              {reasoning !== undefined && (
+              {currentChoice !== undefined && (
                 <button ref={itemRef()} type="button" role="menuitem" className={css.cell} onClick={() => { drill(EFFORT_PANE) }}>
                   <span className={css.cellLabel}>{t('menu.effort')}</span>
-                  <span className={css.cellValue}>{effortLabel}</span>
+                  <span className={css.cellValue}>{reasoning === undefined ? undefined : effortLabel}</span>
                   <IconChevronRightOutlineRegular className={css.cellChevron} />
                 </button>
               )}

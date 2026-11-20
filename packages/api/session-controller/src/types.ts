@@ -676,6 +676,12 @@ declare module '@deepseek-ai/cordis' {
      */
     'api-session/added'(summary: SessionSummary): void
     /**
+     * A Workspace operation committed permanent Session deletion.
+     * @mode emit
+     * @param sessionId - permanently deleted Session identity.
+     */
+    'api-session/deleted'(sessionId: SessionId): void
+    /**
      * A Session left the live Host registry.
      * @mode emit
      * @param sessionId - removed Session identity.

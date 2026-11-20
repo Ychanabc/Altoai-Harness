@@ -602,7 +602,7 @@ it('reports a rejected settings login and disables login while initial state is 
   expect(screen.getByRole('status').textContent).toBe(en.failed)
 })
 
-it('dismisses a collapsed menu and hands its login dialog to the API-key onboarding step', async () => {
+it('dismisses a collapsed menu and keeps its login dialog sign-in only', async () => {
   const operations = mount({ status: 'credential-stored', attempt: null }, en, { profile: { status: 'failed' } })
   cleanup()
   const { AccountMenu } = await import('../src/client/AccountMenu.tsx')
@@ -622,8 +622,9 @@ it('dismisses a collapsed menu and hands its login dialog to the API-key onboard
   view.rerender(<AccountMenu {...props} />)
   fireEvent.click(screen.getByRole('button', { name: en.close }))
   expect(operations.showLogin).toHaveBeenLastCalledWith(false)
-  fireEvent.click(screen.getByRole('button', { name: en.addApiKey }))
-  expect(openOnboarding).toHaveBeenCalledExactlyOnceWith('deepseek-official')
+  expect(screen.getByRole('button', { name: en.signIn })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: en.addApiKey })).toBeNull()
+  expect(openOnboarding).not.toHaveBeenCalled()
   snapshot = { ...snapshot, onboarding: true }
   view.rerender(<AccountMenu {...props} />)
   expect(screen.queryByRole('dialog')).toBeNull()

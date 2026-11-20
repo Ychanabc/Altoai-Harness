@@ -362,7 +362,7 @@ async function mountDeepSeekCard(overrides: Parameters<typeof scriptedFace>[0] =
 }
 
 describe('site model settings', () => {
-  it('shows official catalog models by default and keeps existing third-party provider actions reachable', async () => {
+  it('shows official models by default and opens the API key editor for an existing third-party provider', async () => {
     const { view, controller, face } = await mountSection()
     act(() =>{  controller.store.update((snapshot) => {
       snapshot.officialCatalog = { status: 'ready', models: [{ id: 'site-model', name: 'Site model' }] }
@@ -377,7 +377,10 @@ describe('site model settings', () => {
     fireEvent.click(screen.getByRole('tab', { name: en.thirdPartyModels }))
     expect(screen.getByRole('button', { name: en.add })).toBeTruthy()
     expect(screen.getByRole('button', { name: openaiCopy(en.editProvider) })).toBeTruthy()
-    expect(screen.getByRole('button', { name: deepSeekCopy(en.editProvider) })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: deepSeekCopy(en.editProvider) }))
+    const key = within(screen.getByRole('tabpanel', { name: en.thirdPartyModels })).getByLabelText(en.keyInput)
+    expect(key.getAttribute('type')).toBe('password')
+    expect(key.hasAttribute('disabled')).toBe(false)
   })
 
   it('reports a catalog failure separately from an unavailable catalog', async () => {
