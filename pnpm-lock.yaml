@@ -14825,6 +14825,9 @@ importers:
       '@deepseek-ai/cosmokit':
         specifier: link:../../../vendor/cosmokit
         version: link:../../../vendor/cosmokit
+      '@deepseek-ai/dsh-llm-pi-ai':
+        specifier: workspace:*
+        version: link:../llm-pi-ai
       '@deepseek-ai/schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery

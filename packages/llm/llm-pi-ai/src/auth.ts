@@ -200,6 +200,11 @@ export function credentialStoreFrom(ctx: Context): CredentialStore {
  * @param ctx - the plugin context carrying the optional `ctx.credentials`.
  * @returns the auth context to hand `createModels()`.
  */
+/** Build the durable pi-ai auth dependencies for a plugin that owns request credential selection. */
+export function authInjectionFrom(ctx: Context): { credentials: CredentialStore; authContext: AuthContext } {
+  return { credentials: credentialStoreFrom(ctx), authContext: authContextFrom(ctx) }
+}
+
 export function authContextFrom(ctx: Context): AuthContext {
   return {
     async env(name) {

@@ -277,7 +277,7 @@ it('accepts an explicitly empty site catalog but rejects failed envelopes and ma
   expect(() => parseModelListing({ data: [{ id: '' }] }, 'site')).toThrow(/no model entry/)
 })
 
-it('requires explicit anthropic endpoint metadata regardless of model name or owner', () => {
+it('accepts catalog-declared OpenAI or Anthropic endpoint metadata regardless of model name or owner', () => {
   const entries = parseModelListing({ success: true, object: 'list', data: [
     { id: 'claude-openai', owned_by: 'anthropic', supported_endpoint_types: ['openai'] },
     { id: 'custom-messages', owned_by: 'custom', supported_endpoint_types: ['anthropic', 'openai'] },

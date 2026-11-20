@@ -44,6 +44,7 @@ import type { ModelLabelOwner, ModelMenuControls, ModelMenuPaneRef, ModelSelectI
 import css from './ModelSelect.module.css'
 import { TextSearchIndex } from '@deepseek-ai/dsh-util-text-search'
 import { orderModelProviders } from './provider-order.ts'
+import type { ModelKey } from './locales.ts'
 
 /** Which pane the dropdown shows: the root menu, one drilled-in list, or a plugin-owned detail pane. */
 type Pane =
@@ -64,6 +65,20 @@ interface EffortChoice {
   key: string
   effort: string | undefined
   label: string
+}
+
+const effortLocaleKeys = {
+  off: 'effort.off',
+  low: 'effort.low',
+  medium: 'effort.medium',
+  high: 'effort.high',
+  xhigh: 'effort.xhigh',
+  max: 'effort.max',
+} satisfies Record<string, ModelKey>
+
+function localizedEffort(t: PropsLocale<'model'>['t'], effort: ModelReasoningEffort): string {
+  const key = effortLocaleKeys[effort.id as keyof typeof effortLocaleKeys]
+  return key === undefined ? effort.name : t(key)
 }
 
 function noOfficialProvider<S>(select: (value: string | undefined) => S): S { return select(undefined) }
@@ -159,7 +174,10 @@ export function ModelSelect(
       ? state.retainedEffort
       : effectiveEffort === undefined
         ? t('effort.providerDefault')
-        : reasoning.efforts.find(level => level.id === effectiveEffort)?.name ?? effectiveEffort
+        : (() => {
+          const level = reasoning.efforts.find(candidate => candidate.id === effectiveEffort)
+          return level === undefined ? effectiveEffort : localizedEffort(t, level)
+        })()
   const effortChoices = useMemo<readonly EffortChoice[]>(() => reasoning === undefined
     ? []
     : [
@@ -169,7 +187,7 @@ export function ModelSelect(
       ...reasoning.efforts.map((effort: ModelReasoningEffort) => ({
         key: `effort:${effort.id}`,
         effort: effort.id,
-        label: effort.name,
+        label: localizedEffort(t, effort),
       })),
     ], [reasoning, t])
   const { pending } = state

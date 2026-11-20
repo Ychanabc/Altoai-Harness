@@ -135,6 +135,8 @@ export interface PiAiAdapterOptions {
    * conversation report them again.
    */
   onThinkingOmitted?: (detail: { provider: string; model: string; count: number }) => void
+  /** Public diagnostic for an authentication or route failure emitted by this adapter's protocol client. */
+  authFailureMessage?: (request: { provider: string; model: string }) => string | undefined
 }
 
 /** The two auth injectables a pi-ai collection is built with. */
@@ -491,7 +493,8 @@ export class PiAiAdapter extends LlmAdapter {
           }
           const chunk = result.value
           if (chunk.type === 'finish' && chunk.reason.kind === 'error' && chunk.reason.failure.code === 'AUTH') {
-            const message = `Authentication failed for provider "${options.provider}". Check its credential in Models settings. If you meant to use the site account, select an Official site model.`
+            const message = this.config.authFailureMessage?.({ provider: options.provider, model: options.model })
+            ?? `Authentication failed for provider "${options.provider}". Check its credential in Models settings. If you meant to use the site account, select an Official site model.`
             yield { ...chunk, reason: { ...chunk.reason, failure: { ...chunk.reason.failure, message } } }
           } else {
             yield chunk

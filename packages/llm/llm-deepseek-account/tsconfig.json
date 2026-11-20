@@ -18,6 +18,9 @@
       "path": "../llm-deepseek"
     },
     {
+      "path": "../llm-pi-ai"
+    },
+    {
       "path": "../../util/launch-environment"
     },
     {

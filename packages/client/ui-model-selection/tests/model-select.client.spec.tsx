@@ -32,7 +32,19 @@ const resolveText: ComponentProps<typeof ModelSelect>['resolveText'] = text => t
 const reasoning = {
   efforts: [
     { id: 'off', name: 'Off' },
-    { id: 'high', name: 'High' },
+    { id: 'high', name: '高' },
+    { id: 'max', name: 'Max', description: 'Largest budget' },
+  ],
+  defaultEffort: 'high',
+}
+
+const siteReasoning = {
+  efforts: [
+    { id: 'off', name: 'Off' },
+    { id: 'low', name: 'Low' },
+    { id: 'medium', name: 'Medium' },
+    { id: 'high', name: '高' },
+    { id: 'xhigh', name: 'Extra high' },
     { id: 'max', name: 'Max', description: 'Largest budget' },
   ],
   defaultEffort: 'high',
@@ -256,8 +268,11 @@ describe('ModelSelect catalog badges', () => {
 })
 
 describe('ModelSelect reasoning effort', () => {
-  it('renders effort names without descriptions and submits the effort as part of the session selection', async () => {
-    const directory = createSnapshotStore<ModelDirectoryState>(state())
+  it('localizes all declared effort levels and submits Ultra as part of the session selection', async () => {
+    const directory = createSnapshotStore<ModelDirectoryState>(state({ groups: [{
+      ...state().groups[0]!,
+      models: [{ ...state().groups[0]!.models[0]!, reasoning: siteReasoning }],
+    }] }))
     const select = vi.fn(async (selection: ModelSelection) => {
       directory.set(state({ current: selection }))
       return { ok: true as const, value: undefined }
@@ -272,22 +287,22 @@ describe('ModelSelect reasoning effort', () => {
     />)
 
     const trigger = screen.getByRole('button', {
-      name: '选择模型，当前 DeepSeek-V4-Flash，推理等级 High',
+      name: '选择模型，当前 DeepSeek-V4-Flash，推理等级 高',
     })
     fireEvent.click(trigger)
     fireEvent.click(screen.getByRole('menuitem', { name: /推理等级/ }))
     expect(screen.getAllByRole('menuitemradio').map(item => item.textContent))
-      .toEqual(['Off', 'High', 'Max'])
+      .toEqual(['关闭', '低', '中', '高', '超高', 'Ultra'])
     expect(screen.queryByText('Largest budget')).toBeNull()
 
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Max/ }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Ultra' }))
     await waitFor(() => {
       expect(select).toHaveBeenCalledWith({
         provider: 'deepseek-official',
         model: 'deepseek-v4-flash',
         reasoningEffort: 'max',
       })
-      expect(trigger.getAttribute('aria-label')).toBe('选择模型，当前 DeepSeek-V4-Flash，推理等级 Max')
+      expect(trigger.getAttribute('aria-label')).toBe('选择模型，当前 DeepSeek-V4-Flash，推理等级 Ultra')
       expect(document.activeElement).toBe(trigger)
     })
   })
@@ -389,7 +404,7 @@ describe('ModelSelect reasoning effort', () => {
     directory.set(state())
     await waitFor(() => {
       expect(screen.getByRole('button', {
-        name: '选择模型，当前 DeepSeek-V4-Flash，推理等级 High',
+        name: '选择模型，当前 DeepSeek-V4-Flash，推理等级 高',
       })).toBeTruthy()
     })
   })
@@ -493,10 +508,10 @@ describe('ModelSelect reasoning effort', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /选择模型|当前/ }))
     fireEvent.click(screen.getByRole('menuitem', { name: /推理等级/ }))
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Max/ }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Ultra' }))
     expect(screen.getAllByRole('menuitemradio')
       .filter(row => row.querySelector('[data-state="ongoing"]') !== null)
-      .map(row => row.textContent)).toEqual(['Max'])
+      .map(row => row.textContent)).toEqual(['Ultra'])
   })
 
   it('anchors the body portal with CSS and closes only on truly-outside mousedown', () => {
@@ -595,8 +610,8 @@ describe('ModelSelect keyboard walk', () => {
       fireEvent.keyDown(modelCell, { key: 'ArrowDown' })
       expect(document.activeElement).toBe(effortCell)
       fireEvent.keyDown(effortCell, { key: 'Tab' })
-      const high = screen.getByRole('menuitemradio', { name: 'High' })
-      const max = screen.getByRole('menuitemradio', { name: /Max/ })
+      const high = screen.getByRole('menuitemradio', { name: '高' })
+      const max = screen.getByRole('menuitemradio', { name: 'Ultra' })
       expect(document.activeElement).toBe(high)
       fireEvent.keyDown(high, { key: 'ArrowDown' })
       expect(document.activeElement).toBe(max)
@@ -651,7 +666,7 @@ describe('ModelSelect keyboard walk', () => {
 
     fireEvent.click(screen.getByRole('menuitem', { name: /推理等级/ }))
     const rows = screen.getAllByRole('menuitemradio')
-    expect(rows.map(row => row.textContent)).toEqual(['Off', 'High', 'Max'])
+    expect(rows.map(row => row.textContent)).toEqual(['关闭', '高', 'Ultra'])
     // The pane opens on its checked row, so walking starts from High.
     fireEvent.keyDown(rows[1]!, { key: 'ArrowDown' })
     expect(document.activeElement).toBe(rows[2])
@@ -1160,11 +1175,11 @@ it('restores the account model name after login without changing the saved route
   const directory = createSnapshotStore(state({ current: selected, groups, retainedEffort: 'High' }))
   render(<ModelSelect renderSlot={renderLabel} locked={false} available directory={directory} load={vi.fn()}
     resolveText={resolveText} select={vi.fn()} t={t} />)
-  expect(screen.getByRole('button', { name: /选择模型，当前/ }).textContent).toBe('DeepSeek FlashHigh')
+  expect(screen.getByRole('button', { name: /选择模型，当前/ }).textContent).toBe('DeepSeek Flash高')
   act(() => { directory.update((snapshot) => { snapshot.groups = []; snapshot.routable = false }) })
   expect(screen.getByRole('button', { name: '请选择模型' }).textContent).toBe('请选择模型')
   act(() => { directory.update((snapshot) => { snapshot.groups = groups; snapshot.routable = true }) })
-  expect(screen.getByRole('button', { name: /选择模型，当前/ }).textContent).toBe('DeepSeek FlashHigh')
+  expect(screen.getByRole('button', { name: /选择模型，当前/ }).textContent).toBe('DeepSeek Flash高')
   expect(directory.getSnapshot().current).toEqual(selected)
 })
 

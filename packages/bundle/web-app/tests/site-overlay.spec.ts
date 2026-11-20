@@ -20,7 +20,7 @@ it('ships the site overlay last and retains Desktop platform identity', () => {
   expect(overlay).toContain("['darwin', 'win32'].includes(process.platform) ? process.platform : null")
 })
 
-it('composes the real Desktop profile with site authorization and Messages defaults', () => {
+it('composes the real Desktop profile with site authorization and account-managed compatible model routes', () => {
   const home = mkdtempSync(join(tmpdir(), 'dsh-site-profile-'))
   try {
     const profileDir = join(home, 'profiles', 'desktop')
@@ -32,8 +32,10 @@ it('composes the real Desktop profile with site authorization and Messages defau
       authProtocol: 'site-device', platformOrigin: 'https://ai.vpss.eu.cc', inferenceOrigin: 'https://ai.vpss.eu.cc',
     })
     expect(rows.find(row => row.id === 'llm-deepseek-account')?.config).toMatchObject({
-      baseURL: 'https://ai.vpss.eu.cc', catalogProtocol: 'site', thinking: 'disabled',
+      baseURL: 'https://ai.vpss.eu.cc', catalogProtocol: 'site',
     })
+    expect(rows.find(row => row.id === 'llm-deepseek-account')?.config).not.toHaveProperty('thinking')
+    expect(rows.find(row => row.id === 'llm-deepseek-account')?.config).not.toHaveProperty('reasoningEffort')
     expect(rows.find(row => row.id === 'ui-model-selection')?.config).toMatchObject({ officialProvider: 'deepseek-account' })
     expect(rows.find(row => row.id === 'ui-settings-models')?.config).toMatchObject({ officialProvider: 'deepseek-account' })
     expect(rows.find(row => row.id === 'agent-default-model')?.config).toMatchObject({ provider: 'deepseek-account' })

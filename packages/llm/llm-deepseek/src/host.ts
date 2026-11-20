@@ -3,7 +3,9 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type {} from '@deepseek-ai/dsh-fs'
-import { resolveImageAttachmentAccess } from '@deepseek-ai/dsh-llm'
+import { LlmAdapter, resolveImageAttachmentAccess } from '@deepseek-ai/dsh-llm'
+import type { GenerateOptions, LlmModelInfo, LlmProviderInfo, LlmResolvedModelInfo, PreparedAdapterCall, ResolvedRetryPolicy, StreamChunk } from '@deepseek-ai/dsh-llm'
+import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { getOrCreateAnonymousUserId, type AnonymousUserId } from '@deepseek-ai/dsh-anonymous-user-id'
 import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
 import { DeepSeekAdapter } from './adapter.ts'
@@ -45,7 +47,10 @@ export function createModelListingCache(
  */
 export function registerDeepSeekProvider<C extends DeepSeekConnectionOptions>(
   ctx: Context, provider: string, dependencies: Pick<DeepSeekAdapterOptions<C>,
-  'options' | 'resolveAuth' | 'missingCredential' | 'providerName' | 'discoverModels' | 'connect' | 'admit'>): void {
+  'options' | 'resolveAuth' | 'missingCredential' | 'providerName' | 'discoverModels' | 'connect' | 'admit'> & {
+    /** Optional OpenAI Responses delegate for catalog-selected models. */
+    responses?: { readonly adapter: LlmAdapter; readonly owns: (model: string) => boolean }
+  }): void {
   ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
   let userId: AnonymousUserId | undefined
   // These conditions repeat on every request of a route; log each first occurrence only.
@@ -80,7 +85,28 @@ export function registerDeepSeekProvider<C extends DeepSeekConnectionOptions>(
     prepareExtensions: request => ctx.get('deepseekLlmApiExtensions')?.prepare(request)
       ?? Promise.resolve({ fields: {}, accept: () => Promise.resolve() }),
   })
-  const registration = ctx.llm.registerAdapter([provider], adapter)
+  const routed = dependencies.responses === undefined ? adapter : new class extends LlmAdapter {
+    private target(model: string): LlmAdapter {
+      return dependencies.responses?.owns(model) === true ? dependencies.responses.adapter : adapter
+    }
+    override providerInfo(route: string): LlmProviderInfo { return adapter.providerInfo(route) }
+    override providerRetryPolicy(route: string): ResolvedRetryPolicy | undefined {
+      return adapter.providerRetryPolicy(route)
+    }
+    override listModels(route: string): Promise<readonly LlmModelInfo[]> { return adapter.listModels(route) }
+    override resolveModel(route: string, model: string, signal?: AbortSignal): Promise<LlmResolvedModelInfo> {
+      return this.target(model).resolveModel(route, model, signal)
+    }
+    override prepareCall(route: string, model: string, signal?: AbortSignal): Promise<PreparedAdapterCall> {
+      return this.target(model).prepareCall(route, model, signal)
+    }
+    override stream(options: GenerateOptions): AsyncIterable<StreamChunk> { return this.target(options.model).stream(options) }
+    override imageRequestPricing(route: string, model: string) { return this.target(model).imageRequestPricing(route, model) }
+    override imageRequestTarget(route: string, model: string, image: ImageAttachmentRef) {
+      return this.target(model).imageRequestTarget(route, model, image)
+    }
+  }()
+  const registration = ctx.llm.registerAdapter([provider], routed)
   let registeredPolicy = dependencies.options().retryPolicy
   ctx.on('loader/volatile-update', () => {
     let policy: typeof registeredPolicy

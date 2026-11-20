@@ -7,6 +7,12 @@ import { resolveAdapterOptions } from './config.ts'
 import type { ListedFacts, ListingEntry } from './listing.ts'
 import type { DeepSeekCatalogModel } from './types.ts'
 
+/** One official site model with the compatible inference protocol from its catalog declaration. */
+export interface SiteCatalogModel {
+  readonly model: DeepSeekCatalogModel
+  readonly protocol: 'anthropic-messages' | 'openai-responses'
+}
+
 /** Field overrides for one model; unset fields and empty lists inherit the underlying entry. */
 export type ModelOverride = Omit<DeepSeekCatalogModel, 'id'>
 
@@ -33,6 +39,8 @@ export interface ListedCatalogInput {
 export interface ListedCatalog {
   /** Selectable models in listing order, or this build's models when no listing succeeded. */
   readonly offered: readonly DeepSeekCatalogModel[]
+  /** The compatible wire protocol for each offered site model. */
+  readonly protocols: ReadonlyMap<string, SiteCatalogModel['protocol']>
   /** Entries request resolution consults: offered models, then supported models the listing does not offer. */
   readonly resolution: readonly DeepSeekCatalogModel[]
   /** Listed models refused before network I/O, by id. */
@@ -119,11 +127,12 @@ export function resolveListedCatalog(input: ListedCatalogInput): ListedCatalog {
   }
   if (input.listing === undefined) {
     const resolution = resolveAdapterOptions({ models: input.supported.map(withOverride) }).models
-    return { offered: resolution, resolution, refusals: new Map(), badges: new Map(), problems, overrideErrors }
+    return { offered: resolution, protocols: new Map(), resolution, refusals: new Map(), badges: new Map(), problems, overrideErrors }
   }
   const offered: DeepSeekCatalogModel[] = []
   const refusals = new Map<string, CatalogRefusal>()
   const badges = new Map<string, LlmModelBadge>()
+  const protocols = new Map<string, SiteCatalogModel['protocol']>()
   for (const entry of input.listing) {
     const refusal = gateOf(entry, supported.has(entry.id), input.clientVersion, problems)
     if (refusal !== undefined) {
@@ -135,7 +144,9 @@ export function resolveListedCatalog(input: ListedCatalogInput): ListedCatalog {
       refusals.set(entry.id, { kind: 'unsupported' })
       continue
     }
-    offered.push(withOverride(listed(supported.get(entry.id) ?? { id: entry.id }, entry, entry.capabilities.facts, input.routeMaxTokens)))
+    const facts = entry.capabilities.facts
+    offered.push(withOverride(listed(supported.get(entry.id) ?? { id: entry.id }, entry, facts, input.routeMaxTokens)))
+    protocols.set(entry.id, facts.protocol ?? 'anthropic-messages')
     const badge = entry.badge
     switch (badge?.kind) {
       case undefined:
@@ -161,7 +172,7 @@ export function resolveListedCatalog(input: ListedCatalogInput): ListedCatalog {
   const resolution = resolveAdapterOptions({
     models: [...offered, ...input.supported.filter(model => !offeredIds.has(model.id)).map(withOverride)],
   }).models
-  return { offered: resolution.slice(0, offered.length), resolution, refusals, badges, problems, overrideErrors }
+  return { offered: resolution.slice(0, offered.length), protocols, resolution, refusals, badges, problems, overrideErrors }
 }
 
 /**

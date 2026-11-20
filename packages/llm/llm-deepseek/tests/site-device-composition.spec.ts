@@ -30,6 +30,7 @@ it('uses a persisted site grant only for Messages models and never for dashboard
   cleanup.push(() => rm(home, { recursive: true, force: true }))
   const requests: Request[] = []
   let rejection: 'relay' | 'upstream' | undefined
+  let responsesRejected = false
   let catalogRejected = false
   const reply = (data: unknown) => new Response(JSON.stringify({ success: true, data }))
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -50,6 +51,15 @@ it('uses a persisted site grant only for Messages models and never for dashboard
           { id: 'openai-only', supported_endpoint_types: ['openai'] },
           { id: 'undeclared' },
         ] }))
+      case '/v1/responses': {
+        expect(request.headers.get('authorization')).toBe('Bearer site-relay-key')
+        const body = await request.json()
+        expect(body.model).toBe('openai-only')
+        if (responsesRejected) return Response.json({ error: { message: 'route is unavailable' } }, { status: 403 })
+        return new Response([JSON.stringify({ type: 'response.output_text.delta', delta: 'Hello 世界' }), JSON.stringify({ type: 'response.completed', response: { status: 'completed' } })].join('\n'), {
+          headers: { 'content-type': 'text/event-stream' },
+        })
+      }
       case '/v1/messages':
         expect(request.headers.get('authorization')).toBe('Bearer site-relay-key')
         expect(request.headers.get('anthropic-version')).toBe('2023-06-01')
@@ -110,7 +120,7 @@ it('uses a persisted site grant only for Messages models and never for dashboard
     expect(await first.deepseekAccount.getState()).toMatchObject({ status: 'credential-stored', attempt: { phase: 'succeeded' } })
   })
   const infer = (ctx: Context, model = 'site-text') => chunks(ctx.llm.stream({ provider: 'deepseek-account', model, messages: [user()] }))
-  expect((await first.llm.listModels('deepseek-account')).map(model => model.id)).toEqual(['site-text', 'site-reasoner'])
+  expect((await first.llm.listModels('deepseek-account')).map(model => model.id)).toEqual(['site-text', 'site-reasoner', 'openai-only'])
   expect(await first.deepseekAccount.getPlatformSession()).toBeNull()
   expect(await first.credentials.readRecord(credentialKey('deepseek-account-platform', 'default'))).toMatchObject({
     kind: 'grant', payload: { credentialType: 'site-api-key' },
@@ -118,9 +128,18 @@ it('uses a persisted site grant only for Messages models and never for dashboard
   const resolvedDefault = await first.agentDefaultModel.resolveSelection()
   expect(resolvedDefault).toMatchObject({ model: 'site-text', reasoningEffort: 'off' })
   expect(await infer(first, resolvedDefault.model)).toContainEqual(expect.objectContaining({ type: 'text-delta', text: 'Hello 世界' }))
-  for (const model of ['openai-only', 'undeclared', 'not-listed']) {
+  for (const model of ['undeclared', 'not-listed']) {
     expect((await infer(first, model)).at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'error', failure: { code: 'MODEL_UNSUPPORTED' } } })
   }
+  const openai = await infer(first, 'openai-only')
+  expect(openai).toContainEqual(expect.objectContaining({ type: 'text-delta', text: 'Hello 世界' }))
+  expect(requests.filter(request => new URL(request.url).pathname === '/v1/responses')).toHaveLength(1)
+  responsesRejected = true
+  const responseFailure = (await infer(first, 'openai-only')).at(-1)
+  expect(responseFailure).toMatchObject({ reason: { kind: 'error', failure: { code: 'AUTH', status: 403, message: expect.stringContaining('route') } } })
+  expect(JSON.stringify(responseFailure)).not.toContain('credential in Models settings')
+  expect(await first.deepseekAccount.getState()).toMatchObject({ status: 'credential-stored' })
+  responsesRejected = false
   expect(requests.filter(request => new URL(request.url).pathname === '/v1/messages')).toHaveLength(1)
   const reasoning = await first.llm.resolveModelInfo('deepseek-account', 'site-reasoner')
   expect(reasoning.reasoning?.efforts.map(effort => effort.id)).toEqual(['off', 'medium', 'high', 'max'])

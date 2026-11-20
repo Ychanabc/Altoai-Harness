@@ -106,6 +106,8 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'account/cancelSignIn': 'owner-only', // owner account and sign-in; the served page never reads it
   'account/getBalance': 'owner-only', // owner account and sign-in; the served page never reads it
   'account/getProfile': 'owner-only', // owner account and sign-in; the served page never reads it
+  'account/getSiteBilling': 'owner-only', // owner account and sign-in; the served page never reads it
+  'account/getSiteSession': 'owner-only', // owner account and sign-in; the served page never reads it
   'account/getState': 'owner-only', // owner account and sign-in; the served page never reads it
   'account/getNotificationContent': 'owner-only', // owner account and sign-in; the served page never reads it
   'account/getNotifications': 'owner-only', // owner account and sign-in; the served page never reads it

@@ -35,6 +35,8 @@ export type ClientRequirement =
 
 /** Capabilities a usable listing entry declares, in catalog vocabulary. */
 export interface ListedFacts {
+  /** Endpoint protocol this model accepts on the configured inference origin. */
+  readonly protocol?: 'anthropic-messages' | 'openai-responses'
   /** Accepted request modalities this build sends. */
   readonly inputModalities: readonly ModelModality[]
   /** Explicit Messages reasoning levels from a site listing. */
@@ -230,12 +232,16 @@ export function parseModelListing(body: unknown, format: 'deepseek' | 'site' = '
       ...typeof entry.name === 'string' && entry.name.length > 0 ? { name: entry.name } : {},
       requirement: requirementOf(entry),
       capabilities: format === 'site'
-        ? Array.isArray(entry.supported_endpoint_types) && entry.supported_endpoint_types.includes('anthropic')
-          ? { usable: true, facts: {
-            inputModalities: ['text'], systemPromptUpdate: 'leading-only', toolUpdate: 'leading-only',
-            messagesReasoningEfforts: efforts.length === 0 ? ['off'] : efforts,
-          } }
-          : { usable: false, reason: 'declares no supported_endpoint_types anthropic endpoint' }
+        ? Array.isArray(entry.supported_endpoint_types)
+          ? entry.supported_endpoint_types.includes('openai')
+            ? { usable: true, facts: { protocol: 'openai-responses', inputModalities: ['text'] } }
+            : entry.supported_endpoint_types.includes('anthropic')
+              ? { usable: true, facts: {
+                protocol: 'anthropic-messages', inputModalities: ['text'], systemPromptUpdate: 'leading-only', toolUpdate: 'leading-only',
+                messagesReasoningEfforts: efforts.length === 0 ? ['off'] : efforts,
+              } }
+              : { usable: false, reason: 'declares neither an OpenAI nor Anthropic endpoint' }
+          : { usable: false, reason: 'declares no supported_endpoint_types' }
         : capabilitiesOf(entry),
       ...badge === undefined ? {} : { badge },
     })

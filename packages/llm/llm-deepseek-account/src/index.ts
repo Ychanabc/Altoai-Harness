@@ -2,6 +2,7 @@
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type { Context } from '@deepseek-ai/cordis'
 import { ACCOUNT_QUOTA_EXCEEDED_CODE, APP_IDENTITY, LlmError, QUOTA_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
+import { PiAiAdapter, authInjectionFrom, resolveProfiles } from '@deepseek-ai/dsh-llm-pi-ai'
 import type { DeepSeekAuthorization } from '@deepseek-ai/dsh-deepseek-auth'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import {
@@ -141,7 +142,7 @@ export function apply(ctx: Context, config: Config): void {
     const error = settings().catalogProtocol === 'site' && view.authenticated
       ? view.error !== undefined ? `${view.error.code}: ${view.error.message}`
         : view.listing?.entries.length === 0 ? 'MODEL_CATALOG_EMPTY: No models are available for this account group'
-          : connection.catalog.offered.length === 0 ? 'MODEL_CATALOG_INCOMPATIBLE: No models declare the anthropic Messages endpoint'
+          : connection.catalog.offered.length === 0 ? 'MODEL_CATALOG_INCOMPATIBLE: No models declare a supported site endpoint'
             : undefined
       : connection.catalog.overrideErrors.length === 0 ? undefined : connection.catalog.overrideErrors.join('; ')
     if (error !== reportedError) {
@@ -150,6 +151,42 @@ export function apply(ctx: Context, config: Config): void {
     }
     return connection
   }
+  const responseProfiles = () => {
+    const connection = connectionOf(catalog.current())
+    return resolveProfiles({
+      [PROVIDER]: {
+        displayName: 'DeepSeek Account',
+        api: 'openai-responses',
+        baseURL: new URL('/v1', connection.baseURL).href,
+        models: connection.catalog.offered
+          .filter(model => connection.catalog.protocols.get(model.id) === 'openai-responses')
+          .map(model => ({
+            id: model.id,
+            ...model.name === undefined ? {} : { name: model.name },
+            ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
+            ...model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens },
+            input: [...model.inputModalities ?? ['text']],
+          })),
+      },
+    })
+  }
+  const responseAdapter = new PiAiAdapter({
+    profiles: responseProfiles,
+    resolveApiKey: async () => {
+      const connection = connectionOf(catalog.current())
+      const authorization = await resolveAuth(connection, connection.baseURL)
+      if (authorization === undefined) throw missingCredential(connection)
+      const value = new Headers(authorization.headers).get('authorization')
+      if (value === null || !value.startsWith('Bearer ')) {
+        throw new LlmError('The site credential does not provide a Bearer token for OpenAI Responses.', 'MISSING_CREDENTIAL')
+      }
+      return value.slice('Bearer '.length)
+    },
+    auth: authInjectionFrom(ctx),
+    authFailureMessage: () => 'The Official site model rejected the OpenAI Responses route (HTTP 401 or 403). Your site sign-in is unchanged; choose another Official site model or ask the site operator to enable this model route.',
+  })
+  const ownsResponses = (model: string): boolean =>
+    connectionOf(catalog.current()).catalog.protocols.get(model) === 'openai-responses'
   registerDeepSeekProvider<AccountConnection>(ctx, PROVIDER, {
     providerName: 'DeepSeek Account',
     options: () => connectionOf(catalog.current()),
@@ -160,10 +197,11 @@ export function apply(ctx: Context, config: Config): void {
       if (connection.site && !connection.authenticated) throw missingCredential(connection)
       if (connection.listingError !== undefined) throw connection.listingError
       refuseListedModel(model, connection.catalog.refusals.get(model))
-      if (connection.site && !connection.catalog.offered.some(entry => entry.id === model)) {
-        throw new LlmError(`Model "${model}" is not in the authenticated Messages catalog`, 'MODEL_UNSUPPORTED')
+      if (connection.site && !connection.catalog.protocols.has(model)) {
+        throw new LlmError(`Model "${model}" is not in the authenticated site catalog`, 'MODEL_UNSUPPORTED')
       }
     },
+    responses: { adapter: responseAdapter, owns: ownsResponses },
     discoverModels: async (provider) => {
       const view = await catalog.view(settings().catalog)
       const { offered, badges } = discovered(view).catalog
