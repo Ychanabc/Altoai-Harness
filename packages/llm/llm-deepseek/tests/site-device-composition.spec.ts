@@ -134,13 +134,15 @@ it('sends client-selected site reasoning over both protocols with a persisted re
   const resolvedDefault = await first.agentDefaultModel.resolveSelection()
   expect(resolvedDefault).toEqual({ provider: 'deepseek-account', model: 'site-text' })
   expect(await infer(first, resolvedDefault.model)).toContainEqual(expect.objectContaining({ type: 'text-delta', text: 'Hello 世界' }))
-  expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/messages', body: { model: 'site-text', max_tokens: 4096, thinking: { type: 'disabled' } } })
+  expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/messages', body: { model: 'site-text', max_tokens: 4096 } })
+  expect(inferenceBodies.at(-1)?.body).not.toHaveProperty('thinking')
   expect(inferenceBodies.at(-1)?.body).not.toHaveProperty('output_config')
   for (const model of ['undeclared', 'not-listed']) {
     expect((await infer(first, model)).at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'error', failure: { code: 'MODEL_UNSUPPORTED' } } })
   }
   const responsesInfo = await first.llm.resolveModelInfo('deepseek-account', 'openai-only')
-  expect(responsesInfo.reasoning?.efforts.map(effort => effort.id)).toEqual(['medium', 'high'])
+  const siteEfforts = ['low', 'medium', 'high', 'xhigh', 'max']
+  expect(responsesInfo.reasoning?.efforts.map(effort => effort.id)).toEqual(siteEfforts)
   const openai = await infer(first, 'openai-only', 'high')
   expect(openai.some(event => event.type === 'block-end' && event.block.type === 'text' && event.block.text === 'Hello 世界')).toBe(true)
   expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/responses', body: { model: 'openai-only', reasoning: { effort: 'high' } } })
@@ -154,21 +156,21 @@ it('sends client-selected site reasoning over both protocols with a persisted re
   responsesRejected = false
   expect(requests.filter(request => new URL(request.url).pathname === '/v1/messages')).toHaveLength(1)
   const reasoning = await first.llm.resolveModelInfo('deepseek-account', 'site-reasoner')
-  expect(reasoning.reasoning?.efforts.map(effort => effort.id)).toEqual(['off', 'medium', 'high', 'max'])
-  expect(reasoning.reasoning?.defaultEffort).toBe('high')
+  expect(reasoning.reasoning?.efforts.map(effort => effort.id)).toEqual(siteEfforts)
+  expect(reasoning.reasoning?.defaultEffort).toBeUndefined()
   expect(await infer(first, 'site-reasoner', 'medium')).toContainEqual(expect.objectContaining({ type: 'text-delta' }))
   expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/messages', body: {
     model: 'site-reasoner', thinking: { type: 'adaptive' }, output_config: { effort: 'medium' },
   } })
-  expect((await infer(first, 'site-reasoner', 'low')).at(-1)).toMatchObject({ reason: { kind: 'error', failure: { code: 'UNSUPPORTED_REASONING_EFFORT' } } })
+  expect((await infer(first, 'site-reasoner', 'invalid')).at(-1)).toMatchObject({ reason: { kind: 'error', failure: { code: 'UNSUPPORTED_REASONING_EFFORT' } } })
   expect(requests.filter(request => new URL(request.url).pathname === '/v1/messages')).toHaveLength(2)
   const messagesDefaults = await first.llm.resolveModelInfo('deepseek-account', 'site-text')
-  expect(messagesDefaults.reasoning?.efforts.map(effort => effort.id)).toEqual(['off', 'low', 'medium', 'high'])
-  expect(messagesDefaults.reasoning?.defaultEffort).toBe('off')
+  expect(messagesDefaults.reasoning?.efforts.map(effort => effort.id)).toEqual(siteEfforts)
+  expect(messagesDefaults.reasoning?.defaultEffort).toBeUndefined()
   const responsesDefaults = await first.llm.resolveModelInfo('deepseek-account', 'site-responses')
-  expect(responsesDefaults.reasoning?.efforts.map(effort => effort.id)).toEqual(['low', 'medium', 'high'])
+  expect(responsesDefaults.reasoning?.efforts.map(effort => effort.id)).toEqual(siteEfforts)
   expect(responsesDefaults.reasoning?.defaultEffort).toBeUndefined()
-  for (const effort of ['low', 'medium', 'high']) {
+  for (const effort of siteEfforts) {
     expect(await infer(first, 'site-text', effort)).toContainEqual(expect.objectContaining({ type: 'text-delta' }))
     expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/messages', body: {
       model: 'site-text', thinking: { type: 'adaptive' }, output_config: { effort },
@@ -176,15 +178,12 @@ it('sends client-selected site reasoning over both protocols with a persisted re
     expect((await infer(first, 'site-responses', effort)).at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'stop' } })
     expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/responses', body: { model: 'site-responses', reasoning: { effort } } })
   }
-  expect(await infer(first, 'site-text', 'off')).toContainEqual(expect.objectContaining({ type: 'text-delta' }))
-  expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/messages', body: { model: 'site-text', thinking: { type: 'disabled' } } })
-  expect(inferenceBodies.at(-1)?.body).not.toHaveProperty('output_config')
   expect((await infer(first, 'site-responses')).at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'stop' } })
   expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/responses', body: { model: 'site-responses' } })
   expect(inferenceBodies.at(-1)?.body).not.toHaveProperty('reasoning')
   const inferenceCount = inferenceBodies.length
   for (const model of ['site-text', 'site-responses']) {
-    expect((await infer(first, model, 'max')).at(-1)).toMatchObject({
+    expect((await infer(first, model, 'invalid')).at(-1)).toMatchObject({
       reason: { kind: 'error', failure: { code: 'UNSUPPORTED_REASONING_EFFORT' } },
     })
   }

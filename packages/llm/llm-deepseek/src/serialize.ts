@@ -147,7 +147,7 @@ export function serialize(
   if (pending.size > 0) throw new LlmError('DeepSeek Messages history ends with unresolved tools', 'INVALID_REQUEST')
   const reasoning = modelReasoning(connection, model)
   const effort = options.reasoningEffort ?? reasoning.defaultEffort
-  if (!reasoning.efforts.some(level => level.id === effort)) {
+  if (effort !== undefined && !reasoning.efforts.some(level => level.id === effort)) {
     throw new LlmError(`DeepSeek Messages does not support reasoning effort ${effort}`, 'UNSUPPORTED_REASONING_EFFORT')
   }
   const system = [options.system, historySystem].filter(Boolean).join('\n\n')
@@ -155,8 +155,8 @@ export function serialize(
   return {
     model: options.model, stream: true, messages,
     max_tokens: options.maxTokens ?? model?.maxTokens ?? connection.maxTokens,
-    thinking: { type: effort === 'off' ? 'disabled' : thinking },
-    ...effort === 'off' ? {} : { output_config: { effort } },
+    ...effort === undefined ? {} : { thinking: { type: effort === 'off' ? 'disabled' : thinking } },
+    ...effort === undefined || effort === 'off' ? {} : { output_config: { effort } },
     ...system.length === 0 ? {} : { system },
     ...options.temperature === undefined ? {} : { temperature: options.temperature },
     ...options.stop === undefined ? {} : { stop_sequences: options.stop },

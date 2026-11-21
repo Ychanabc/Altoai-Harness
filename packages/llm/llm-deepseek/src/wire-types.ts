@@ -29,7 +29,7 @@ export type WireRequest = {
   max_tokens: number
   messages: WireMessage[]
   system?: string
-  thinking: { type: 'enabled' | 'disabled' | 'adaptive' }
+  thinking?: { type: 'enabled' | 'disabled' | 'adaptive' }
   output_config?: { effort: ReasoningEffortId }
   temperature?: number
   stop_sequences?: string[]

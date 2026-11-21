@@ -55,7 +55,7 @@ export interface DeepSeekCatalogModel {
 }
 
 /** Reasoning effort values accepted by the Responses catalog declaration. */
-export type ResponsesReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+export type ResponsesReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
 /**
  * Validated connection facts for one operation. The plugin's

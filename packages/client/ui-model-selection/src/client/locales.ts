@@ -26,7 +26,7 @@ export const zh = {
   'menu.aria': '模型与推理等级',
   'menu.model': '模型',
   'menu.effort': '推理等级',
-  'effort.providerDefault': 'Default',
+  'effort.providerDefault': '默认',
   'effort.off': '关闭',
   'effort.low': '低',
   'effort.medium': '中',

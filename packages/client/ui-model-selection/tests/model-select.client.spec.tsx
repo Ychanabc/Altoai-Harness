@@ -271,10 +271,12 @@ describe('ModelSelect reasoning effort', () => {
   it('localizes all declared effort levels and submits Ultra as part of the session selection', async () => {
     const directory = createSnapshotStore<ModelDirectoryState>(state({ groups: [{
       ...state().groups[0]!,
-      models: [{ ...state().groups[0]!.models[0]!, reasoning: siteReasoning }],
+      models: [{ ...state().groups[0]!.models[0]!, reasoning: {
+        efforts: siteReasoning.efforts.filter(effort => effort.id !== 'off'),
+      } }],
     }] }))
     const select = vi.fn(async (selection: ModelSelection) => {
-      directory.set(state({ current: selection }))
+      directory.set({ ...directory.getSnapshot(), current: selection })
       return { ok: true as const, value: undefined }
     })
     render(<ModelSelect renderSlot={renderLabel}
@@ -287,12 +289,12 @@ describe('ModelSelect reasoning effort', () => {
     />)
 
     const trigger = screen.getByRole('button', {
-      name: '选择模型，当前 DeepSeek-V4-Flash，推理等级 高',
+      name: '选择模型，当前 DeepSeek-V4-Flash，推理等级 默认',
     })
     fireEvent.click(trigger)
     fireEvent.click(screen.getByRole('menuitem', { name: /推理等级/ }))
     expect(screen.getAllByRole('menuitemradio').map(item => item.textContent))
-      .toEqual(['关闭', '低', '中', '高', '超高', 'Ultra'])
+      .toEqual(['默认', '低', '中', '高', '超高', 'Ultra'])
     expect(screen.queryByText('Largest budget')).toBeNull()
 
     fireEvent.click(screen.getByRole('menuitemradio', { name: 'Ultra' }))
@@ -304,6 +306,15 @@ describe('ModelSelect reasoning effort', () => {
       })
       expect(trigger.getAttribute('aria-label')).toBe('选择模型，当前 DeepSeek-V4-Flash，推理等级 Ultra')
       expect(document.activeElement).toBe(trigger)
+    })
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole('menuitem', { name: /推理等级/ }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: '默认' }))
+    await waitFor(() => {
+      expect(select).toHaveBeenLastCalledWith({
+        provider: 'deepseek-official', model: 'deepseek-v4-flash',
+      })
+      expect(trigger.getAttribute('aria-label')).toBe('选择模型，当前 DeepSeek-V4-Flash，推理等级 默认')
     })
   })
 
@@ -330,11 +341,11 @@ describe('ModelSelect reasoning effort', () => {
     />)
 
     fireEvent.click(screen.getByRole('button', {
-      name: '选择模型，当前 Model，推理等级 Default',
+      name: '选择模型，当前 Model，推理等级 默认',
     }))
     fireEvent.click(screen.getByRole('menuitem', { name: /推理等级/ }))
     expect(screen.getAllByRole('menuitemradio').map(item => item.textContent))
-      .toEqual(['Default', 'Standard'])
+      .toEqual(['默认', 'Standard'])
   })
 
   it('opens model choices without exposing a saved route absent from the catalog', () => {

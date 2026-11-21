@@ -5,8 +5,7 @@ import { timeoutOf } from '@deepseek-ai/dsh-timeout'
 import type { MessagesReasoningEffort, ResponsesReasoningEffort } from './types.ts'
 
 const SITE_EFFORTS = ['off', 'low', 'medium', 'high', 'xhigh', 'max'] as const satisfies readonly MessagesReasoningEffort[]
-const DEFAULT_RESPONSES_EFFORTS = ['low', 'medium', 'high'] as const satisfies readonly ResponsesReasoningEffort[]
-const RESPONSES_EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh'] as const satisfies readonly ResponsesReasoningEffort[]
+const SITE_RESPONSES_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const satisfies readonly ResponsesReasoningEffort[]
 const LISTED_MODALITIES = ['text', 'image'] as const satisfies readonly ModelModality[]
 const BADGE_TONES = ['neutral', 'info', 'success', 'warning'] as const satisfies readonly LlmModelBadgeTone[]
 const LANGUAGE_ID = /^[a-z]{2,8}(?:-[a-z0-9]{1,8})*$/u
@@ -43,7 +42,7 @@ export interface ListedFacts {
   readonly inputModalities: readonly ModelModality[]
   /** Explicit Messages reasoning levels from a site listing. */
   readonly messagesReasoningEfforts?: readonly MessagesReasoningEffort[]
-  /** Responses reasoning levels for the site route, narrowed by any recognized listing hint. */
+  /** Client-owned reasoning levels for the site Responses route. */
   readonly responsesReasoningEfforts?: readonly ResponsesReasoningEffort[]
   /** Combined request and response context, when declared. */
   readonly contextWindow?: number
@@ -236,9 +235,6 @@ export function parseModelListing(body: unknown, format: 'deepseek' | 'site' = '
       : undefined
     const messages = endpoints?.includes('anthropic') === true
     const openai = endpoints?.includes('openai-response') === true || endpoints?.includes('openai') === true
-    const declaredResponses: readonly unknown[] = Array.isArray(entry.responses_reasoning_efforts)
-      ? entry.responses_reasoning_efforts : []
-    const responsesEfforts = RESPONSES_EFFORTS.filter(effort => declaredResponses.includes(effort))
     entries.push({
       id,
       ...typeof entry.name === 'string' && entry.name.length > 0 ? { name: entry.name } : {},
@@ -254,7 +250,7 @@ export function parseModelListing(body: unknown, format: 'deepseek' | 'site' = '
             : openai
               ? { usable: true, facts: {
                 protocol: 'openai-responses', inputModalities: ['text'],
-                responsesReasoningEfforts: responsesEfforts.length === 0 ? DEFAULT_RESPONSES_EFFORTS : responsesEfforts,
+                responsesReasoningEfforts: SITE_RESPONSES_EFFORTS,
               } }
               : { usable: false, reason: 'declares neither an OpenAI nor Anthropic endpoint' }
         : capabilitiesOf(entry),

@@ -267,7 +267,7 @@ it('reads site endpoint declarations without inventing image or history capabili
     protocol: 'anthropic-messages', inputModalities: ['text'], systemPromptUpdate: 'leading-only', toolUpdate: 'leading-only',
   } })
   expect(listing.entries[1]?.capabilities).toEqual({ usable: true, facts: {
-    protocol: 'openai-responses', inputModalities: ['text'], responsesReasoningEfforts: ['low', 'medium', 'high'],
+    protocol: 'openai-responses', inputModalities: ['text'], responsesReasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
   } })
   expect(listing.entries[2]?.capabilities.usable).toBe(false)
   expect(parseModelListing({ data: [{ id: 'site-only', supported_endpoint_types: ['anthropic'] }] }).entries[0]?.capabilities.usable).toBe(false)
