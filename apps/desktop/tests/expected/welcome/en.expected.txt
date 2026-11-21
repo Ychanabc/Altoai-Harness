@@ -3,4 +3,4 @@ AltoaiH
 Welcome to AltoaiH
 Build potential. Explore intelligence.
 Sign in
-Add API Key
+Set up later

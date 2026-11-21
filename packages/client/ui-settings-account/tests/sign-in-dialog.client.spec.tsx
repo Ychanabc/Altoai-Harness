@@ -23,7 +23,7 @@ function mount(attempt: AccountView['attempt'], copy: typeof en | typeof zh = en
 it.each([en, zh])('offers only sign-in from the standalone login dialog', async (copy) => {
   const props = mount(null, copy)
   await expect(`${screen.getByRole('dialog').textContent}\n`).toMatchFileSnapshot(`./expected/login-${copy === en ? 'en' : 'zh'}.txt`)
-  expect(screen.queryByRole('button', { name: copy.addApiKey })).toBeNull()
+  expect(screen.queryByRole('button', { name: /Add API Key|添加 API Key/i })).toBeNull()
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: copy.signIn })) })
   expect(props.start).toHaveBeenCalledOnce()
 })
@@ -32,16 +32,7 @@ it.each([en, zh])('describes only sign-in for a branded website account', (copy)
   render(<SignInDialog {...props} account={{ ...props.account, view: { ...props.account.view,
     brand: { name: 'Fixture site', logo: '', docsUrl: '' } } }} />)
   expect(screen.getByText(copy.siteAccountLoginDescription)).toBeTruthy()
-  expect(screen.queryByText(copy.siteLoginDescription)).toBeNull()
-})
-it('still offers the API key editor during model onboarding', () => {
-  const props = dialogProps(null)
-  const useApiKey = vi.fn()
-  render(<SignInDialog {...props} useApiKey={useApiKey} />)
-  expect(screen.getByText(en.loginDescription)).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: en.addApiKey }))
-  expect(useApiKey).toHaveBeenCalledOnce()
-  expect(props.start).not.toHaveBeenCalled()
+  expect(screen.queryByRole('button', { name: /Add API Key|添加 API Key/i })).toBeNull()
 })
 it.each([en, zh])('requires a user action after timeout', async (copy) => {
   const props = mount({ id, phase: 'expired', errorCode: 'expired' }, copy)

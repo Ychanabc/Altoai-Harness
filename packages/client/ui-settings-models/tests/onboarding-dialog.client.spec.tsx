@@ -78,6 +78,7 @@ function harness(options: {
   providersFailure?: string
   setFailure?: string
   automatic?: boolean
+  explicit?: boolean
 } = {}) {
   if (document.getElementById('root') === null) {
     const appRoot = document.createElement('div')
@@ -148,6 +149,7 @@ function harness(options: {
   const automatic = createSnapshotStore(options.automatic ?? true)
   const props: DeepSeekOnboardingDialogProps = {
     stepId: 'deepseek-official',
+    explicit: options.explicit ?? false,
     complete,
     openSection,
     renderSlot: (_name, _props, options) => options?.fallback,
@@ -172,14 +174,14 @@ function harness(options: {
 
 describe('DeepSeekOnboardingDialog', () => {
   it('renders when the shell root is absent', async () => {
-    const h = harness()
+    const h = harness({ explicit: true })
     document.getElementById('root')!.remove()
     render(<DeepSeekOnboardingDialog {...h.props} />)
     expect(await screen.findByRole('dialog', { name: en.onboardingTitle })).toBeTruthy()
   })
 
   it('loads a credential-only modal, inerts the product, and focuses the key', async () => {
-    const h = harness()
+    const h = harness({ explicit: true })
     render(<DeepSeekOnboardingDialog {...h.props} />)
     expect(await screen.findByRole('dialog', { name: en.onboardingTitle })).toBeTruthy()
     expect(document.getElementById('root')?.inert).toBe(true)
@@ -190,7 +192,7 @@ describe('DeepSeekOnboardingDialog', () => {
   })
 
   it('cannot be dismissed implicitly and restores the previous inert state', async () => {
-    const h = harness()
+    const h = harness({ explicit: true })
     const appRoot = document.getElementById('root')!
     appRoot.inert = true
     const view = render(<DeepSeekOnboardingDialog {...h.props} />)
@@ -206,7 +208,7 @@ describe('DeepSeekOnboardingDialog', () => {
   })
 
   it('requires a non-blank key before Save and continue is available', async () => {
-    const h = harness()
+    const h = harness({ explicit: true })
     render(<DeepSeekOnboardingDialog {...h.props} />)
     await screen.findByRole('dialog')
     const save = screen.getByRole<HTMLButtonElement>('button', { name: en.onboardingSave })
@@ -219,7 +221,7 @@ describe('DeepSeekOnboardingDialog', () => {
 
   it('keeps the modal open and reports a refused credential write', async () => {
     for (const [options, message] of [
-      [{ setFailure: 'credential was rejected' }, 'credential was rejected'],
+      [{ setFailure: 'credential was rejected', explicit: true }, 'credential was rejected'],
     ] as const) {
       const h = harness(options)
       const view = render(<DeepSeekOnboardingDialog {...h.props} />)
@@ -236,7 +238,7 @@ describe('DeepSeekOnboardingDialog', () => {
   })
 
   it('allows configure-later dismissal without opening settings', async () => {
-    const h = harness()
+    const h = harness({ explicit: true })
     render(<DeepSeekOnboardingDialog {...h.props} />)
     await screen.findByRole('dialog')
     fireEvent.click(screen.getByRole('button', { name: en.onboardingLater }))
@@ -281,6 +283,7 @@ describe('DeepSeekOnboardingDialog', () => {
 
   it('closes when an external credential invalidation refreshes the shared join', async () => {
     const h = harness()
+    h.props.renderSlot = () => <div role="dialog">Sign in</div>
     render(<DeepSeekOnboardingDialog {...h.props} />)
     await screen.findByRole('dialog')
     h.configure()
@@ -290,14 +293,27 @@ describe('DeepSeekOnboardingDialog', () => {
   })
 })
 
-it('offers account choice before reusing the existing API key editor', async () => {
+it('automatically offers account sign-in without a credential editor', async () => {
   const h = harness()
-  h.props.renderSlot = (_name, owner: unknown) => <button onClick={(owner as { useApiKey: () => void }).useApiKey}>Choose API key</button>
+  h.props.renderSlot = (name, owner) => {
+    expect(name).toBe('settings.models.sign-in')
+    expect(owner).toEqual({ complete: h.complete })
+    return <button onClick={h.complete}>Close sign-in</button>
+  }
   render(<DeepSeekOnboardingDialog {...h.props} />)
-  await waitFor(() => { expect(screen.getByRole('button', { name: 'Choose API key' })).toBeTruthy() })
-  fireEvent.click(screen.getByRole('button', { name: 'Choose API key' }))
-  expect(screen.getByRole('dialog')).toBeTruthy()
+  const close = await screen.findByRole('button', { name: 'Close sign-in' })
+  expect(screen.queryByLabelText(en.keyInput)).toBeNull()
   expect(h.complete).not.toHaveBeenCalled()
+  fireEvent.click(close)
+  expect(h.complete).toHaveBeenCalledOnce()
+})
+
+it('completes without taking over the application when no account slot is registered', async () => {
+  const h = harness()
+  render(<DeepSeekOnboardingDialog {...h.props} />)
+  await waitFor(() => { expect(h.complete).toHaveBeenCalledOnce() })
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(document.getElementById('root')?.inert).not.toBe(true)
 })
 it('explicit account-menu setup reuses the editor without another login choice', async () => {
   const h = harness({ configured: () => true })
@@ -312,6 +328,7 @@ it('explicit account-menu setup reuses the editor without another login choice',
 
 it('keeps an open step after automatic onboarding turns off', async () => {
   const h = harness()
+  h.props.renderSlot = () => <div role="dialog">Sign in</div>
   render(<DeepSeekOnboardingDialog {...h.props} />)
   await waitFor(() => { expect(screen.getByRole('dialog')).toBeTruthy() })
   act(() => { h.automatic.set(false) })

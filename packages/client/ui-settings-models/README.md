@@ -87,7 +87,7 @@ The Models page includes **DeepSeek Account** (`deepseek-account`, **DeepSeek è´
 
 -----
 
-Onboarding groups its title and explanation closely, then separates credential fields and the action row with larger gaps.
+Credential forms group their title and explanation separately from the input and actions.
 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
@@ -111,7 +111,7 @@ Concurrent `ModelsSettingsStore.load()` callers resolve after the current refres
 
 ### Onboarding coordinator
 
-The notice step owns its exact copy in `src/client/locales.ts` and its acknowledgement version in `src/onboarding-copy.ts`. Authenticated browsers compare and write `ui-settings-general.welcomeNoticeVersion` through the shared configuration form; only an explicit Continue records the current version, and an unavailable namespace or a refused write leaves the notice unacknowledged. Users who acknowledged an earlier version see the current notice again. The DeepSeek step targets `deepseek-official` in `llm-deepseek` and renders the existing `ProviderEditor` in credential-only mode inside the shared onboarding modal; `credentials.set` stays the only secret write, and no provider settings are changed.
+The notice step owns its exact copy in `src/client/locales.ts` and its acknowledgement version in `src/onboarding-copy.ts`. Authenticated browsers compare and write `ui-settings-general.welcomeNoticeVersion` through the shared configuration form; only an explicit Continue records the current version, and an unavailable namespace or a refused write leaves the notice unacknowledged. Users who acknowledged an earlier version see the current notice again. The automatic DeepSeek step only offers account sign-in.
 
 </details>
 
@@ -130,7 +130,7 @@ These pages cover the settings base, the seams this page joins, and the design r
 
 -----
 
-The `settings.models.sign-in` slot lets account login offer a choice before the credential editor; without a contributor the editor renders directly. Closing the account choice completes the whole onboarding step. Explicit reopening from the account menu enters the same editor even when a provider is already configured.
+The `settings.models.sign-in` slot supplies account sign-in. Closing sign-in or composing the client without an account contribution completes the step. Add or edit provider API keys in Settings â†’ Models.
 
 <a id="model-experience"></a>
 ## Model Experience

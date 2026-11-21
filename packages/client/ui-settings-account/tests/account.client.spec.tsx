@@ -623,7 +623,7 @@ it('dismisses a collapsed menu and keeps its login dialog sign-in only', async (
   fireEvent.click(screen.getByRole('button', { name: en.close }))
   expect(operations.showLogin).toHaveBeenLastCalledWith(false)
   expect(screen.getByRole('button', { name: en.signIn })).toBeTruthy()
-  expect(screen.queryByRole('button', { name: en.addApiKey })).toBeNull()
+  expect(screen.queryByRole('button', { name: /Add API Key/i })).toBeNull()
   expect(openOnboarding).not.toHaveBeenCalled()
   snapshot = { ...snapshot, onboarding: true }
   view.rerender(<AccountMenu {...props} />)

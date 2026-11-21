@@ -2,8 +2,7 @@
  * Official-DeepSeek first-run step. Readiness comes from the same
  * provider/settings/credential join as the Models page: any provider the user
  * can already talk to ends the step, and only a user with none is offered the
- * official DeepSeek route. The step reuses that page's credential editor in
- * the onboarding plugin's shared modal, so the key is entered once.
+ * account sign-in. Only explicit setup requests open the credential editor.
  */
 import type { TrackProductEvent } from '@deepseek-ai/dsh-client-product-analytics/client'
 import { useEffect, useState } from 'react'
@@ -53,14 +52,13 @@ function assertNever(_value: never): never {
 }
 
 /**
- * Prompt a first-run user for the official DeepSeek credential while no
- * provider can serve requests and that credential is writable.
+ * Offer account sign-in when no provider can serve requests, or open the
+ * credential editor for explicit setup.
  * @param props - settings-shell owner state and Models feature dependencies.
  * @returns the onboarding modal or null when onboarding needs no intervention.
  */
 export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): ReactNode {
   const { complete, controller, useModels, useAutomatic, operations, schema, t, renderSlot, explicit = false } = props
-  const [apiKey, setApiKey] = useState(explicit)
   const automaticOnMount = useAutomatic(value => value)
   const [automatic] = useState(automaticOnMount)
   const state = useModels(snapshot => snapshot)
@@ -96,6 +94,8 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
       return assertNever(readiness)
   }
 
+  if (!explicit) return renderSlot('settings.models.sign-in', { complete }, { fallback: <CompleteWithoutSignIn complete={complete} /> })
+
   const row = state.rows.find(candidate =>
     candidate.entry.provider === 'deepseek-official'
     && candidate.entry.settingsNs === 'llm-deepseek'
@@ -105,14 +105,11 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
   if (row === undefined || namespace === undefined) return null
 
   const finishCredential = (changed: boolean): void => {
-    if (!changed) {
-      complete()
-      return
-    }
-    void controller.load()
+    if (changed) void controller.load()
+    complete()
   }
 
-  const editor = (
+  return (
     <OnboardingModal title={t('onboardingTitle')}>
       <p className={styles.description}>{t('onboardingDescription')}</p>
       <div className={styles.editor}>
@@ -138,5 +135,9 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
       </div>
     </OnboardingModal>
   )
-  return apiKey ? editor : renderSlot('settings.models.sign-in', { complete, useApiKey: () => { setApiKey(true) } }, { fallback: editor })
+}
+
+function CompleteWithoutSignIn({ complete }: { complete: () => void }): null {
+  useEffect(() => { complete() }, [complete])
+  return null
 }

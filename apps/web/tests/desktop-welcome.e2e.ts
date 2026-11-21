@@ -19,7 +19,7 @@ const longName = '星河人工智能开放平台 · 面向每一个开发者的�
 
 async function geometry(page: Page) {
   const boxes = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>(
-    '.altoai-brand,.site-brand,.site-brand-name,.tagline,.tagline h1,.tagline p,.key-form,.key-heading,.actions,button,input,#key-error',
+    '.altoai-brand,.site-brand,.site-brand-name,.tagline,.tagline h1,.tagline p,.auth-heading,.actions,button,.entry-error',
   )].filter(node => node.checkVisibility()).map((node) => {
     const box = node.getBoundingClientRect()
     return { name: node.id || node.className, x: box.x, right: box.right, y: box.y, bottom: box.bottom,
@@ -72,7 +72,7 @@ it.each(['light', 'dark'] as const)('fits the desktop Welcome long brand, action
           onAccountState(listener) { receive = listener; queueMicrotask(() => { listener(state) }); return () => { receive = undefined } },
           startSignIn: () => new Promise(() => {}),
           cancelSignIn: async () => { state = { ...state, attempt: null }; receive?.(state); return state },
-          copySignInLink: async () => {}, saveApiKey: async () => ({ ok: false }), skip: async () => {} }
+          copySignInLink: async () => {}, skip: async () => { throw new Error('Unable to open workspace') } }
       }, { locale: resolveDesktopLocale('zh-CN', name === 'Altoai Harness' ? name : undefined), name })
       await page.goto(`http://127.0.0.1:${address.port}/renderer/welcome.html`)
       if (name === 'Altoai Harness') {
@@ -101,6 +101,7 @@ it.each(['light', 'dark'] as const)('fits the desktop Welcome long brand, action
       expect(background).toBe(scheme === 'dark' ? 'rgb(30, 30, 30)' : 'rgb(248, 250, 252)')
       await page.keyboard.press('Tab')
       expect(await page.locator('#sign-in').evaluate(node => node.matches(':focus-visible'))).toBe(true)
+      expect(await page.locator('#entry-actions button:visible').count()).toBe(2)
       await capture('entry-focus')
       const heading = await page.locator('#welcome-heading').boundingBox()
       if (name === '星河 AI') expect(heading!.height).toBeLessThanOrEqual(42)
@@ -118,22 +119,17 @@ it.each(['light', 'dark'] as const)('fits the desktop Welcome long brand, action
       await expect.poll(() => page.locator('#auth-retry').isVisible()).toBe(true)
       await capture('login-error')
       await page.evaluate(() => { window.desktopVisual.publish('expired') })
+      await expect.poll(() => page.locator('#auth-description').isVisible()).toBe(true)
       await capture('login-expired')
-      await page.locator('#auth-api-key').click()
-      expect(await page.locator('#key-input').evaluate(node => node === document.activeElement)).toBe(true)
-      await capture('key-focus')
-      await page.locator('#key-input').fill('invalid key')
-      await page.locator('#save-key').click()
-      expect(await page.locator('#key-input').getAttribute('aria-invalid')).toBe('true')
-      await capture('key-validation-error')
-      await page.locator('#key-input').fill('sk-visual-fixture')
-      await page.locator('#save-key').click()
-      await expect.poll(() => page.locator('#key-error').isVisible()).toBe(true)
-      expect(await page.locator('#key-input').inputValue()).toBe('sk-visual-fixture')
-      await capture('key-save-error')
-      await page.locator('#back-to-login').click()
-      expect(await page.locator('#api-key').evaluate(node => node === document.activeElement)).toBe(true)
-      await capture('entry-return-focus')
+      expect(await page.locator('#auth-actions button:visible').count()).toBe(1)
+      await page.locator('#auth-retry').click()
+      await page.evaluate(() => { window.desktopVisual.publish('waiting-browser') })
+      await page.locator('#auth-cancel').click()
+      await expect.poll(() => page.locator('#sign-in').isVisible()).toBe(true)
+      await capture('entry-return')
+      await page.locator('#skip-login').click()
+      await expect.poll(() => page.getByRole('alert').isVisible()).toBe(true)
+      await capture('entry-skip-error')
       expect(errors).toEqual([])
       await context.close()
     }

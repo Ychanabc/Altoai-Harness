@@ -1,7 +1,4 @@
-// Keyless browser e2e: the shipped DeepSeek adapter stays mounted while its
-// credential is absent, both ordered steps share the shipped modal chrome,
-// and the inline key write lands in an isolated harness home without a reload
-// or model call.
+// Keyless browser coverage for sign-in onboarding and write-only key entry in Models.
 import { randomBytes } from 'node:crypto'
 import { assertModelInputLayout } from './model-input-layout.ts'
 import { readFile } from 'node:fs/promises'
@@ -22,12 +19,11 @@ import { openSettings, ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureSh
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/onboarding-deepseek-config', import.meta.url))
 const WELCOME_EXPECTED = join(SNAPSHOT_DIR, 'welcome.expected.md')
 const SIGN_IN_EXPECTED = join(SNAPSHOT_DIR, 'sign-in.expected.md')
-const MISSING_EXPECTED = join(SNAPSHOT_DIR, 'missing.expected.md')
 const MODELS_EXPECTED = join(SNAPSHOT_DIR, 'models.expected.md')
 const DEFAULT_MODELS_EXPECTED = join(SNAPSHOT_DIR, 'default-models.expected.md')
 const MODE = webSnapshotMode()
 
-describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup', () => {
+describe.skipIf(MODE === 'record')('web e2e: account onboarding and DeepSeek Models setup', () => {
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
@@ -79,18 +75,17 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     await signIn.waitFor({ timeout: 15_000 })
     await compareOrRefreshGolden(SIGN_IN_EXPECTED,
       await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd), MODE)
-    await signIn.getByRole('button', { name: '添加 API Key', exact: true }).click()
-    const credentialStep = page.getByRole('dialog', { name: '添加一个 API Key 开始使用' })
-    await credentialStep.waitFor({ timeout: 15_000 })
-    const keyInput = credentialStep.getByLabel('API 密钥', { exact: true })
-    await keyInput.waitFor({ timeout: 10_000 })
-    const initial = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
-    await compareOrRefreshGolden(MISSING_EXPECTED, initial, MODE)
-
-    await keyInput.fill(secret)
-    await credentialStep.getByRole('button', { name: '保存并继续' }).click()
-    await credentialStep.waitFor({ state: 'detached', timeout: 15_000 })
+    await signIn.getByRole('button', { name: '关闭', exact: true }).click()
+    await signIn.waitFor({ state: 'detached', timeout: 15_000 })
     expect(await page.locator('#root').evaluate(root => (root as HTMLElement).inert)).toBe(false)
+
+    await openSettings(page, 'zh')
+    const settings = page.getByRole('dialog', { name: '设置' })
+    await settings.getByRole('button', { name: '模型', exact: true }).click()
+    await settings.getByRole('tab', { name: '第三方模型', exact: true }).click()
+    await settings.getByLabel('API 密钥', { exact: true }).fill(secret)
+    await settings.getByRole('button', { name: '保存', exact: true }).click()
+    await settings.getByText('已保存 DeepSeek (deepseek-official)。', { exact: true }).waitFor({ timeout: 15_000 })
 
     const stored = await readFile(join(scaffold.harnessHome, '.credentials.yaml'), 'utf8')
     expect(stored.includes(`DEEPSEEK_API_KEY: ${secret}`)).toBe(true)
@@ -103,10 +98,6 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
 
     // The ordinary Models surface reuses the refreshed join and exposes the
     // configured write-only placeholder without a reload.
-    await openSettings(page, 'zh')
-    const settings = page.getByRole('dialog', { name: '设置' })
-    await settings.waitFor({ timeout: 10_000 })
-    await settings.getByRole('button', { name: '模型', exact: true }).click()
     const deepSeekRow = settings.getByText('DeepSeek', { exact: true }).first()
     await deepSeekRow.waitFor({ timeout: 10_000 })
     await deepSeekRow.locator('xpath=ancestor::li').getByRole('button', { name: '编辑' }).click()
@@ -315,7 +306,7 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
   it('keeps the fixture inventory closed', async () => {
     await assertFixtureInventory(
       SNAPSHOT_DIR,
-      ['welcome.expected.md', 'sign-in.expected.md', 'missing.expected.md', 'models.expected.md', 'default-models.expected.md', 'empty.expected.md'],
+      ['welcome.expected.md', 'sign-in.expected.md', 'models.expected.md', 'default-models.expected.md', 'empty.expected.md'],
     )
   })
 })

@@ -17,7 +17,7 @@ const theme: ThemeSnapshot = {
   active: { id: 'light', colorScheme: 'light', tokens: {} }, themes: [], revision: 0,
 }
 
-it('claims onboarding while loading, offers API key fallback, and completes after login', () => {
+it('claims onboarding while loading, offers only sign-in, and completes after login', () => {
   let account: AccountSnapshot = { view: undefined, details: undefined, avatar: undefined, failed: false }
   const unused = (): never => { throw new Error('AccountOnboarding does not consume global hooks') }
   const globals: GlobalStandardProps = {
@@ -29,7 +29,7 @@ it('claims onboarding while loading, offers API key fallback, and completes afte
   const props = {
     ...globals,
     hasRunningAccountTasks: vi.fn(async () => false),
-    complete: vi.fn(), useApiKey: vi.fn(), setOnboarding: vi.fn(), showLogin: vi.fn(),
+    complete: vi.fn(), setOnboarding: vi.fn(), showLogin: vi.fn(),
     useAccount: <T,>(select: (snapshot: AccountSnapshot) => T) => select(account),
     useTheme: <T,>(select: (snapshot: ThemeSnapshot) => T) => select(theme),
     start: vi.fn(async () => {}), cancel: vi.fn(async () => {}), signOut: vi.fn(async () => {}),
@@ -42,10 +42,10 @@ it('claims onboarding while loading, offers API key fallback, and completes afte
   expect(screen.queryByRole('dialog')).toBeNull()
   account = { ...account, view: { status: 'signed-out', attempt: null, links: { usageUrl: '', topUpUrl: '' } } }
   view.rerender(<AccountOnboarding {...props} />)
-  fireEvent.click(screen.getByRole('button', { name: en.addApiKey }))
-  expect(props.showLogin).toHaveBeenLastCalledWith(false)
-  expect(props.useApiKey).toHaveBeenCalledOnce()
+  expect(screen.getByRole('button', { name: en.signIn })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: /Add API Key/i })).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: en.close }))
+  expect(props.showLogin).toHaveBeenLastCalledWith(false)
   expect(props.complete).toHaveBeenCalledOnce()
   account = { ...account, view: { ...account.view!, status: 'credential-stored' } }
   view.rerender(<AccountOnboarding {...props} />)

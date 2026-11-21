@@ -111,7 +111,7 @@ Models 页面包含 **DeepSeek 账号**（`deepseek-account`，英文为 **DeepS
 
 ### 引导协调器
 
-预览版说明在 `src/client/locales.ts` 中持有精确文案，并在 `src/onboarding-copy.ts` 中持有确认版本。认证浏览器通过共享配置表单比较并写入 `ui-settings-general.welcomeNoticeVersion`；只有显式点击「继续」才会记录当前版本；命名空间不可用或写入被拒时，声明保持未确认状态。已确认旧版的用户会再次看到当前说明。DeepSeek 步骤面向 `llm-deepseek` 中的 `deepseek-official`，在共享引导模态框内以仅凭据模式渲染既有 `ProviderEditor`；`credentials.set` 仍是唯一的机密写入，且不改变任何提供商设置。
+预览版说明在 `src/client/locales.ts` 中持有精确文案，并在 `src/onboarding-copy.ts` 中持有确认版本。认证浏览器通过共享配置表单比较并写入 `ui-settings-general.welcomeNoticeVersion`；只有显式点击「继续」才会记录当前版本；命名空间不可用或写入被拒时，声明保持未确认状态。已确认旧版的用户会再次看到当前说明。DeepSeek 自动引导步骤仅提供账号登录。
 
 </details>
 
@@ -130,7 +130,7 @@ Models 页面包含 **DeepSeek 账号**（`deepseek-account`，英文为 **DeepS
 
 -----
 
-`settings.models.sign-in` 插槽让账号登录在凭证编辑器之前提供选择；没有贡献者时直接显示编辑器。关闭账号选择弹窗会结束整个引导步骤。从账号菜单显式重新打开时，即使已有提供者配置，也会进入同一个编辑器。
+`settings.models.sign-in` 插槽提供账号登录。关闭登录弹窗或客户端未装配账号组件时，引导步骤结束。在「设置 → 模型」中添加或编辑提供商 API Key。
 
 <a id="model-experience"></a>
 ## 模型体验

@@ -19,7 +19,6 @@ import { openSettings, ZH_BROWSER_LOCALE, saveFailureShot } from './support.ts'
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/onboarding-usable-provider', import.meta.url))
 const DISMISSED_EXPECTED = join(SNAPSHOT_DIR, 'dismissed.expected.md')
 const MODE = webSnapshotMode()
-const CREDENTIAL_STEP = '添加一个 API Key 开始使用'
 
 describe.skipIf(MODE === 'record')('web e2e: another usable provider ends first-run onboarding', () => {
   let scaffold: WebScaffold
@@ -46,11 +45,8 @@ describe.skipIf(MODE === 'record')('web e2e: another usable provider ends first-
     onTestFailed(() => saveFailureShot(page, 'web-e2e-onboarding-setup-card-cancel'))
     const signIn = page.getByRole('dialog', { name: '开始使用', exact: true })
     await signIn.waitFor({ timeout: 15_000 })
-    await signIn.getByRole('button', { name: '添加 API Key', exact: true }).click()
-    const credentialStep = page.getByRole('dialog', { name: CREDENTIAL_STEP })
-    await credentialStep.waitFor({ timeout: 15_000 })
-    await credentialStep.getByRole('button', { name: '稍后配置' }).click()
-    await credentialStep.waitFor({ state: 'detached', timeout: 15_000 })
+    await signIn.getByRole('button', { name: '关闭', exact: true }).click()
+    await signIn.waitFor({ state: 'detached', timeout: 15_000 })
 
     await openSettings(page, 'zh')
     const settings = page.getByRole('dialog', { name: '设置' })
@@ -58,6 +54,7 @@ describe.skipIf(MODE === 'record')('web e2e: another usable provider ends first-
     // Dismissing the onboarding step leaves Settings closed, so enter the
     // Models section explicitly before exercising its normal cards.
     await settings.getByRole('button', { name: '模型', exact: true }).click()
+    await settings.getByRole('tab', { name: '第三方模型', exact: true }).click()
     const setupKey = settings.getByRole('textbox', { name: 'API 密钥', exact: true })
     await setupKey.waitFor({ timeout: 10_000 })
 
@@ -109,7 +106,7 @@ describe.skipIf(MODE === 'record')('web e2e: another usable provider ends first-
     // The regression: the step read only the official route's credential, so a
     // fully configured user was taken over on every blank session.
     await expect.poll(
-      async () => page.getByRole('dialog', { name: CREDENTIAL_STEP }).count(),
+      async () => page.getByRole('dialog', { name: '开始使用', exact: true }).count(),
       { timeout: 10_000 },
     ).toBe(0)
     expect(await page.locator('#root').evaluate(root => (root as HTMLElement).inert)).toBe(false)
@@ -119,6 +116,7 @@ describe.skipIf(MODE === 'record')('web e2e: another usable provider ends first-
     await openSettings(page, 'zh')
     await settings.waitFor({ timeout: 10_000 })
     await settings.getByRole('button', { name: '模型', exact: true }).click()
+    await settings.getByRole('tab', { name: '第三方模型', exact: true }).click()
     await settings.getByRole('button', { name: '编辑 DeepSeek (deepseek-official)' }).waitFor({ timeout: 10_000 })
     expect(await settings.getByRole('textbox', { name: 'API 密钥', exact: true }).count()).toBe(0)
 

@@ -68,7 +68,6 @@ body {
 }
 
 .welcome > .tagline,
-.welcome > .key-form,
 .welcome > #auth-page {
   grid-row: 2;
   grid-column: 1;
@@ -190,36 +189,6 @@ body {
   color: var(--dsw-alias-label-primary);
 }
 
-.actions .back {
-  position: absolute;
-  top: calc(100% + 16px);
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  min-width: 58px;
-  height: 28px;
-  padding: 4px 10px;
-  border: 0;
-  border-radius: 24px;
-  corner-shape: round;
-  background: transparent;
-  color: var(--dsw-alias-label-secondary);
-  font-family: var(--dsw-font-family-brand);
-  font-weight: 300;
-  font-size: 14px;
-  line-height: 20px;
-}
-
-/* Platform text actions use color-only hover, preserving the native backdrop. */
-.actions .back:hover:not(:disabled) {
-  color: var(--dsw-alias-brand-primary);
-}
-
-.actions .back:disabled {
-  color: var(--dsw-alias-label-caption);
-  opacity: 1;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .actions button {
     transition: none;
@@ -230,15 +199,7 @@ body {
   background: var(--dsw-alias-button-floating-hover);
 }
 
-.key-form {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 40px;
-  width: 440px;
-}
-
-.key-heading {
+.auth-heading {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -246,7 +207,7 @@ body {
   text-align: center;
 }
 
-.key-heading h1 {
+.auth-heading h1 {
   margin: 0;
   font-size: 20px;
   font-weight: 400;
@@ -254,7 +215,7 @@ body {
   letter-spacing: 0.01em;
 }
 
-.key-heading p {
+.auth-heading p {
   max-width: 100%;
   overflow-wrap: anywhere;
   margin: 0;
@@ -265,55 +226,12 @@ body {
   letter-spacing: 0.02em;
 }
 
-.key-field {
-  position: relative;
-  width: 100%;
-}
-
-/* Text inputs match :focus-visible after pointer focus too; their border carries focus. */
-.key-field input {
-  display: block;
-  width: 100%;
-  height: 48px;
-  padding: 7px 14px;
-  border: 0.5px solid var(--dsw-alias-border-l4);
-  border-radius: 12px;
-  outline: none;
-  background: var(--dsw-alias-bg-layer-2);
-  color: var(--dsw-alias-label-primary);
-  font-family: inherit;
-  font-weight: inherit;
-  font-size: 14px;
-  line-height: 24px;
-  user-select: text;
-}
-
-.key-field input:focus {
-  border-color: var(--dsw-alias-brand-primary);
-}
-
-.key-field input::placeholder {
-  color: var(--dsw-alias-label-caption);
-  opacity: 1;
-}
-
-.key-error {
-  position: absolute;
-  top: 100%;
-  width: 100%;
-  margin: 8px 0 0;
+.entry-error {
+  margin: 0;
   color: var(--dsw-alias-state-error-primary, var(--dsw-alias-label-primary));
   font-size: 14px;
   line-height: 22px;
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+  text-align: center;
 }
 
 .auth-expired { gap: 12px; padding-top: 28px; }

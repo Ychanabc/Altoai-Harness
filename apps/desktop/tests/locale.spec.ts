@@ -65,7 +65,7 @@ it('keeps localized desktop wording while branding every site-client locale', ()
     expect(site.welcomeTitle).toBe('Altoai Harness')
     expect(site.startupAddressInUse).toContain('Altoai Harness')
     expect(site.startupAddressInUse).not.toContain('DSH')
-    expect(site.welcomeKeyDescription).toBe(upstream.welcomeKeyDescription)
+    expect(site.welcomeSetUpLater).toBe(upstream.welcomeSetUpLater)
     expect(site.undo).toBe(upstream.undo)
     expect(resolveDesktopLocale(locale).messages.aboutProduct).toBe('AltoaiH')
   }

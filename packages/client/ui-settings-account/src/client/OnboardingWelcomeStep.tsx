@@ -19,7 +19,7 @@ export function OnboardingWelcomeStep({ t, locale, heading, busy, onStart, brand
   return <div className={`${css.content} ${css.welcome}`}>
     <div className={css.copy}>
       <h1 id="desktop-onboarding-title" ref={heading} tabIndex={-1}>{t('onboardingWelcome')} <em className={css.brand}>{brand ?? t('onboardingBrand')}</em></h1>
-      <p className={css.heroDescription}>{t(brand === undefined ? 'onboardingIntroduction' : 'siteLoginDescription')}</p>
+      <p className={css.heroDescription}>{t(brand === undefined ? 'onboardingIntroduction' : 'siteAccountLoginDescription')}</p>
       <Button variant="primary" className={`${css.action} ${css.start}`} disabled={busy} onClick={onStart}>{t('onboardingStart')}</Button>
     </div>
     {brand === undefined && <div className={css.welcomeIllustration} aria-hidden="true">

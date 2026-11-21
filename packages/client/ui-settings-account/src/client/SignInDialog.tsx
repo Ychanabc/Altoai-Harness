@@ -8,15 +8,13 @@ import { authorizeUrlWithTheme } from './authorize-url.ts'
 import css from './SignInDialog.module.css'
 
 /** @param props - safe account state, localized copy, and user actions. @returns login dialog. */
-export function SignInDialog({ account, colorScheme, start, cancel, close, useApiKey, t }: {
+export function SignInDialog({ account, colorScheme, start, cancel, close, t }: {
   account: AccountSnapshot
   /** Resolved scheme of the active application theme; the copied link carries it. */
   colorScheme: 'light' | 'dark'
   start: () => Promise<void>
   cancel: (id: SignInAttemptId) => Promise<void>
   close: () => void
-  /** Model setup supplies this action; standalone account sign-in does not. */
-  useApiKey?: () => void
   t: (key: AccountKey) => string
 }) {
   const [busy, setBusy] = useState(false)
@@ -62,10 +60,7 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
   }
   const title = error ? t('failureTitle') : active ? t('browserTitle') : expired ? t('timeoutTitle') : t('loginTitle')
   const site = account.view?.brand !== undefined
-  const introKey = useApiKey === undefined
-    ? (site ? 'siteAccountLoginDescription' : 'accountLoginDescription')
-    : (site ? 'siteLoginDescription' : 'loginDescription')
-  const secondaryAction = active ? dismiss : useApiKey
+  const introKey = site ? 'siteAccountLoginDescription' : 'accountLoginDescription'
   return <Modal open headless title={title} onClose={dismiss} className={css.dialog as string}>
     <div className={css.content}>
       <div className={css.header}>
@@ -85,8 +80,8 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
       </p>}
     </div>
     <div className={css.actions}>
-      {secondaryAction && <Button variant="outline" className={css.secondaryButton} disabled={committing || busy}
-        onClick={secondaryAction}>{t(active ? 'cancel' : 'addApiKey')}</Button>}
+      {active && <Button variant="outline" className={css.secondaryButton} disabled={committing || busy}
+        onClick={dismiss}>{t('cancel')}</Button>}
       <Button variant="primary" className={css.primaryButton} disabled={busy || committing || waiting || account.view === undefined}
         aria-label={waiting ? t('waiting') : undefined} onClick={() => { void run(retry) }}>
         {waiting ? <IconLoadingOutlineRegular className={css.spinner} /> : t(expired || error ? 'retry' : 'signIn')}
