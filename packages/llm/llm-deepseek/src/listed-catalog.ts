@@ -78,6 +78,7 @@ function listed(base: DeepSeekCatalogModel, entry: ListingEntry, facts: ListedFa
     ...facts.systemPromptUpdate === 'in-history' ? { systemPromptUpdate: 'in-history' as const } : {},
     ...facts.toolUpdate === undefined || facts.toolUpdate === 'leading-only' ? {} : { toolUpdate: facts.toolUpdate },
     inputModalities: [...facts.inputModalities],
+    ...facts.protocol === 'anthropic-messages' ? { siteMessages: true as const } : {},
     ...facts.messagesReasoningEfforts === undefined ? {} : { messagesReasoningEfforts: facts.messagesReasoningEfforts },
     ...facts.responsesReasoningEfforts === undefined ? {} : { responsesReasoningEfforts: facts.responsesReasoningEfforts },
   })

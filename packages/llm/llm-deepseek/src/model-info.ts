@@ -34,10 +34,14 @@ const SITE_REASONING_EFFORTS = {
   off: REASONING_EFFORTS[0],
   low: REASONING_EFFORTS[1],
   medium: { id: brandString<ReasoningEffortId>('medium'), name: 'Medium' },
-  high: REASONING_EFFORTS[2],
+  high: { id: HIGH_REASONING_EFFORT, name: 'High' },
   xhigh: { id: brandString<ReasoningEffortId>('xhigh'), name: 'Extra high' },
   max: REASONING_EFFORTS[3],
 } satisfies Record<MessagesReasoningEffort, { id: ReasoningEffortId; name: string; description?: string }>
+
+const DEFAULT_SITE_REASONING_EFFORTS = [
+  SITE_REASONING_EFFORTS.off, SITE_REASONING_EFFORTS.low, SITE_REASONING_EFFORTS.medium, SITE_REASONING_EFFORTS.high,
+] as const
 
 /** Resolve the advertised levels and default used by both the picker and the request serializer.
  * @param connection - validated route defaults.
@@ -53,6 +57,9 @@ export function modelReasoning(connection: DeepSeekConnectionOptions, model?: De
   if (declared !== undefined && declared[0] !== undefined) {
     const defaultEffort = declared.includes(routeDefault) ? routeDefault : declared[0]
     return { efforts: declared.map(effort => SITE_REASONING_EFFORTS[effort]), defaultEffort: SITE_REASONING_EFFORTS[defaultEffort].id }
+  }
+  if (model?.siteMessages === true) {
+    return { efforts: DEFAULT_SITE_REASONING_EFFORTS, defaultEffort: OFF_REASONING_EFFORT }
   }
   return connection.defaults.thinking === 'disabled'
     ? { efforts: OFF_ONLY_REASONING_EFFORTS, defaultEffort: OFF_REASONING_EFFORT }

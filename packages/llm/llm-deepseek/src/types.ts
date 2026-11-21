@@ -8,7 +8,7 @@ import type { AnonymousUserId } from '@deepseek-ai/dsh-anonymous-user-id'
 import type { DeepSeekLlmApiExtensionRequest, PreparedDeepSeekLlmApiExtensions } from '@deepseek-ai/dsh-deepseek-llm-api-extensions'
 import type { DeepSeekFileStore, DeepSeekFilePolicy } from './file-store.ts'
 
-/** Efforts for a deployment-declared adaptive Messages model. */
+/** Selectable efforts for site Messages models. */
 export type MessagesReasoningEffort = 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
 /** One optional model entry advertised by the direct-fetch adapter. */
@@ -46,9 +46,11 @@ export interface DeepSeekCatalogModel {
    * complete tool list on every request.
    */
   toolUpdate?: ToolUpdate
-  /** Explicit site listing levels; non-off levels use the adaptive Messages wire mode. */
+  /** Uses the site Messages reasoning defaults and adaptive thinking wire mode. */
+  siteMessages?: true
+  /** Recognized site listing hint for Messages reasoning levels. */
   messagesReasoningEfforts?: readonly MessagesReasoningEffort[]
-  /** Explicit site listing levels for Responses reasoning.effort. */
+  /** Site route levels for Responses reasoning.effort. */
   responsesReasoningEfforts?: readonly ResponsesReasoningEffort[]
 }
 

@@ -69,9 +69,13 @@ A failed request the shared transport classifies as `QUOTA` is rewritten to `ACC
 
 ### Site deployment catalog
 
-`catalogProtocol: site` reads the authenticated `/v1/models` catalog. Entries declaring `anthropic` use Messages when they declare a recognized `messages_reasoning_efforts` level or lack an `openai` endpoint; otherwise an `openai` entry uses OpenAI Responses. The account service supplies a Bearer relay key, never a dashboard credential. The composer offers only the recognized levels for the selected Messages model: `off` disables thinking; other levels send adaptive thinking with `output_config.effort`. Without recognized levels a Messages route is off-only; Messages metadata does not configure a Responses route. Unlisted models and entries declaring neither endpoint fail with `MODEL_UNSUPPORTED`; no bundled fallback is offered. Site catalogs reject `modelOverrides`. The upstream decoder and admission policy remain the default.
+`catalogProtocol: site` reads the authenticated `/v1/models` catalog. Entries declaring `anthropic` use Messages when they declare a recognized `messages_reasoning_efforts` level or lack an OpenAI endpoint. The other entries declaring `openai` or `openai-response` use Responses. The account service supplies a Bearer relay key, never a dashboard credential. Unlisted models and entries declaring neither endpoint fail with `MODEL_UNSUPPORTED`; no bundled fallback is offered. Site catalogs reject `modelOverrides`.
 
-An HTTP or decoding failure clears the site catalog and publishes its error code on the provider directory; `MODEL_CATALOG_EMPTY` identifies an explicitly empty catalog and `MODEL_CATALOG_INCOMPATIBLE` identifies a nonempty catalog with no callable Messages models. Successful empty responses replace previous models. Account grant record updates, sign-out, and volatile configuration updates invalidate cached and in-flight listings; a same-token group switch must publish `credentials/record-updated` for `deepseek-account-platform/default` after committing the new group. Selectors consume the refreshed catalog and own preserving a still-valid selection or choosing its first callable entry.
+Choose reasoning effort in the composer without changing website settings. A Messages model without recognized `messages_reasoning_efforts` offers `off`, `low`, `medium`, and `high`, with `off` as the default. `off` sends disabled thinking with no `output_config`; other choices send adaptive thinking and `output_config.effort`. Recognized listing levels take precedence over these fallback choices.
+
+A Responses model without recognized `responses_reasoning_efforts` offers `low`, `medium`, and `high`. The client sends `reasoning.effort` only when a level is selected; otherwise the upstream model keeps its default. Recognized Responses levels take precedence over the fallback choices, independently of Messages metadata.
+
+An HTTP or decoding failure clears the site catalog and publishes its error code on the provider directory; `MODEL_CATALOG_EMPTY` identifies an explicitly empty catalog and `MODEL_CATALOG_INCOMPATIBLE` identifies a nonempty catalog with no callable models. Successful empty responses replace previous models. Account grant record updates, sign-out, and volatile configuration updates invalidate cached and in-flight listings; a same-token group switch must publish `credentials/record-updated` for `deepseek-account-platform/default` after committing the new group. Selectors consume the refreshed catalog and own preserving a still-valid selection or choosing its first callable entry.
 
 For site requests, only the gateway’s `invalid_relay_token` response clears the matching device login. An unmarked Messages HTTP 401 leaves the login intact and directs the user to the site model or upstream channel. A model-list HTTP 401 stops the request and prompts the user to sign out and sign in again.
 
@@ -105,7 +109,6 @@ Credentials and catalog availability do not enter model input; the protocol tran
 - The listing cache lives in memory; a start without network serves bundled capabilities until a listing loads.
 - A listing change during a running process reaches the Web model picker at its next catalog refresh; the plugin does not announce it.
 - The gate runs in this client; a modified client can still request any id unless the service rejects it.
-- The listing's effort levels are ignored.
 - When the current version can serve no listed model, the account offers no models, and model selectors show their generic empty state rather than an upgrade prompt.
 - An override can set but not remove `systemPromptUpdate` and `toolUpdate` declarations.
 - While this plugin is disabled, a task it started that still runs is not reported to the account's sign-out confirmation, and a sign-out ends it only through a model request in flight. A task that is executing a tool at that moment runs until its next model request, which fails because the route is no longer registered.
@@ -114,5 +117,3 @@ Credentials and catalog availability do not enter model input; the protocol tran
 ### Dev Note
 
 Registration and authentication tests also cover the Loader composition in the shared transport package.
-
-For Responses models, the site catalog can declare `responses_reasoning_efforts`. The composer offers the declared levels and sends an explicit choice as `reasoning.effort`; it does not infer levels from the model name.

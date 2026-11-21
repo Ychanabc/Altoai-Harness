@@ -25,10 +25,11 @@ afterEach(async () => {
   vi.unstubAllGlobals()
 })
 
-it('uses a persisted site grant only for Messages models and never for dashboard embedding', async () => {
+it('sends client-selected site reasoning over both protocols with a persisted relay grant', async () => {
   const home = await mkdtemp(join(tmpdir(), 'dsh-site-loader-'))
   cleanup.push(() => rm(home, { recursive: true, force: true }))
   const requests: Request[] = []
+  const inferenceBodies: Array<{ path: string; body: unknown }> = []
   let rejection: 'relay' | 'upstream' | undefined
   let responsesRejected = false
   let catalogRejected = false
@@ -50,13 +51,13 @@ it('uses a persisted site grant only for Messages models and never for dashboard
           { id: 'site-reasoner', supported_endpoint_types: ['openai', 'anthropic'], messages_reasoning_efforts: ['high', 'off', 'medium', 'max', 'unknown', 'medium', {}] },
           { id: 'openai-only', supported_endpoint_types: ['openai-response'],
             responses_reasoning_efforts: ['high', 'invalid', 'medium', 'medium'] },
+          { id: 'site-responses', supported_endpoint_types: ['openai', 'anthropic'] },
           { id: 'undeclared' },
         ] }))
       case '/v1/responses': {
         expect(request.headers.get('authorization')).toBe('Bearer site-relay-key')
         const body: unknown = await request.json()
-        expect(body).toMatchObject({ model: 'openai-only' })
-        if (!responsesRejected) expect(body).toMatchObject({ reasoning: { effort: 'high' } })
+        inferenceBodies.push({ path: '/v1/responses', body })
         if (responsesRejected) return Response.json({ error: { message: 'route is unavailable' } }, { status: 403 })
         const item = { type: 'message', id: 'site-reply', role: 'assistant', content: [{ type: 'output_text', text: 'Hello 世界', annotations: [] }] }
         return new Response(sse([
@@ -71,15 +72,9 @@ it('uses a persisted site grant only for Messages models and never for dashboard
       case '/v1/messages':
         expect(request.headers.get('authorization')).toBe('Bearer site-relay-key')
         expect(request.headers.get('anthropic-version')).toBe('2023-06-01')
-        const body: unknown = await request.json()
+        inferenceBodies.push({ path: '/v1/messages', body: await request.json() })
         if (rejection === 'relay') return Response.json({ error: { type: 'new_api_error', code: 'invalid_relay_token', message: 'untrusted error detail' } }, { status: 401 })
         if (rejection === 'upstream') return Response.json({ type: 'error', error: { type: 'authentication_error', message: 'untrusted error detail' } }, { status: 401 })
-        if (typeof body === 'object' && body !== null && 'model' in body && body.model === 'site-reasoner') {
-          expect(body).toMatchObject({ thinking: { type: 'adaptive' }, output_config: { effort: 'medium' } })
-        } else {
-          expect(body).toMatchObject({ model: 'site-text', max_tokens: 4096, thinking: { type: 'disabled' } })
-          expect(body).not.toHaveProperty('output_config')
-        }
         return new Response(sse(textEvents), { headers: { 'content-type': 'text/event-stream' } })
       default: throw new Error(`unexpected endpoint ${request.url}`)
     }
@@ -90,14 +85,14 @@ it('uses a persisted site grant only for Messages models and never for dashboard
     const modules = new Map<string, { module: unknown; config?: object }>([
       ['@deepseek-ai/dsh-llm', { module: Llm }],
       ['@deepseek-ai/dsh-agent-default-model', { module: DefaultModel, config: {
-        provider: 'deepseek-account', model: 'deepseek-chat', fallbackToFirstAvailable: true, reasoningEffort: 'off',
+        provider: 'deepseek-account', model: 'deepseek-chat', fallbackToFirstAvailable: true,
       } }],
       ['@deepseek-ai/dsh-authorization', { module: Authorization }],
       ['@deepseek-ai/dsh-credentials-local', { module: Credentials, config: { path: join(home, 'credentials.yml'), watch: false } }],
       ['@deepseek-ai/dsh-deepseek-account', { module: Account, config: { authProtocol, platformOrigin: 'https://site.invalid', inferenceOrigin: 'https://site.invalid' } }],
       ['@deepseek-ai/dsh-deepseek-auth', { module: Auth }],
       ['@deepseek-ai/dsh-llm-deepseek-account', { module: AccountRoute, config: {
-        baseURL: 'https://site.invalid', catalogProtocol: 'site', thinking: 'disabled', reasoningEffort: 'off', maxTokens: 4096, defaultContextWindow: 32768,
+        baseURL: 'https://site.invalid', catalogProtocol: 'site', maxTokens: 4096, defaultContextWindow: 32768,
       } }],
     ])
     for (const name of modules.keys()) {
@@ -127,23 +122,28 @@ it('uses a persisted site grant only for Messages models and never for dashboard
   await vi.waitFor(async () => {
     expect(await first.deepseekAccount.getState()).toMatchObject({ status: 'credential-stored', attempt: { phase: 'succeeded' } })
   })
-  const infer = (ctx: Context, model = 'site-text') => chunks(ctx.llm.stream({ provider: 'deepseek-account', model, messages: [user()] }))
-  expect((await first.llm.listModels('deepseek-account')).map(model => model.id)).toEqual(['site-text', 'site-reasoner', 'openai-only'])
+  const infer = (ctx: Context, model = 'site-text', effort?: string) => chunks(ctx.llm.stream({
+    provider: 'deepseek-account', model, messages: [user()],
+    ...effort === undefined ? {} : { reasoningEffort: brandString<ReasoningEffortId>(effort) },
+  }))
+  expect((await first.llm.listModels('deepseek-account')).map(model => model.id)).toEqual(['site-text', 'site-reasoner', 'openai-only', 'site-responses'])
   expect(await first.deepseekAccount.getPlatformSession()).toBeNull()
   expect(await first.credentials.readRecord(credentialKey('deepseek-account-platform', 'default'))).toMatchObject({
     kind: 'grant', payload: { credentialType: 'site-api-key' },
   })
   const resolvedDefault = await first.agentDefaultModel.resolveSelection()
-  expect(resolvedDefault).toMatchObject({ model: 'site-text', reasoningEffort: 'off' })
+  expect(resolvedDefault).toEqual({ provider: 'deepseek-account', model: 'site-text' })
   expect(await infer(first, resolvedDefault.model)).toContainEqual(expect.objectContaining({ type: 'text-delta', text: 'Hello 世界' }))
+  expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/messages', body: { model: 'site-text', max_tokens: 4096, thinking: { type: 'disabled' } } })
+  expect(inferenceBodies.at(-1)?.body).not.toHaveProperty('output_config')
   for (const model of ['undeclared', 'not-listed']) {
     expect((await infer(first, model)).at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'error', failure: { code: 'MODEL_UNSUPPORTED' } } })
   }
   const responsesInfo = await first.llm.resolveModelInfo('deepseek-account', 'openai-only')
   expect(responsesInfo.reasoning?.efforts.map(effort => effort.id)).toEqual(['medium', 'high'])
-  const openai = await chunks(first.llm.stream({ provider: 'deepseek-account', model: 'openai-only',
-    reasoningEffort: brandString<ReasoningEffortId>('high'), messages: [user()] }))
+  const openai = await infer(first, 'openai-only', 'high')
   expect(openai.some(event => event.type === 'block-end' && event.block.type === 'text' && event.block.text === 'Hello 世界')).toBe(true)
+  expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/responses', body: { model: 'openai-only', reasoning: { effort: 'high' } } })
   expect(requests.filter(request => new URL(request.url).pathname === '/v1/responses')).toHaveLength(1)
   responsesRejected = true
   const responseFailure = (await infer(first, 'openai-only')).at(-1)
@@ -155,12 +155,41 @@ it('uses a persisted site grant only for Messages models and never for dashboard
   expect(requests.filter(request => new URL(request.url).pathname === '/v1/messages')).toHaveLength(1)
   const reasoning = await first.llm.resolveModelInfo('deepseek-account', 'site-reasoner')
   expect(reasoning.reasoning?.efforts.map(effort => effort.id)).toEqual(['off', 'medium', 'high', 'max'])
-  expect(reasoning.reasoning?.defaultEffort).toBe('off')
-  const inferReasoning = (effort: string) => chunks(first.llm.stream({ provider: 'deepseek-account', model: 'site-reasoner',
-    reasoningEffort: brandString<ReasoningEffortId>(effort), messages: [user()] }))
-  expect(await inferReasoning('medium')).toContainEqual(expect.objectContaining({ type: 'text-delta' }))
-  expect((await inferReasoning('low')).at(-1)).toMatchObject({ reason: { kind: 'error', failure: { code: 'UNSUPPORTED_REASONING_EFFORT' } } })
+  expect(reasoning.reasoning?.defaultEffort).toBe('high')
+  expect(await infer(first, 'site-reasoner', 'medium')).toContainEqual(expect.objectContaining({ type: 'text-delta' }))
+  expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/messages', body: {
+    model: 'site-reasoner', thinking: { type: 'adaptive' }, output_config: { effort: 'medium' },
+  } })
+  expect((await infer(first, 'site-reasoner', 'low')).at(-1)).toMatchObject({ reason: { kind: 'error', failure: { code: 'UNSUPPORTED_REASONING_EFFORT' } } })
   expect(requests.filter(request => new URL(request.url).pathname === '/v1/messages')).toHaveLength(2)
+  const messagesDefaults = await first.llm.resolveModelInfo('deepseek-account', 'site-text')
+  expect(messagesDefaults.reasoning?.efforts.map(effort => effort.id)).toEqual(['off', 'low', 'medium', 'high'])
+  expect(messagesDefaults.reasoning?.defaultEffort).toBe('off')
+  const responsesDefaults = await first.llm.resolveModelInfo('deepseek-account', 'site-responses')
+  expect(responsesDefaults.reasoning?.efforts.map(effort => effort.id)).toEqual(['low', 'medium', 'high'])
+  expect(responsesDefaults.reasoning?.defaultEffort).toBeUndefined()
+  for (const effort of ['low', 'medium', 'high']) {
+    expect(await infer(first, 'site-text', effort)).toContainEqual(expect.objectContaining({ type: 'text-delta' }))
+    expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/messages', body: {
+      model: 'site-text', thinking: { type: 'adaptive' }, output_config: { effort },
+    } })
+    expect((await infer(first, 'site-responses', effort)).at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'stop' } })
+    expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/responses', body: { model: 'site-responses', reasoning: { effort } } })
+  }
+  expect(await infer(first, 'site-text', 'off')).toContainEqual(expect.objectContaining({ type: 'text-delta' }))
+  expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/messages', body: { model: 'site-text', thinking: { type: 'disabled' } } })
+  expect(inferenceBodies.at(-1)?.body).not.toHaveProperty('output_config')
+  expect((await infer(first, 'site-responses')).at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'stop' } })
+  expect(inferenceBodies.at(-1)).toMatchObject({ path: '/v1/responses', body: { model: 'site-responses' } })
+  expect(inferenceBodies.at(-1)?.body).not.toHaveProperty('reasoning')
+  const inferenceCount = inferenceBodies.length
+  for (const model of ['site-text', 'site-responses']) {
+    expect((await infer(first, model, 'max')).at(-1)).toMatchObject({
+      reason: { kind: 'error', failure: { code: 'UNSUPPORTED_REASONING_EFFORT' } },
+    })
+  }
+  expect(inferenceBodies).toHaveLength(inferenceCount)
+
   rejection = 'upstream'
   const failure = (await infer(first)).at(-1)
   expect(failure).toMatchObject({ reason: { kind: 'error', failure: { code: 'AUTH', status: 401 } } })

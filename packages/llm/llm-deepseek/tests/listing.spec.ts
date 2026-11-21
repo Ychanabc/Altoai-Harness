@@ -264,10 +264,10 @@ it('reads site endpoint declarations without inventing image or history capabili
     { id: 'unknown', api_capabilities: { anthropic_messages: {} } },
   ] }, 'site')
   expect(listing.entries[0]?.capabilities).toEqual({ usable: true, facts: {
-    protocol: 'anthropic-messages', inputModalities: ['text'], systemPromptUpdate: 'leading-only', toolUpdate: 'leading-only', messagesReasoningEfforts: ['off'],
+    protocol: 'anthropic-messages', inputModalities: ['text'], systemPromptUpdate: 'leading-only', toolUpdate: 'leading-only',
   } })
   expect(listing.entries[1]?.capabilities).toEqual({ usable: true, facts: {
-    protocol: 'openai-responses', inputModalities: ['text'],
+    protocol: 'openai-responses', inputModalities: ['text'], responsesReasoningEfforts: ['low', 'medium', 'high'],
   } })
   expect(listing.entries[2]?.capabilities.usable).toBe(false)
   expect(parseModelListing({ data: [{ id: 'site-only', supported_endpoint_types: ['anthropic'] }] }).entries[0]?.capabilities.usable).toBe(false)

@@ -242,7 +242,7 @@ it('connects its route id and deployment, so other DeepSeek consumers send the a
 it.each([
   [503, { error: { message: 'down' } }, 'HTTP_503'],
   [200, { success: true, data: [] }, 'MODEL_CATALOG_EMPTY'],
-  [200, { data: [{ id: 'claude-name', supported_endpoint_types: ['openai'] }] }, 'MODEL_CATALOG_INCOMPATIBLE'],
+  [200, { data: [{ id: 'embedding-only', supported_endpoint_types: ['embedding'] }] }, 'MODEL_CATALOG_INCOMPATIBLE'],
 ])('reports distinct site catalog outcomes for HTTP %s and %j', async (status, body, code) => {
   vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), { status }))))
   const ctx = await host('https://site.invalid')

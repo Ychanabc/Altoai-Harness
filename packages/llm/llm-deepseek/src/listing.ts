@@ -5,6 +5,7 @@ import { timeoutOf } from '@deepseek-ai/dsh-timeout'
 import type { MessagesReasoningEffort, ResponsesReasoningEffort } from './types.ts'
 
 const SITE_EFFORTS = ['off', 'low', 'medium', 'high', 'xhigh', 'max'] as const satisfies readonly MessagesReasoningEffort[]
+const DEFAULT_RESPONSES_EFFORTS = ['low', 'medium', 'high'] as const satisfies readonly ResponsesReasoningEffort[]
 const RESPONSES_EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh'] as const satisfies readonly ResponsesReasoningEffort[]
 const LISTED_MODALITIES = ['text', 'image'] as const satisfies readonly ModelModality[]
 const BADGE_TONES = ['neutral', 'info', 'success', 'warning'] as const satisfies readonly LlmModelBadgeTone[]
@@ -42,7 +43,7 @@ export interface ListedFacts {
   readonly inputModalities: readonly ModelModality[]
   /** Explicit Messages reasoning levels from a site listing. */
   readonly messagesReasoningEfforts?: readonly MessagesReasoningEffort[]
-  /** Explicit Responses reasoning levels from a site listing. */
+  /** Responses reasoning levels for the site route, narrowed by any recognized listing hint. */
   readonly responsesReasoningEfforts?: readonly ResponsesReasoningEffort[]
   /** Combined request and response context, when declared. */
   readonly contextWindow?: number
@@ -248,12 +249,12 @@ export function parseModelListing(body: unknown, format: 'deepseek' | 'site' = '
           : messages && (!openai || efforts.length > 0)
             ? { usable: true, facts: {
               protocol: 'anthropic-messages', inputModalities: ['text'], systemPromptUpdate: 'leading-only', toolUpdate: 'leading-only',
-              messagesReasoningEfforts: efforts.length === 0 ? ['off'] : efforts,
+              ...efforts.length === 0 ? {} : { messagesReasoningEfforts: efforts },
             } }
             : openai
               ? { usable: true, facts: {
                 protocol: 'openai-responses', inputModalities: ['text'],
-                ...responsesEfforts.length === 0 ? {} : { responsesReasoningEfforts: responsesEfforts },
+                responsesReasoningEfforts: responsesEfforts.length === 0 ? DEFAULT_RESPONSES_EFFORTS : responsesEfforts,
               } }
               : { usable: false, reason: 'declares neither an OpenAI nor Anthropic endpoint' }
         : capabilitiesOf(entry),

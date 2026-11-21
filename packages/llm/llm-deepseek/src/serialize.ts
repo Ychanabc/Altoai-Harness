@@ -151,10 +151,11 @@ export function serialize(
     throw new LlmError(`DeepSeek Messages does not support reasoning effort ${effort}`, 'UNSUPPORTED_REASONING_EFFORT')
   }
   const system = [options.system, historySystem].filter(Boolean).join('\n\n')
+  const thinking = model?.siteMessages === true || model?.messagesReasoningEfforts !== undefined ? 'adaptive' : 'enabled'
   return {
     model: options.model, stream: true, messages,
     max_tokens: options.maxTokens ?? model?.maxTokens ?? connection.maxTokens,
-    thinking: { type: effort === 'off' ? 'disabled' : model?.messagesReasoningEfforts === undefined ? 'enabled' : 'adaptive' },
+    thinking: { type: effort === 'off' ? 'disabled' : thinking },
     ...effort === 'off' ? {} : { output_config: { effort } },
     ...system.length === 0 ? {} : { system },
     ...options.temperature === undefined ? {} : { temperature: options.temperature },
