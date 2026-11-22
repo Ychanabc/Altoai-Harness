@@ -124,8 +124,8 @@ async function palette(page: Page, scheme: 'light' | 'dark') {
     probe.remove()
     return result
   })
-  expect(semantic.background).toBe(scheme === 'dark' ? 'rgb(30, 30, 30)' : 'rgb(248, 250, 252)')
-  expect(semantic.foreground).toBe(scheme === 'dark' ? 'rgb(243, 244, 246)' : 'rgb(23, 33, 47)')
+  expect(semantic.background).toBe(scheme === 'dark' ? 'rgb(28, 28, 30)' : 'rgb(242, 242, 247)')
+  expect(semantic.foreground).toBe(scheme === 'dark' ? 'rgb(245, 245, 247)' : 'rgb(28, 28, 30)')
 }
 
 it('renders website branding, both palettes, narrow focus and account sign-in/out through the shipped Web composition', async () => {

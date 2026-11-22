@@ -1,11 +1,24 @@
 /* Shared tint for full-window Desktop surfaces; native material owns the blur. */
 :root {
-  /* Native macOS vibrancy supplies the blur; this is only the foreground tint. */
-  --dsw-desktop-window-tint: color-mix(in srgb, rgb(255 255 255) 40%, transparent);
+  --dsw-desktop-window-tint: color-mix(in srgb, rgb(242 242 247) 58%, transparent);
+  --dsw-glass-blur: blur(28px) saturate(180%);
+  --dsw-glass-highlight: rgb(255 255 255 / 78%);
+  --dsw-glass-edge: rgb(255 255 255 / 62%);
+  --dsw-glass-shadow: rgb(15 23 42 / 14%);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-ds-theme-source]) { --dsw-desktop-window-tint: color-mix(in srgb, rgb(24 25 28) 50%, transparent); }
+  :root:not([data-ds-theme-source]) {
+    --dsw-desktop-window-tint: color-mix(in srgb, rgb(28 28 30) 62%, transparent);
+    --dsw-glass-highlight: rgb(255 255 255 / 14%);
+    --dsw-glass-edge: rgb(255 255 255 / 16%);
+    --dsw-glass-shadow: rgb(0 0 0 / 48%);
+  }
 }
 
-body[data-ds-dark-theme] { --dsw-desktop-window-tint: color-mix(in srgb, rgb(24 25 28) 50%, transparent); }
+body[data-ds-dark-theme] {
+  --dsw-desktop-window-tint: color-mix(in srgb, rgb(28 28 30) 62%, transparent);
+  --dsw-glass-highlight: rgb(255 255 255 / 14%);
+  --dsw-glass-edge: rgb(255 255 255 / 16%);
+  --dsw-glass-shadow: rgb(0 0 0 / 48%);
+}

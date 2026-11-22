@@ -33,7 +33,7 @@ describe('theme bootstrap row', () => {
     expect(head).toMatchObject({ kind: 'style' })
     expect(body).toMatchObject({ kind: 'script', placement: 'body' })
     if (head?.kind !== 'style') throw new Error('theme head bootstrap row is not a style')
-    expect(head.text).toBe(':root{color-scheme:dark}body{background-color:#1e1e1e;--dsh-boot-bg:#1e1e1e}')
+    expect(head.text).toBe(':root{color-scheme:dark}body{background-color:#1c1c1e;--dsh-boot-bg:#1c1c1e}')
     expect(document.body.hasAttribute(DARK_ATTRIBUTE)).toBe(false)
     if (body?.kind !== 'script') throw new Error('theme body bootstrap row is not a script')
     runInNewContext(body.text, { document, matchMedia: globalThis.matchMedia })
@@ -46,7 +46,7 @@ describe('theme bootstrap row', () => {
     mockSystemDark(true)
     const [head] = bootThemeInjections('light')
     if (head?.kind !== 'style') throw new Error('theme head bootstrap row is not a style')
-    expect(head.text).toBe(':root{color-scheme:light}body{background-color:#f8fafc;--dsh-boot-bg:#f8fafc}')
+    expect(head.text).toBe(':root{color-scheme:light}body{background-color:#f2f2f7;--dsh-boot-bg:#f2f2f7}')
     executeBootstrap('light')
     expect(document.body.hasAttribute(DARK_ATTRIBUTE)).toBe(false)
   })
@@ -65,8 +65,8 @@ describe('theme bootstrap row', () => {
     const [head] = bootThemeInjections('system')
     if (head?.kind !== 'style') throw new Error('theme head bootstrap row is not a style')
     expect(head.text).toBe(
-      ':root{color-scheme:light}body{background-color:#f8fafc;--dsh-boot-bg:#f8fafc}'
-      + '@media(prefers-color-scheme:dark){:root{color-scheme:dark}body{background-color:#1e1e1e;--dsh-boot-bg:#1e1e1e}}',
+      ':root{color-scheme:light}body{background-color:#f2f2f7;--dsh-boot-bg:#f2f2f7}'
+      + '@media(prefers-color-scheme:dark){:root{color-scheme:dark}body{background-color:#1c1c1e;--dsh-boot-bg:#1c1c1e}}',
     )
   })
 

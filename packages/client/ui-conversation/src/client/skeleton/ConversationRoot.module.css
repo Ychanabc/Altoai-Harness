@@ -4,7 +4,10 @@
   flex-direction: column;
   height: 100%;
   min-width: 0;
-  background: var(--dsw-alias-bg-base);
+  background-color: var(--dsw-alias-bg-base);
+  background-image:
+    radial-gradient(ellipse 80% 40% at 50% -10%, color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent), transparent 60%),
+    radial-gradient(ellipse 40% 30% at 100% 0%, color-mix(in srgb, var(--dsw-alias-state-business-tertiary) 70%, transparent), transparent 55%);
 }
 
 /* `conversation.hero.frame` contract on the home: layer decorations at negative z-index paint above this

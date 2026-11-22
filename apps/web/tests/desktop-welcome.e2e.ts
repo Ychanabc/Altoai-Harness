@@ -98,7 +98,7 @@ it.each(['light', 'dark'] as const)('fits the desktop Welcome long brand, action
       expect(await page.title()).toBe(name)
       expect(await page.locator('img').count()).toBe(0)
       const background = await page.locator('#root').evaluate(node => getComputedStyle(node).backgroundColor)
-      expect(background).toBe(scheme === 'dark' ? 'rgb(30, 30, 30)' : 'rgb(248, 250, 252)')
+      expect(background).toBe(scheme === 'dark' ? 'rgb(28, 28, 30)' : 'rgb(242, 242, 247)')
       await page.keyboard.press('Tab')
       expect(await page.locator('#sign-in').evaluate(node => node.matches(':focus-visible'))).toBe(true)
       expect(await page.locator('#entry-actions button:visible').count()).toBe(2)

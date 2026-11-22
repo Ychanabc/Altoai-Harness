@@ -18,6 +18,10 @@ body {
   /* Blocking masks dim the page; menu backgrounds retain their blur. */
   --dsw-mask-blur: none;
   --dsw-menu-backdrop-filter: blur(40px) saturate(150%);
+  --dsw-glass-blur: blur(28px) saturate(180%);
+  --dsw-glass-highlight: rgb(255 255 255 / 78%);
+  --dsw-glass-edge: rgb(255 255 255 / 62%);
+  --dsw-glass-shadow: rgb(15 23 42 / 14%);
 }
 
 body[data-ds-dark-theme] [data-menu-material] {
@@ -42,6 +46,9 @@ body * {
 body[data-ds-dark-theme] {
   --dsw-linear-gradient-think: linear-gradient(180deg, #151517 20.19%, rgba(21, 21, 23, 0) 100%);
   --dsw-linear-think-select: linear-gradient(180deg, #232325 20.19%, rgba(35, 35, 37, 0) 100%);
+  --dsw-glass-highlight: rgb(255 255 255 / 14%);
+  --dsw-glass-edge: rgb(255 255 255 / 16%);
+  --dsw-glass-shadow: rgb(0 0 0 / 48%);
 }
 
 /* ---------- 字体 ---------- */

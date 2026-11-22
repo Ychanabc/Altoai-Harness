@@ -68,8 +68,10 @@
   border: 0;
   --dsw-elevation-stroke-color: var(--dsw-alias-border-l2);
   border-radius: var(--dsw-radius-panel);
-  background: var(--dsw-specific-input-major);
-  box-shadow: var(--dsw-elevation-soft);
+  background: color-mix(in srgb, var(--dsw-specific-input-major) 76%, transparent);
+  backdrop-filter: var(--dsw-glass-blur, blur(28px) saturate(180%));
+  -webkit-backdrop-filter: var(--dsw-glass-blur, blur(28px) saturate(180%));
+  box-shadow: inset 0 1px 0 var(--dsw-glass-highlight, rgb(255 255 255 / 70%)), var(--dsw-elevation-soft);
   /* The draft text follows the Settings font-size preference (the textarea,
      mirror, and backdrop all inherit from here, so the three layers stay in
      step); the line height keeps the default 10px leading via the shared px
