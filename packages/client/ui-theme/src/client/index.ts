@@ -19,8 +19,10 @@ import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the SlotRegistry service merge (ctx.slots).
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { AppearanceRowInjected } from './AppearanceRow.tsx'
 import { AppearanceRow } from './AppearanceRow.tsx'
+import { ThemeToggle } from './ThemeToggle.tsx'
 import type { FontSettingsInjected } from './FontSettingsGroup.tsx'
 import { FontSettingsGroup } from './FontSettingsGroup.tsx'
 import { createAppearanceRowStore, createFontRowStore } from './settings-store.ts'
@@ -609,12 +611,14 @@ export function apply(ctx: ClientContext): void {
   ctx.provide('theme', theme)
   installIconSprite(ctx, theme.getTheme().active.icons)
 
-  const store = createAppearanceRowStore()
+  const storeHandle = createAppearanceRowStore()
+  const storeInstance = storeHandle.create()
+  const store: typeof storeHandle = { ...storeHandle, create: () => storeInstance }
   let bound: BoundActions<typeof store> | undefined
   const fontStore = createFontRowStore()
   let fontBound: BoundActions<typeof fontStore> | undefined
   const sync = (snapshot: ThemeSnapshot): void => {
-    bound?.sync(snapshot.preference, snapshot.revision)
+    bound?.sync(snapshot.preference, snapshot.revision, snapshot.active.colorScheme)
     fontBound?.sync(snapshot.fontSizes, snapshot.fontFamilies, snapshot.revision)
   }
   ctx.on('theme/change', sync)
@@ -635,6 +639,15 @@ export function apply(ctx: ClientContext): void {
     locale: SETTINGS_NS,
     inject: injected,
   }, AppearanceRow))
+
+  ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+    name: 'sidebar.footer.action',
+    id: 'theme-toggle',
+    order: 10,
+    store,
+    locale: SETTINGS_NS,
+    inject: injected,
+  }, ThemeToggle))
 
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item',

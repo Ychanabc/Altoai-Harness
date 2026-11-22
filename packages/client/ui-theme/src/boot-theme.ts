@@ -12,8 +12,8 @@ import {
   type FontFamilies, type FontSizes, type ThemePreference,
 } from './theme-settings.ts'
 
-const LIGHT_BACKGROUND = '#f2f2f7'
-const DARK_BACKGROUND = '#1c1c1e'
+const LIGHT_BACKGROUND = '#ffffff'
+const DARK_BACKGROUND = '#111214'
 
 /** CSS that colors the document canvas before any script executes. */
 function bootThemeStyle(preference: ThemePreference): string {

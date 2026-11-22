@@ -16,9 +16,7 @@
   height: 100%;
   padding: 6px var(--dsh-sidebar-inline-padding);
   box-sizing: border-box;
-  background: color-mix(in srgb, var(--dsw-specific-sidebar-fill) 82%, transparent);
-  backdrop-filter: var(--dsw-glass-blur, blur(28px) saturate(180%));
-  -webkit-backdrop-filter: var(--dsw-glass-blur, blur(28px) saturate(180%));
+  background: transparent;
   color: var(--dsw-alias-label-primary);
   font-size: 14px;
   /* The sidebar is elevated above the conversation surface, so a revealed
@@ -861,6 +859,7 @@
 
 .footerActions {
   display: flex;
+  flex-direction: column;
 }
 
 .collapsed .footArea {

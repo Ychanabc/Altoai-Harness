@@ -6,8 +6,7 @@
   min-width: 0;
   background-color: var(--dsw-alias-bg-base);
   background-image:
-    radial-gradient(ellipse 80% 40% at 50% -10%, color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent), transparent 60%),
-    radial-gradient(ellipse 40% 30% at 100% 0%, color-mix(in srgb, var(--dsw-alias-state-business-tertiary) 70%, transparent), transparent 55%);
+    radial-gradient(ellipse 70% 42% at 50% -12%, color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent), transparent 62%);
 }
 
 /* `conversation.hero.frame` contract on the home: layer decorations at negative z-index paint above this
@@ -31,6 +30,8 @@
   min-height: 76px;
   padding: 10px 28px 0 20px;
   border-bottom: 0.5px solid var(--dsw-alias-border-l3);
+  background: var(--dsw-alias-bg-base);
+  box-shadow: 0 1px 0 var(--dsw-alias-border-l3);
 }
 
 .header:where(:not(:has(.tabs))) {
@@ -118,6 +119,13 @@
   flex: none;
   align-items: center;
   gap: 8px;
+  padding: 2px 4px;
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-3);
+}
+
+.headerLeading:empty {
+  display: none;
 }
 
 .crumbs {
@@ -176,6 +184,13 @@
   flex: none;
   align-items: center;
   gap: 10px;
+  padding: 2px 4px;
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-3);
+}
+
+.headerActions:empty {
+  display: none;
 }
 
 @container (max-width: 460px) {

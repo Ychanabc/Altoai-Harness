@@ -124,7 +124,7 @@ async function palette(page: Page, scheme: 'light' | 'dark') {
     probe.remove()
     return result
   })
-  expect(semantic.background).toBe(scheme === 'dark' ? 'rgb(28, 28, 30)' : 'rgb(242, 242, 247)')
+  expect(semantic.background).toBe(scheme === 'dark' ? 'rgb(17, 18, 20)' : 'rgb(255, 255, 255)')
   expect(semantic.foreground).toBe(scheme === 'dark' ? 'rgb(245, 245, 247)' : 'rgb(28, 28, 30)')
 }
 

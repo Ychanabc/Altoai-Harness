@@ -11,6 +11,7 @@ import { apply, inject, SETTINGS_NS, ThemeRuntime } from '@deepseek-ai/dsh-clien
 import type { AppearanceRowInjected, FontSettingsInjected, ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
 import { THEME_SETTINGS_NAMESPACE, ThemeSettingsSchema, type ThemeSettings } from '../src/theme-settings.ts'
 import { AppearanceRow } from '../src/client/AppearanceRow.tsx'
+import { ThemeToggle } from '../src/client/ThemeToggle.tsx'
 import type { createAppearanceRowStore, createFontRowStore } from '../src/client/settings-store.ts'
 import { FontSettingsGroup } from '../src/client/FontSettingsGroup.tsx'
 import type { Shortcuts, ShortcutContext, ShortcutFixedInput, ShortcutGesture, ShortcutPlatform } from '@deepseek-ai/dsh-client-shortcuts/client'
@@ -320,6 +321,18 @@ describe('ui-theme apply', () => {
     await Promise.resolve()
     expect(after.slots.entries(SLOT).some(e => e.component === AppearanceRow)).toBe(true)
     expect(after.slots.entries(SLOT).some(e => e.component === FontSettingsGroup)).toBe(true)
+  })
+
+  it('registers the sidebar theme toggle once the footer slot exists', async () => {
+    const b = await bench()
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    expect(b.slots.entries('sidebar.footer.action')).toHaveLength(0)
+    b.slots.register(
+      { name: 'root', children: { 'sidebar.footer.action': { kind: 'list', scope: 'root' } } } as never,
+      () => null,
+    )
+    await Promise.resolve()
+    expect(b.slots.entries('sidebar.footer.action').some(e => e.component === ThemeToggle)).toBe(true)
   })
 
   it('projects service snapshots into the row store and routes face writes back', async () => {

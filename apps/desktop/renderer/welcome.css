@@ -45,8 +45,7 @@ body {
   padding: 6px 16px;
   background-color: var(--welcome-tint);
   background-image:
-    radial-gradient(ellipse 90% 55% at 50% -8%, rgb(0 122 255 / 18%), transparent 62%),
-    radial-gradient(ellipse 48% 36% at 100% 0%, rgb(88 86 214 / 12%), transparent 58%);
+    radial-gradient(ellipse 90% 55% at 50% -8%, color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent), transparent 62%);
   color: var(--dsw-alias-label-primary);
   font-family: var(--dsw-font-family-brand);
   font-weight: 300;
@@ -149,11 +148,9 @@ body {
   justify-content: center;
   height: 44px;
   padding: 8px 16px;
-  border: 0.5px solid var(--dsw-glass-edge, rgb(255 255 255 / 62%));
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 14px;
-  backdrop-filter: var(--dsw-glass-blur, blur(28px) saturate(180%));
-  -webkit-backdrop-filter: var(--dsw-glass-blur, blur(28px) saturate(180%));
-  box-shadow: inset 0 1px 0 var(--dsw-glass-highlight, rgb(255 255 255 / 78%)), 0 10px 28px -18px var(--dsw-glass-shadow, rgb(15 23 42 / 14%));
+  box-shadow: 0 10px 28px -18px rgb(15 23 42 / 14%);
   font-family: var(--dsw-font-family);
   font-size: 14px;
   font-weight: 500;
@@ -179,7 +176,7 @@ body {
 }
 
 .primary {
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 88%, transparent);
+  background: var(--dsw-alias-brand-primary);
   color: var(--dsw-alias-label-primary-foreground);
 }
 
@@ -190,8 +187,8 @@ body {
 }
 
 .actions .secondary {
-  border-color: var(--dsw-glass-edge, var(--dsw-alias-border-l2));
-  background: color-mix(in srgb, var(--dsw-alias-button-elevated-fill) 62%, transparent);
+  border-color: var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-button-elevated-fill);
   color: var(--dsw-alias-label-primary);
 }
 

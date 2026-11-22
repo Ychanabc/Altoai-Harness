@@ -120,10 +120,8 @@
   max-width: calc(100vw - 48px);
   border-radius: var(--dsw-radius-panel);
   overflow: hidden;
-  background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 78%, transparent);
-  backdrop-filter: var(--dsw-glass-blur, blur(28px) saturate(180%));
-  -webkit-backdrop-filter: var(--dsw-glass-blur, blur(28px) saturate(180%));
-  box-shadow: inset 0 1px 0 var(--dsw-glass-highlight, rgb(255 255 255 / 70%)), var(--dsw-elevation-prominent);
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: var(--dsw-elevation-prominent);
   /* Elevated surface: the scrollbar thumb takes the l2 elevation tokens.
      Declared on the panel rather than the scrolling `.options` child so the
      elevation choice sits with the surface; the custom properties inherit

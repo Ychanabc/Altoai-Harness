@@ -10,10 +10,10 @@ body[data-ds-dark-theme] {
 
 body,
 body[data-ds-dark-theme] {
-  --dsw-alias-bg-base: light-dark(#f2f2f7, #1c1c1e);
-  --dsw-alias-bg-layer-1: light-dark(#ffffffcc, #2c2c2ecc);
-  --dsw-alias-bg-layer-2: light-dark(#fffffff2, #2c2c2ef2);
-  --dsw-alias-bg-layer-3: light-dark(#ffffffb8, #3a3a3cb8);
+  --dsw-alias-bg-base: light-dark(#ffffff, #111214);
+  --dsw-alias-bg-layer-1: light-dark(#ffffff, #1a1c20);
+  --dsw-alias-bg-layer-2: light-dark(#ffffff, #1e2026);
+  --dsw-alias-bg-layer-3: light-dark(#f8f9fb, #252830);
   --dsw-alias-brand-primary: light-dark(#0060df, #0a62c0);
   --dsw-alias-button-primary-hover: light-dark(#0054c4, #237aad);
   --dsw-alias-label-primary: light-dark(#1c1c1e, #f5f5f7);
@@ -44,7 +44,7 @@ body[data-ds-dark-theme] {
   --dsw-alias-onboarding-checkbox-border: var(--dsw-alias-border-l4);
   --dsw-alias-label-primary-foreground: #ffffff;
   --dsw-alias-label-on-color: #ffffff;
-  --dsw-specific-sidebar-fill: light-dark(#f2f2f7cc, #1c1c1ecc);
+  --dsw-specific-sidebar-fill: light-dark(#f8f9fb, #16181d);
   --dsw-specific-sidebar-nav-item-active-accent: var(--dsw-alias-state-business-tertiary);
   --dsw-specific-input-major: var(--dsw-alias-bg-layer-2);
   --dsw-linear-gradient-think: linear-gradient(180deg, var(--dsw-alias-bg-base) 20.19%, transparent);
