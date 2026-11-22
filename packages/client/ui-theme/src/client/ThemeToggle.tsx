@@ -3,16 +3,15 @@
  * resolved palette so a `system` preference still flips to an explicit mode.
  */
 import clsx from 'clsx'
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import { IconDarkOutlineMedium, IconLightOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
+import type { PropsLocale, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type { AppearanceRowInjected } from './AppearanceRow.tsx'
 import type { createAppearanceRowStore } from './settings-store.ts'
 import css from './ThemeToggle.module.css'
 
 /** Full component props: sidebar foot owner share + appearance store + locale. */
 export type ThemeToggleProps =
-  PropsRuntime<'sidebar.footer.action'>
+  { readonly wide: boolean }
   & PropsStore<ReturnType<typeof createAppearanceRowStore>>
   & PropsLocale<'settings.theme'>
   & AppearanceRowInjected

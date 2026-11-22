@@ -38,9 +38,6 @@
     },
     {
       "path": "../ui-settings/tsconfig.client.json"
-    },
-    {
-      "path": "../ui-sidebar"
     }
   ],
   "exclude": [
