@@ -29,6 +29,7 @@ describe('Workspace path helpers', () => {
     expect(isAbsoluteWorkspacePath('C:\\x\\a.ts')).toBe(true)
     expect(isAbsoluteWorkspacePath('C:/x/a.ts')).toBe(true)
     expect(isAbsoluteWorkspacePath('\\\\server\\share')).toBe(true)
+    expect(isAbsoluteWorkspacePath('ssh://prod-box/home/user/project')).toBe(true)
     expect(isAbsoluteWorkspacePath('src/a.ts')).toBe(false)
     expect(isAbsoluteWorkspacePath('')).toBe(false)
   })

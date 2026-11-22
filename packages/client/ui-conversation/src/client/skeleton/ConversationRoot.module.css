@@ -29,9 +29,8 @@
   box-sizing: border-box;
   min-height: 76px;
   padding: 10px 28px 0 20px;
-  border-bottom: 0.5px solid var(--dsw-alias-border-l3);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
   background: var(--dsw-alias-bg-base);
-  box-shadow: 0 1px 0 var(--dsw-alias-border-l3);
 }
 
 .header:where(:not(:has(.tabs))) {
@@ -121,7 +120,7 @@
   gap: 8px;
   padding: 2px 4px;
   border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-bg-layer-3);
+  background: transparent;
 }
 
 .headerLeading:empty {
@@ -186,7 +185,7 @@
   gap: 10px;
   padding: 2px 4px;
   border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-bg-layer-3);
+  background: transparent;
 }
 
 .headerActions:empty {
@@ -614,7 +613,7 @@
   align-self: center;
   /* figma 75:8208 drew 12 between all three rows; the workspace row now sits
      8 above the card (its margin-top restores 12 under the hero chrome). */
-  gap: 8px;
+  gap: 24px;
   /* Foot inside the centered box floats the stack a bit above true center. */
   padding-bottom: 32px;
   /* Card cap + both clearances: the hero input card lands at exactly the same

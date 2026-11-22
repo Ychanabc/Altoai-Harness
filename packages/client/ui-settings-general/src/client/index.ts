@@ -13,6 +13,7 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remote-access/client'
 // Type-only: pulls the ctx.remote merge and its fixed Host facts.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 // Type-only: pulls the ctx.modules merge.
 import type {} from '@deepseek-ai/dsh-client-modules/client'
@@ -43,8 +44,6 @@ import { GeneralSection } from './GeneralSection.tsx'
 import { SettingsSectionView } from './SettingsSectionView.tsx'
 import { CurrentVersionRow } from './CurrentVersionRow.tsx'
 import { DeveloperToolsRow, type DeveloperToolsRowInjected } from './DeveloperToolsRow.tsx'
-import { DesktopPet } from './DesktopPet.tsx'
-import { DesktopPetRow } from './DesktopPetRow.tsx'
 import { SshRemoteRow } from './SshRemoteRow.tsx'
 import { createProductChromeStore } from './product-chrome-store.ts'
 import type { ProductChromeInjected } from './product-chrome-types.ts'
@@ -80,7 +79,7 @@ const NS = 'settings'
  * ui-settings' apply, whose activation order relative to this one is NOT
  * constrained; registrations depend on their slots through `slots.inject()`.
  */
-export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.settings', 'configForms', 'shortcuts', 'modules', 'remoteAccess']
+export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.settings', 'configForms', 'shortcuts', 'modules', 'remoteAccess', 'workspaces']
 
 /**
  * Register the `settings` dictionaries, the chrome content, and the General
@@ -89,8 +88,6 @@ export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.settin
  */
 export function apply(ctx: ClientContext): void {
   const chromeHost = ctx.configForms.get<{
-    desktopPet?: boolean
-    sshEnabled?: boolean
     sshHost?: string
     sshWorkspace?: string
   }>('ui-settings-general')
@@ -102,8 +99,6 @@ export function apply(ctx: ClientContext): void {
   const adoptChrome = (): void => {
     const section = chromeHost.getSnapshot().value
     chromeBound?.sync({
-      desktopPet: section?.desktopPet ?? true,
-      sshEnabled: section?.sshEnabled ?? false,
       sshHost: section?.sshHost ?? '',
       sshWorkspace: section?.sshWorkspace ?? '',
     }, chromeRevision += 1)
@@ -113,24 +108,22 @@ export function apply(ctx: ClientContext): void {
     chromeBound = actions
     adoptChrome()
     return {
-      setDesktopPet: (enabled) => { void chromeHost.set('desktopPet', enabled) },
-      setSshEnabled: (enabled) => { void chromeHost.set('sshEnabled', enabled) },
       setSshHost: (host) => { void chromeHost.set('sshHost', host) },
       setSshWorkspace: (path) => { void chromeHost.set('sshWorkspace', path) },
+      addSshWorkspace: async () => {
+        const section = chromeHost.getSnapshot().value
+        const host = (section?.sshHost ?? '').trim()
+        const remote = (section?.sshWorkspace ?? '').trim()
+        const abs = (remote.startsWith('/') ? remote : `/${remote}`).replace(/\/{2,}/g, '/')
+        const path = `ssh://${host}${abs.length > 1 ? abs.replace(/\/+$/, '') : abs}`
+        await ctx.workspaces.create({ path })
+      },
     }
   }
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item', id: 'desktop-pet', order: 16, locale: NS,
-    store: chromeStore, inject: chromeInjected,
-  }, DesktopPetRow))
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item', id: 'ssh-remote', order: 17, locale: NS,
     store: chromeStore, inject: chromeInjected,
   }, SshRemoteRow))
-  ctx.slots.inject('shell.overlay', () => ctx.slots.register({
-    name: 'shell.overlay', id: 'desktop-pet', locale: NS,
-    store: chromeStore, inject: chromeInjected,
-  }, DesktopPet))
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item', id: 'developer-tools', order: 15, locale: NS,
     inject: (): DeveloperToolsRowInjected => ({

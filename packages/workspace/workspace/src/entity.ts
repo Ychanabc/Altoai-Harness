@@ -14,6 +14,7 @@ import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import type { WorkspaceRecord } from './spec.ts'
 import type { Workspace, WorkspaceId } from './types.ts'
 import { realpathNormalize } from './paths.ts'
+import { parseSshWorkspacePath, verifySshWorkspacePath } from './ssh-path.ts'
 
 /** An insertSessionBefore request named a session or anchor not on the account (storage failures stay plain errors). */
 export class WorkspaceMoveInvalidError extends Error {
@@ -143,7 +144,7 @@ export class WorkspaceEntity implements Workspace {
           { cause: error },
         )
       }
-      if (!(await stat(cwd)).isDirectory()) {
+      if (parseSshWorkspacePath(cwd) === undefined && !(await stat(cwd)).isDirectory()) {
         throw new Error(
           `cannot attach session '${sessionId}' to workspace '${this.record.path}': `
           + `its cwd '${header.cwd}' is not a directory`,
@@ -192,6 +193,14 @@ export class WorkspaceEntity implements Workspace {
   }
 
   async status(): Promise<'ok' | 'missing-dir'> {
+    if (parseSshWorkspacePath(this.record.path) !== undefined) {
+      try {
+        await verifySshWorkspacePath(this.record.path)
+        return 'ok'
+      } catch {
+        return 'missing-dir'
+      }
+    }
     try {
       return (await stat(this.record.path)).isDirectory() ? 'ok' : 'missing-dir'
     } catch {

@@ -21,9 +21,11 @@ import { workspaceDisplayTitle } from '@deepseek-ai/dsh-api-workspace-controller
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DirectoryFlowOwnerProps, WorkspacePickerFactoryProps, WorkspacePickerProps } from './contract/slots.ts'
 import { distinguishingPathSuffixes } from './path-suffix.ts'
+import { canFormatSshWorkspacePath, formatSshWorkspacePath } from './ssh-workspace.ts'
 import css from './WorkspacePicker.module.css'
 
 const ADD_WORKSPACE = '::add-workspace'
+const ADD_SSH_WORKSPACE = '::add-ssh-workspace'
 
 /** Core flow props: the owner supplies popover control and pick semantics. */
 export interface WorkspacePickFlowProps {
@@ -82,12 +84,15 @@ export function WorkspacePickFlow({
   const [errorOpen, setErrorOpen] = useState(false)
   const [modalError, setModalError] = useState<string | null>(null)
   const [flowOpen, setFlowOpen] = useState(false)
+  const [sshOpen, setSshOpen] = useState(false)
+  const [sshHost, setSshHost] = useState('')
+  const [sshRemote, setSshRemote] = useState('')
   const [pickingFolder, setPickingFolder] = useState(false)
   // One picking interaction at a time: while the flow is open (native chooser
   // pending, browse dialog up) or its pick is being adopted, every other
   // menu action stays disabled — a late outcome must not race a concurrent
   // selection or adoption.
-  const flowBusy = flowOpen || pickingFolder
+  const flowBusy = flowOpen || sshOpen || pickingFolder
   useEffect(() => { onBusyChange?.(flowBusy) }, [flowBusy, onBusyChange])
 
   // The occupied hole gates the picking affordance: with no composed flow the
@@ -103,9 +108,12 @@ export function WorkspacePickFlow({
   useEffect(() => {
     if (flowOpen && !flowAvailable) setFlowOpen(false)
   }, [flowOpen, flowAvailable])
-  const addEntries: MenuEntry[] = flowAvailable
-    ? [{ id: ADD_WORKSPACE, label: t('menu.addWorkspace'), icon: <IconPlusOutlineRegular size={16} />, disabled: flowBusy }]
-    : []
+  const addEntries: MenuEntry[] = [
+    ...flowAvailable
+      ? [{ id: ADD_WORKSPACE, label: t('menu.addWorkspace'), icon: <IconPlusOutlineRegular size={16} />, disabled: flowBusy }]
+      : [],
+    { id: ADD_SSH_WORKSPACE, label: t('menu.addSshWorkspace'), icon: <IconFolderCloseRegular size={16} />, disabled: flowBusy },
+  ]
   // With workspaces listed, the add action pins below the scroll region
   // (divider + always visible); otherwise it IS the menu.
   const pinAdd = !addOnly && workspaces.length > 0
@@ -165,7 +173,16 @@ export function WorkspacePickFlow({
     onClose()
     setErrorOpen(false)
     setModalError(null)
+    setSshOpen(false)
     setFlowOpen(true)
+  }, [onClose])
+
+  const openSshFlow = useCallback((): void => {
+    onClose()
+    setErrorOpen(false)
+    setModalError(null)
+    setFlowOpen(false)
+    setSshOpen(true)
   }, [onClose])
 
   // A menu exists to disambiguate between targets. With no workspaces listed
@@ -177,7 +194,7 @@ export function WorkspacePickFlow({
   // loading status instead of jumping into a flow the arriving list would have
   // made unnecessary; the add-only surface lists nothing and never waits.
   const listSettled = addOnly || workspaceSnapshot.phase === 'ready'
-  const addIsTheOnlyEntry = !pinAdd && listSettled && addEntries.length === 1
+  const addIsTheOnlyEntry = !pinAdd && listSettled && addEntries.length === 1 && addEntries[0]?.id === ADD_WORKSPACE
   // `flowBusy` gates this exactly as it disables the equivalent menu entry: a
   // pick still being adopted owns the surface until it settles.
   useEffect(() => {
@@ -205,7 +222,24 @@ export function WorkspacePickFlow({
       openDirectoryFlow()
       return
     }
+    if (id === ADD_SSH_WORKSPACE) {
+      openSshFlow()
+      return
+    }
     onPick(id as WorkspaceId)
+  }
+
+  const submitSshWorkspace = (): void => {
+    if (!canFormatSshWorkspacePath(sshHost, sshRemote)) {
+      setModalError(t('ssh.add.invalid'))
+      setErrorOpen(true)
+      return
+    }
+    setPickingFolder(true)
+    void adoptDirectory(formatSshWorkspacePath(sshHost, sshRemote)).finally(() => {
+      setPickingFolder(false)
+      setSshOpen(false)
+    })
   }
 
   return (
@@ -224,6 +258,47 @@ export function WorkspacePickFlow({
       />
       {open && !addIsTheOnlyEntry && !menuIsEmpty && workspaceSnapshot.phase === 'pending' && <div className={css.menuStatus} role="status">{t('picker.loading')}</div>}
       {renderDirectoryFlow(flowOwner)}
+      <Modal
+        open={sshOpen}
+        onClose={() => { setSshOpen(false) }}
+        closeLabel={t('close')}
+        title={t('ssh.add.title')}
+        footer={(
+          <>
+            <Button variant="outline" className={css.modalAction} onClick={() => { setSshOpen(false) }}>{t('cancel')}</Button>
+            <Button
+              variant="primary"
+              className={css.modalAction}
+              disabled={!canFormatSshWorkspacePath(sshHost, sshRemote) || pickingFolder}
+              onClick={submitSshWorkspace}
+            >
+              {t('ssh.add.submit')}
+            </Button>
+          </>
+        )}
+      >
+        <p className={css.sshHint}>{t('ssh.add.description')}</p>
+        <label className={css.sshField}>
+          <span>{t('ssh.add.host')}</span>
+          <input
+            value={sshHost}
+            placeholder={t('ssh.add.host.placeholder')}
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(event) => { setSshHost(event.target.value) }}
+          />
+        </label>
+        <label className={css.sshField}>
+          <span>{t('ssh.add.path')}</span>
+          <input
+            value={sshRemote}
+            placeholder={t('ssh.add.path.placeholder')}
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(event) => { setSshRemote(event.target.value) }}
+          />
+        </label>
+      </Modal>
       <Modal
         open={errorOpen}
         onClose={closeModal}

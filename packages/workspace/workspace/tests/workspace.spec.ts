@@ -381,6 +381,8 @@ describe('WorkspaceRegistry create and lookup', () => {
     expect(defaultWorkspaceTitle('/', 'linux')).toBe('/')
     expect(defaultWorkspaceTitle('/work', 'darwin')).toBe('work')
     expect(fullyQualifiedWorkspacePath('work', 'linux')).toBe(false)
+    expect(fullyQualifiedWorkspacePath('ssh://prod-box/home/user/project', 'linux')).toBe(true)
+    expect(defaultWorkspaceTitle('ssh://prod-box/home/user/project')).toBe('project')
   })
 
   it('creates newest-first and idempotently reuses a canonical path without retitling', async () => {

@@ -489,10 +489,12 @@ export class ApiSessionAgentController {
   }
 
   private async createAgent(sessionId: SessionId, cwd: string, composition: ApiSessionComposition): Promise<Agent> {
-    try {
-      await mkdir(cwd, { recursive: true })
-    } catch (error: unknown) {
-      throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
+    if (!cwd.startsWith('ssh://')) {
+      try {
+        await mkdir(cwd, { recursive: true })
+      } catch (error: unknown) {
+        throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
+      }
     }
     return this.own(await this.ctx.agents.create({
       sessionId,
@@ -507,6 +509,7 @@ export class ApiSessionAgentController {
 
   /** The canonical spelling of a project directory, which new headers record; see SessionHeader.cwd. */
   private async canonical(cwd: string): Promise<string> {
+    if (cwd.startsWith('ssh://')) return cwd
     const fs = this.ctx.get('fs')
     return fs === undefined ? cwd : fs.processPath(await fs.resolve(cwd))
   }

@@ -18,7 +18,9 @@ import { WorkspaceEntity } from './entity.ts'
 import type { WorkspaceEntityHost } from './entity.ts'
 
 export { WorkspaceMoveInvalidError } from './entity.ts'
+export { formatSshWorkspacePath, parseSshWorkspacePath, verifySshWorkspacePath } from './ssh-path.ts'
 import { defaultWorkspaceTitle, fullyQualifiedWorkspacePath, realpathNormalize } from './paths.ts'
+import { parseSshWorkspacePath, verifySshWorkspacePath } from './ssh-path.ts'
 import { workspaceDomainSpec } from './spec.ts'
 import type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
 import type { SessionActivity, Workspace, WorkspaceId as WorkspaceIdBrand } from './types.ts'
@@ -271,6 +273,10 @@ export class WorkspaceRegistry extends Service {
   // drop the parameter with its @param clause and the `create(path, title?)`
   // lines in this package's README pair.
   async create(path: string, title?: string): Promise<Workspace> {
+    if (parseSshWorkspacePath(path) !== undefined) {
+      const canonical = await verifySshWorkspacePath(path)
+      return await this.enqueueOperation(() => this.createCanonical(canonical, title))
+    }
     const canonical = await realpathNormalize(path)
     if (!(await stat(canonical)).isDirectory()) {
       throw new Error(`cannot create a workspace at '${canonical}': path is not a directory`)
@@ -945,7 +951,7 @@ export class WorkspaceRegistry extends Service {
     }
     try {
       const path = await realpathNormalize(header.cwd)
-      if (!(await stat(path)).isDirectory()) {
+      if (parseSshWorkspacePath(path) === undefined && !(await stat(path)).isDirectory()) {
         this.invalidSessionPaths.set(header.id, `cwd '${header.cwd}' is not a directory`)
         return
       }

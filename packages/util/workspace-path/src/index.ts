@@ -15,7 +15,7 @@ function isWindowsStylePath(value: string): boolean {
  * @returns `true` for an absolute path; `false` for a Workspace-relative one.
  */
 export function isAbsoluteWorkspacePath(path: string): boolean {
-  return path.startsWith('/') || isWindowsStylePath(path)
+  return path.startsWith('ssh://') || path.startsWith('/') || isWindowsStylePath(path)
 }
 
 /**

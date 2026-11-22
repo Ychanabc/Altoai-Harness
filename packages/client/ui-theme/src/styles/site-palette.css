@@ -46,7 +46,7 @@ body[data-ds-dark-theme] {
   --dsw-alias-label-on-color: #ffffff;
   --dsw-specific-sidebar-fill: light-dark(#f8f9fb, #16181d);
   --dsw-specific-sidebar-nav-item-active-accent: var(--dsw-alias-state-business-tertiary);
-  --dsw-specific-input-major: var(--dsw-alias-bg-layer-2);
+  --dsw-specific-input-major: light-dark(#f0f4f9, #282a2c);
   --dsw-linear-gradient-think: linear-gradient(180deg, var(--dsw-alias-bg-base) 20.19%, transparent);
   --dsw-linear-think-select: linear-gradient(180deg, var(--dsw-alias-card-fill) 20.19%, transparent);
 }

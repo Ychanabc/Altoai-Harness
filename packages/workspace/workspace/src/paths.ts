@@ -5,6 +5,7 @@
 
 import { realpath } from 'node:fs/promises'
 import { posix, win32 } from 'node:path'
+import { formatSshWorkspacePath, parseSshWorkspacePath } from './ssh-path.ts'
 
 /**
  * Check whether a path names one fixed Host location without process cwd or
@@ -17,6 +18,7 @@ export function fullyQualifiedWorkspacePath(
   path: string,
   platform: NodeJS.Platform = process.platform,
 ): boolean {
+  if (parseSshWorkspacePath(path) !== undefined) return true
   if (platform !== 'win32') return posix.isAbsolute(path)
   const root = win32.parse(path).root
   return win32.isAbsolute(path) && root !== '\\' && root !== '/'
@@ -32,6 +34,8 @@ export function defaultWorkspaceTitle(
   path: string,
   platform: NodeJS.Platform = process.platform,
 ): string {
+  const ssh = parseSshWorkspacePath(path)
+  if (ssh !== undefined) return posix.basename(ssh.remotePath) || ssh.host
   const pathApi = platform === 'win32' ? win32 : posix
   return pathApi.basename(path) || pathApi.parse(path).root
 }
@@ -50,6 +54,8 @@ export function defaultWorkspaceTitle(
  * @returns the canonical absolute path.
  */
 export async function realpathNormalize(path: string): Promise<string> {
+  const ssh = parseSshWorkspacePath(path)
+  if (ssh !== undefined) return formatSshWorkspacePath(ssh.host, ssh.remotePath)
   if (!fullyQualifiedWorkspacePath(path)) {
     throw new TypeError(`Workspace path is not fully qualified: '${path}'`)
   }

@@ -9,10 +9,6 @@ import z from '@deepseek-ai/schemastery'
 export interface Config {
   /** Last acknowledged welcome notice version. */
   welcomeNoticeVersion: Volatile<string | undefined>
-  /** Whether the floating desktop pet is shown. */
-  desktopPet: Volatile<boolean>
-  /** Whether the agent uses the configured SSH host for project work. */
-  sshEnabled: Volatile<boolean>
   /** Existing OpenSSH host alias. */
   sshHost: Volatile<string>
   /** Absolute remote workspace path. */
@@ -22,8 +18,6 @@ export interface Config {
 /** Live welcome preference. */
 export const Config = z.object({
   welcomeNoticeVersion: z.string().volatile(),
-  desktopPet: z.boolean().default(true).volatile(),
-  sshEnabled: z.boolean().default(false).volatile(),
   sshHost: z.string().default('').volatile(),
   sshWorkspace: z.string().default('').volatile(),
 })
