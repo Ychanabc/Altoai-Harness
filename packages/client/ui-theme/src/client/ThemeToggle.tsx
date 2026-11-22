@@ -4,14 +4,14 @@
  */
 import clsx from 'clsx'
 import { IconDarkOutlineMedium, IconLightOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { PropsLocale, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
+import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type { AppearanceRowInjected } from './AppearanceRow.tsx'
 import type { createAppearanceRowStore } from './settings-store.ts'
 import css from './ThemeToggle.module.css'
 
 /** Full component props: sidebar foot owner share + appearance store + locale. */
 export type ThemeToggleProps =
-  { readonly wide: boolean }
+  PropsRuntime<'sidebar.footer.action'>
   & PropsStore<ReturnType<typeof createAppearanceRowStore>>
   & PropsLocale<'settings.theme'>
   & AppearanceRowInjected

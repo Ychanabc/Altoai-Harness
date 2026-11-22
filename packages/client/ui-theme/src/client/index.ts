@@ -50,6 +50,14 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     /** The Appearance settings row's copy. */
     'settings.theme': ThemeKey
   }
+  /**
+   * Occupant typing for the sidebar foot toggle. The sidebar package still
+   * declares the hole at runtime; this merge only lets theme register into it
+   * without a TypeScript project cycle through ui-sidebar.
+   */
+  interface SlotMap {
+    'sidebar.footer.action': { kind: 'list'; scope: 'root'; owner: { readonly wide: boolean } }
+  }
 }
 
 /** Theme token dictionary: --dsw-alias-* overrides keyed by variable name. */
