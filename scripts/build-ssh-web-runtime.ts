@@ -3,7 +3,7 @@ import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { chmod, copyFile, mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { delimiter, dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
@@ -26,14 +26,22 @@ async function smokeRuntime(node: string, entry: string, project: string, home: 
   const ready = Promise.withResolvers<URL>()
   const host = spawn(node, [entry, 'web', '--host', '127.0.0.1', '--port', '0', '--no-open', '--ssh-workspace', project], {
     cwd: project,
-    env: { ...process.env, ALTOAIH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+    env: {
+      ...process.env,
+      PATH: dirname(node) + delimiter + (process.env.PATH ?? ''),
+      ALTOAIH_HOME: home,
+      DSH_TELEMETRY_DISABLED: '1',
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
-  const closed = new Promise<void>(resolve => host.once('close', () => resolve()))
+  const closed = new Promise<void>((resolve) => { host.once('close', () => resolve()) })
   const timeout = setTimeout(() => ready.reject(new Error('The staged SSH Web Host did not become ready.')), 30_000)
   host.once('error', ready.reject)
-  host.once('exit', (code, signal) => ready.reject(new Error('The staged SSH Web Host exited with ' + String(code ?? signal))))
-  host.stderr.resume()
+  host.once('close', (code, signal) => ready.reject(new Error('The staged SSH Web Host exited with ' + String(code ?? signal))))
+  let diagnostic = ''
+  host.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+    diagnostic = (diagnostic + chunk).slice(-12_000)
+  })
   const lines = createInterface({ input: host.stdout })
   lines.on('line', (line) => {
     const match = /^dsh web: (http:\/\/127\.0\.0\.1:\d+\/\?token=\S+)$/u.exec(line)
@@ -46,6 +54,10 @@ async function smokeRuntime(node: string, entry: string, project: string, home: 
     if (response.status < 200 || response.status >= 400) {
       throw new Error('The staged SSH Web Host rejected its launch URL with HTTP ' + response.status)
     }
+  } catch (error) {
+    const message = diagnostic.trim().replace(/([?&]token=)[^\s&]+/gu, '$1[redacted]')
+    if (message !== '') process.stderr.write(message + '\n')
+    throw error
   } finally {
     clearTimeout(timeout)
     lines.close()
