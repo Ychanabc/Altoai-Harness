@@ -13,6 +13,12 @@ describe('SQLite header decoding', () => {
     expect(decodeHeader(parent)).toEqual(parent)
   })
 
+  it('preserves the account, server, port and directory of an SSH Session', () => {
+    const cwd = 'ssh://account@[2001:db8::12]:2222/srv/project'
+    expect(decodeHeader({ ...header, cwd }).cwd).toBe(cwd)
+    expect(() => decodeHeader({ ...header, cwd: 'ssh://account:password@192.0.2.7/project' })).toThrow()
+  })
+
   it.each([null, { ...header, version: 100 }, { ...header, version: 3 }, { ...header, delegationDepth: -1 }])(
     'refuses malformed or unsupported logical metadata %j', (value) => {
       expect(() => decodeHeader(value)).toThrow()

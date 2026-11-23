@@ -49,7 +49,7 @@ import type { EmptyWorkspaceOwnerProps } from '@deepseek-ai/dsh-client-ui-conver
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { RemoteHostFacts } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SessionActivity, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { SessionActivity, WorkspaceCreateRequest, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
 import type { WorkspaceShortcutState } from '../shortcuts.ts'
@@ -334,7 +334,7 @@ export type WorkspaceBrowserInjected = {
   /** Remove a Session from the registry-global archived set (the search results' restore button). */
   unarchiveSession: (sessionId: SessionId) => Promise<void>
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
-  createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  createWorkspace: (input: WorkspaceCreateRequest) => Promise<WorkspaceView>
 }
 
 /** The browser's declared viewing store handle, shared with the row actions that write view state. */
@@ -551,7 +551,7 @@ export type WorkspaceBrowserProps =
  */
 export type WorkspacePickerInjected = DirectoryPickingInjected & {
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
-  createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  createWorkspace: (input: WorkspaceCreateRequest) => Promise<WorkspaceView>
 }
 
 /**

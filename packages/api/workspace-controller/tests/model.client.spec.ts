@@ -72,6 +72,7 @@ function deferred<T>(): Deferred<T> {
 
 class FakeWorkspaceRemote implements WorkspaceRemote {
   readonly initializeDefault = vi.fn<WorkspaceRemote['initializeDefault']>(async () => remoteOk({ workspace: workspace('default') }))
+  readonly openSsh = vi.fn<WorkspaceRemote['openSsh']>(() => { throw new Error('Unexpected SSH connection') })
   readonly calls: Array<{ readonly method: string; readonly request: unknown }> = []
   onCreate: (request: WorkspaceCreateRequest) => Promise<RemoteResult<WorkspaceCreateValue>> = request =>
     Promise.resolve(remoteOk({ workspace: workspace(request.path.split('/').pop() ?? 'workspace'), created: true }))

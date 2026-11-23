@@ -323,6 +323,11 @@ export class SessionCommandController {
   async prompt(request: SessionPromptRequest, source: MessageSource): Promise<SessionPromptValue> {
     const agent = await this.resolveAgent(request.sessionId)
     if (this.hasPromptRequest(agent.session, request.requestId)) return { accepted: true }
+    if (agent.session.header.cwd?.startsWith('ssh://')) {
+      throw new RemoteError('session/ssh-connection-required',
+        'Open the SSH workspace in its remote window to start a new conversation. This local session is history only.',
+        { sessionId: request.sessionId })
+    }
     if (request.content.length === 0) {
       try {
         return await agent.runMaintenance(() => {

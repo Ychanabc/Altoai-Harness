@@ -2,7 +2,7 @@ import { resolveSiteUpdateEnvironment, SITE_CLIENT_PRODUCT_NAME } from './site-u
 import { readInstallerLocales, renderInstallerStrings } from './installer-locales.mjs'
 import { officePackageDirectories } from '../../../scripts/libreoffice-packages.mjs'
 import { X509Certificate } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -112,6 +112,13 @@ export function createElectronBuilderConfig(
   const productVersion = JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8')).version
   const buildVersion = resolveDesktopBuildVersion(env, productVersion)
   const packaged = resolveDesktopBuildCommit(env)
+  const sshRuntime = fileURLToPath(new URL('../../../dist-exe/ssh-web', import.meta.url))
+  const sshRuntimeFiles = ['x64', 'arm64'].flatMap(arch => {
+    const archive = `altoaih-ssh-linux-${arch}.tar.gz`
+    return existsSync(join(sshRuntime, archive)) && existsSync(join(sshRuntime, `${archive}.sha256`))
+      ? [archive, `${archive}.sha256`]
+      : []
+  })
   return {
     appId,
     protocols: [{ name: productName, schemes: ['altoaih'] }],
@@ -170,6 +177,7 @@ export function createElectronBuilderConfig(
     asarUnpack: unpack,
     extraResources: [
       { from: buildPaths.runtime, to: 'runtime' },
+      ...(sshRuntimeFiles.length === 0 ? [] : [{ from: sshRuntime, to: 'ssh-web', filter: sshRuntimeFiles }]),
       { from: resource(siteUpdate === undefined ? 'icon-windows.png' : 'site/app.png'), to: 'icon.png' },
       // Windows tray bitmaps; macOS keeps the Dock and ships no menu bar icon.
       ...(packagesWindows ? [{ from: resource(siteUpdate === undefined ? 'tray-windows.ico' : 'site/tray.ico'), to: 'tray.ico' }] : []),

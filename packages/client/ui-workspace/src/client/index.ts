@@ -1,5 +1,6 @@
 import { IconEditOutlineRegular, IconTrashOutlineRegular, IconPinFillRegular, IconPinOutlineRegular, IconUnarchiveOutlineRegular, IconArchiveOutlineRegular, IconBranchOutlineRegular, IconCopyOutlineRegular, IconMailReadOutlineRegular, IconMailUnreadOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import { SessionMenu } from './session-actions/SessionMenu.tsx'
+import { parseSshWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 import type {} from '@deepseek-ai/dsh-client-ui-context-menu/client'
 /**
  * Workspace plugin, browser half. Two registrations: WorkspaceBrowser fills
@@ -348,9 +349,16 @@ export function apply(ctx: Context, config: SyncedConfig<WorkspaceNavigationConf
   }), 'workspace: rename menu action')
   ctx.effect(() => ctx.contextMenus.register({
     id: 'workspace.delete', target: 'workspace', order: 300,
-    resolve: ({ workspaceId, displayTitle }) => ctx.remoteAccess.source('workspace', workspaceId, 'workspace/delete').getSnapshot()
-      ? [{ id: 'delete', label: ctx.locale.bind(NS)('delete.workspace'), icon: { key: 'workspace.delete' }, danger: true, separatorBefore: true,
-        run: () => { requestWorkspaceAction(workspaceId, displayTitle, 'delete') } }] : [],
+    resolve: ({ workspaceId, displayTitle }) => {
+      if (!ctx.remoteAccess.source('workspace', workspaceId, 'workspace/delete').getSnapshot()) return []
+      const path = workspaces.list.getSnapshot().items.find(row => row.workspaceId === workspaceId)?.path
+      const remote = path !== undefined && parseSshWorkspacePath(path) !== undefined
+      return [{
+        id: 'delete', label: ctx.locale.bind(NS)(remote ? 'delete.remote' : 'delete.workspace'),
+        icon: { key: 'workspace.delete' }, danger: true, separatorBefore: true,
+        run: () => { requestWorkspaceAction(workspaceId, displayTitle, 'delete') },
+      }]
+    },
   }), 'workspace: delete menu action')
   const browserInjected = (): WorkspaceBrowserInjected => ({
     settleWorkspaceAction: () => { workspaceActionRequest.set(null) },

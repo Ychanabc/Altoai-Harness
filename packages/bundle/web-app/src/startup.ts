@@ -8,6 +8,7 @@
  */
 
 import { Command } from 'commander'
+import { posix } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import { parseCmdline } from '@deepseek-ai/dsh-cmdline'
 import { isWildcardHost, type TlsConfig } from '@deepseek-ai/dsh-host-webserver'
@@ -39,6 +40,8 @@ export interface WebStartupValues {
   trustedHosts: string[]
   /** Server certificate chain and unencrypted private key supplied together. */
   tls?: TlsConfig
+  /** Existing project opened by a desktop SSH client. */
+  sshWorkspace?: string
 }
 
 /** The web flag family, as commander parsed it. */
@@ -50,6 +53,7 @@ interface WebOptions {
   trustedHost?: string[]
   tlsCert?: string
   tlsKey?: string
+  sshWorkspace?: string
 }
 
 /**
@@ -68,6 +72,7 @@ function webCommand(): Command {
     .option('--trusted-host <authority...>', 'extra authority the /api browser-trust fence accepts (host or host:port; repeatable)')
     .option('--tls-cert <file>', 'PEM server certificate chain; requires --tls-key')
     .option('--tls-key <file>', 'unencrypted PEM private key; requires --tls-cert')
+    .option('--ssh-workspace <path>', 'open an existing remote project on a loopback listener, with project and history deletion disabled')
     .addHelpText('after', `
 Examples:
   dsh --profile web                          serve on the composed host and port
@@ -98,6 +103,15 @@ export function apply(ctx: Context): void {
     if (options.port !== undefined && !/^\d+$/.test(options.port)) {
       program.error(`error: --port must be a number, got ${JSON.stringify(options.port)}`)
     }
+    if (options.sshWorkspace !== undefined) {
+      if (!posix.isAbsolute(options.sshWorkspace) || options.sshWorkspace.includes('\0')) {
+        program.error('error: --ssh-workspace requires an absolute remote directory')
+      }
+      if (options.host !== '127.0.0.1' || options.port !== '0' || options.open || options.publicUrl !== undefined
+        || options.trustedHost !== undefined || options.tlsCert !== undefined || options.tlsKey !== undefined) {
+        program.error('error: --ssh-workspace requires --host 127.0.0.1 --port 0 --no-open with no public URL, extra trusted hosts, or TLS')
+      }
+    }
     let tls: TlsConfig | undefined
     if (options.tlsCert !== undefined && options.tlsKey !== undefined) {
       tls = { certFile: options.tlsCert, keyFile: options.tlsKey }
@@ -117,6 +131,7 @@ export function apply(ctx: Context): void {
       ...options.port !== undefined && { port: Number(options.port) },
       ...options.publicUrl !== undefined && { publicUrl: options.publicUrl },
       ...tls !== undefined && { tls },
+      ...options.sshWorkspace !== undefined && { sshWorkspace: options.sshWorkspace },
       trustedHosts: options.trustedHost ?? [],
     } satisfies WebStartupValues)
   })

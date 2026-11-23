@@ -1,8 +1,9 @@
 /** V4 framing with native tool-role admission and released physical rows. */
 
-import { SessionFormatError, isSessionFormatJsonObject } from '@deepseek-ai/dsh-session-format'
+import { SessionFormatError, isSessionFormatJsonObject, snapshotSessionFormatJson } from '@deepseek-ai/dsh-session-format'
 import type { SessionFormatCodec, SessionFormatCurrentEncoder, SessionFormatHeader, SessionFormatEvent } from '@deepseek-ai/dsh-session-format'
 import { releasedV2SessionFormatCodec } from '@deepseek-ai/dsh-session-format-v2-to-v3'
+import { parseSshWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 import { assertV4SourceRowAdmission } from './message-sources.ts'
 import { assertV4RetiredSyntax } from './retired-syntax.ts'
 import { assertV4SystemMessageFields } from './system-message.ts'
@@ -11,9 +12,18 @@ import { assertV4ForkResult } from './fork-result.ts'
 import { assertV4ToolResultMessage } from './tool-role.ts'
 import { assertReleasedV4Header } from './validation.ts'
 
-function physicalV2(value: unknown): SessionFormatHeader {
-  if (!isSessionFormatJsonObject(value) || value['version'] !== 4) throw new SessionFormatError('expected format v4 physical header')
-  return { ...value, version: 2 } as SessionFormatHeader
+function physicalV2(value: unknown) {
+  const physical = snapshotSessionFormatJson(value, 'format v4 physical header')
+  if (!isSessionFormatJsonObject(physical) || physical['version'] !== 4) throw new SessionFormatError('expected format v4 physical header')
+  const { cwd, ...fields } = physical
+  // The frozen V2 framing only admits local paths. V4 owns the SSH address.
+  const sshCwd = typeof cwd === 'string' && parseSshWorkspacePath(cwd) !== undefined ? cwd : undefined
+  const header = { ...fields, version: 2, ...(sshCwd === undefined && cwd !== undefined ? { cwd } : {}) }
+  return { header, sshCwd }
+}
+
+function logicalV4(header: SessionFormatHeader, sshCwd: string | undefined): SessionFormatHeader {
+  return { ...header, version: 4, ...(sshCwd === undefined ? {} : { cwd: sshCwd }) }
 }
 
 /**
@@ -23,13 +33,15 @@ function physicalV2(value: unknown): SessionFormatHeader {
 export const releasedV4SessionFormatCodec = Object.freeze({
   version: 4,
   decodeHeader(value: unknown) {
-    return { ...releasedV2SessionFormatCodec.decodeHeader(physicalV2(value)), version: 4 }
+    const { header, sshCwd } = physicalV2(value)
+    return logicalV4(releasedV2SessionFormatCodec.decodeHeader(header), sshCwd)
   },
   createDecoder(value, recovery) {
-    const decoder = releasedV2SessionFormatCodec.createDecoder(physicalV2(value), recovery)
+    const { header, sshCwd } = physicalV2(value)
+    const decoder = releasedV2SessionFormatCodec.createDecoder(header, recovery)
     return {
       ...decoder,
-      header: { ...decoder.header, version: 4 },
+      header: logicalV4(decoder.header, sshCwd),
       decodeRow(row, context) {
         assertV4RowAdmission(row)
         decoder.decodeRow(row, {
@@ -41,7 +53,12 @@ export const releasedV4SessionFormatCodec = Object.freeze({
   },
   encodeHeader(header, inheritedEventCount) {
     assertReleasedV4Header(header)
-    return { ...releasedV2SessionFormatCodec.encodeHeader({ ...header, version: 2 }, inheritedEventCount), version: 4 }
+    const { cwd, ...fields } = header
+    const sshCwd = cwd !== undefined && parseSshWorkspacePath(cwd) !== undefined ? cwd : undefined
+    const physical = releasedV2SessionFormatCodec.encodeHeader({
+      ...fields, version: 2, ...(sshCwd === undefined && cwd !== undefined ? { cwd } : {}),
+    }, inheritedEventCount)
+    return { ...physical, version: 4, ...(sshCwd === undefined ? {} : { cwd: sshCwd }) }
   },
   encodeEvent(event: SessionFormatEvent) {
     if (event.type === 'developer/message' && event['ignorable'] === true) {

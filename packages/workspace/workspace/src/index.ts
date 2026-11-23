@@ -5,12 +5,13 @@
  * @module @deepseek-ai/dsh-workspace
  */
 
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { parse, resolve } from 'node:path'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { mkdir, realpath, rm, stat } from 'node:fs/promises'
 import { Context, Service } from '@deepseek-ai/cordis'
+import type { CredentialKey, CredentialRecord } from '@deepseek-ai/dsh-credentials'
 import type { SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-persistence'
 import type { DomainGlobal, KvTable } from '@deepseek-ai/dsh-storage-domain'
@@ -20,10 +21,27 @@ import type { WorkspaceEntityHost } from './entity.ts'
 export { WorkspaceMoveInvalidError } from './entity.ts'
 export { formatSshWorkspacePath, parseSshWorkspacePath, verifySshWorkspacePath } from './ssh-path.ts'
 import { defaultWorkspaceTitle, fullyQualifiedWorkspacePath, realpathNormalize } from './paths.ts'
-import { parseSshWorkspacePath, verifySshWorkspacePath } from './ssh-path.ts'
+import { SshWebHost } from './ssh-web.ts'
+import {
+  formatSshWorkspacePath, parseSshWorkspacePath, probeSshDirectory, sshWorkspaceAuthority, verifySshWorkspacePath,
+  type SshWorkspaceConnection,
+} from './ssh-path.ts'
 import { workspaceDomainSpec } from './spec.ts'
 import type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
 import type { SessionActivity, Workspace, WorkspaceId as WorkspaceIdBrand } from './types.ts'
+
+function sshCredentialKey(authority: string): CredentialKey {
+  const id = createHash('sha256').update(authority).digest('hex')
+  return brandString<CredentialKey>(`workspace/ssh-${id}`)
+}
+
+function storedSshLogin(record: CredentialRecord | undefined): (SshWorkspaceConnection & { fingerprint: string }) | undefined {
+  if (record?.kind !== 'grant' || typeof record.payload !== 'object' || record.payload === null) return undefined
+  const value = record.payload as Partial<SshWorkspaceConnection & { fingerprint: string }>
+  if (typeof value.host !== 'string' || typeof value.port !== 'number' || typeof value.username !== 'string'
+    || typeof value.password !== 'string' || typeof value.fingerprint !== 'string') return undefined
+  return { host: value.host, port: value.port, username: value.username, password: value.password, fingerprint: value.fingerprint }
+}
 
 export type {
   SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap, Workspace,
@@ -183,6 +201,12 @@ interface BootstrapGroup {
   readonly newestAt: number
 }
 
+/** Workspace registry launch settings. */
+interface Config {
+  /** Existing project to register in a Host opened over an SSH tunnel. */
+  sshWorkspace?: string
+}
+
 const sameIds = (left: readonly WorkspaceId[], right: readonly WorkspaceId[]): boolean =>
   left.length === right.length && left.every((id, index) => id === right[index])
 
@@ -199,6 +223,9 @@ const compareHeaders = (left: SessionHeader, right: SessionHeader): number =>
 export class WorkspaceRegistry extends Service {
   static inject = ['storageDomain', 'sessionPersistence']
 
+  /** Whether this Host exposes a project opened over an SSH tunnel. */
+  readonly sshProjectHost: boolean
+
   private table?: KvTable<WorkspaceId, WorkspaceRecord>
   private global?: DomainGlobal<WorkspaceDomainState>
   private state?: WorkspaceDomainState
@@ -208,9 +235,12 @@ export class WorkspaceRegistry extends Service {
   private readonly missingSessionPaths = new Set<SessionId>()
   private readonly invalidSessionPaths = new Map<SessionId, string>()
   private operationTail: Promise<void> = Promise.resolve()
+  private readonly sshHosts = new Map<string, SshWebHost>()
+  private readonly sshLifetime = new AbortController()
 
   private readonly host: WorkspaceEntityHost = {
     table: () => this.requireTable(),
+    verifySsh: path => this.verifySsh(path),
     candidateMatches: (id, path) => this.sessionPaths.get(id) === path || this.missingSessionPaths.has(id),
     readSessionHeader: id => this.readSessionHeader(id),
     sessionHeader: (id) => {
@@ -228,12 +258,21 @@ export class WorkspaceRegistry extends Service {
     },
   }
 
-  constructor(ctx: Context) {
+  constructor(ctx: Context, private readonly config: Config = {}) {
     super(ctx, 'workspaceRegistry')
+    if (config.sshWorkspace !== undefined && (typeof config.sshWorkspace !== 'string'
+      || !fullyQualifiedWorkspacePath(config.sshWorkspace) || parseSshWorkspacePath(config.sshWorkspace) !== undefined)) {
+      throw new TypeError('SSH project mode requires an absolute directory on the machine running the Host')
+    }
+    this.sshProjectHost = config.sshWorkspace !== undefined
   }
 
   /** Open the domain, finish bootstrap when required, and rebuild the ordered cache. */
   protected async [Service.init](): Promise<void> {
+    this.ctx.effect(() => async () => {
+      this.sshLifetime.abort()
+      await Promise.all([...this.sshHosts.values()].map(host => host.close()))
+    }, 'workspace.closeSshHosts')
     const domain = await this.ctx.storageDomain.open(workspaceDomainSpec)
     this.ctx.effect(() => () => domain.close(), 'workspace.domainClose')
     this.table = domain.table('workspaces')
@@ -253,6 +292,7 @@ export class WorkspaceRegistry extends Service {
     await this.indexLiveSessions()
     this.validateStoredState(this.requireState())
     this.rebuildEntities()
+    if (this.config.sshWorkspace !== undefined) await this.create(this.config.sshWorkspace)
     this.reportFilteredCandidates()
   }
 
@@ -274,7 +314,7 @@ export class WorkspaceRegistry extends Service {
   // lines in this package's README pair.
   async create(path: string, title?: string): Promise<Workspace> {
     if (parseSshWorkspacePath(path) !== undefined) {
-      const canonical = await verifySshWorkspacePath(path)
+      const canonical = await this.verifySsh(path)
       return await this.enqueueOperation(() => this.createCanonical(canonical, title))
     }
     const canonical = await realpathNormalize(path)
@@ -282,6 +322,76 @@ export class WorkspaceRegistry extends Service {
       throw new Error(`cannot create a workspace at '${canonical}': path is not a directory`)
     }
     return await this.enqueueOperation(() => this.createCanonical(canonical, title))
+  }
+
+  /**
+   * Verify password authentication and adopt an existing remote directory.
+   * @param path - Absolute POSIX directory on the SSH host.
+   * @param connection - Server coordinates and password for this attempt.
+   * @returns The workspace and whether this request registered it.
+   */
+  async createSsh(path: string, connection: SshWorkspaceConnection): Promise<{ workspace: Workspace; created: boolean }> {
+    if (!path.startsWith('/') || path.length > 4096 || path.includes('\0')) {
+      throw new Error('Enter an absolute remote directory')
+    }
+    const authority = sshWorkspaceAuthority(connection)
+    const canonical = formatSshWorkspacePath(authority, path)
+    const location = parseSshWorkspacePath(canonical)
+    if (location === undefined) throw new Error('Invalid SSH workspace location')
+    return this.enqueueOperation(async () => {
+      const credentials = this.ctx.get('credentials')
+      if (credentials === undefined) throw new Error('SSH credential storage is unavailable')
+      await credentials.modifyRecord(sshCredentialKey(authority), async (current) => {
+        const fingerprint = await probeSshDirectory(connection, location.remotePath, storedSshLogin(current)?.fingerprint)
+        return { kind: 'grant', payload: { ...connection, fingerprint } }
+      })
+      const existing = await this.resolveByPath(canonical)
+      if (existing !== undefined) return { workspace: existing, created: false }
+      return { workspace: await this.createCanonical(canonical), created: true }
+    })
+  }
+
+  /**
+   * Open the remote Harness for a registered, password-authenticated Workspace.
+   * @param id - local registration selecting the remote project and credentials.
+   * @returns Local, authenticated URL for the SSH tunnel.
+   */
+  async openSsh(id: WorkspaceId): Promise<string> {
+    const workspace = this.entities.get(id)
+    const location = workspace === undefined ? undefined : parseSshWorkspacePath(workspace.path)
+    if (this.sshProjectHost || workspace === undefined || location === undefined) {
+      throw new Error('Select a saved SSH workspace on the desktop')
+    }
+    const record = await this.ctx.get('credentials')?.readRecord(sshCredentialKey(location.host))
+    this.sshLifetime.signal.throwIfAborted()
+    if (this.entities.get(id) !== workspace) throw new Error('The SSH workspace was removed')
+    const login = storedSshLogin(record)
+    if (login === undefined || sshWorkspaceAuthority(login) !== location.host) {
+      throw new Error('Saved SSH login is unavailable. Add the workspace again using the server IP, port, account, and password.')
+    }
+    let host = this.sshHosts.get(workspace.path)
+    if (host === undefined) {
+      const opened = new SshWebHost(login, location.remotePath, process.env.ALTOAIH_SSH_RUNTIME_DIR)
+      host = opened
+      this.sshHosts.set(workspace.path, opened)
+      void opened.closed.then(() => {
+        if (this.sshHosts.get(workspace.path) === opened) this.sshHosts.delete(workspace.path)
+      })
+    }
+    return await host.url
+  }
+
+  private async verifySsh(path: string): Promise<string> {
+    const location = parseSshWorkspacePath(path)
+    if (location === undefined || !/^[^@]+@.+:\d+$/u.test(location.host)) return verifySshWorkspacePath(path)
+    const record = await this.ctx.get('credentials')?.readRecord(sshCredentialKey(location.host))
+    const login = storedSshLogin(record)
+    if (login === undefined || sshWorkspaceAuthority(login) !== location.host) {
+      throw new Error('Saved SSH login is unavailable')
+    }
+    const canonical = formatSshWorkspacePath(location.host, location.remotePath)
+    await probeSshDirectory(login, location.remotePath, login.fingerprint)
+    return canonical
   }
 
   /**
@@ -353,8 +463,8 @@ export class WorkspaceRegistry extends Service {
   }
 
   /**
-   * Permanently remove one Workspace, its accounted Sessions, and its registered
-   * project directory. The registration remains recoverable when directory removal fails.
+   * Permanently remove one Workspace and its accounted Session logs. Remove the
+   * project directory only for a local Workspace. A local directory failure retains the registration.
    * @param id - Workspace identity to remove.
    * @param options - whether active Session work is stopped before deletion.
    * @returns `true` when the Workspace existed.
@@ -363,11 +473,13 @@ export class WorkspaceRegistry extends Service {
     return this.enqueueOperation(async () => {
       const workspace = this.entities.get(id)
       if (workspace === undefined) return false
-      await this.assertDeletableWorkspaceDirectory(workspace.path)
+      if (this.sshProjectHost) return await this.deleteKnown(id)
+      const local = parseSshWorkspacePath(workspace.path) === undefined
+      if (local) await this.assertDeletableWorkspaceDirectory(workspace.path)
       for (const sessionId of [...workspace.sessionIds]) {
         await this.deleteSessionKnown(sessionId, options, workspace)
       }
-      await this.removeWorkspaceDirectory(workspace.path)
+      if (local) await this.removeWorkspaceDirectory(workspace.path)
       return await this.deleteKnown(id)
     })
   }
@@ -383,6 +495,7 @@ export class WorkspaceRegistry extends Service {
    */
   deleteSession(sessionId: SessionId, options: ArchiveSessionOptions = {}): Promise<boolean> {
     return this.enqueueOperation(async () => {
+      if (this.sshProjectHost) throw new Error('Session history is preserved in SSH project mode')
       if (!(await this.sessionKnown(sessionId))) return false
       return await this.deleteSessionKnown(sessionId, options)
     })

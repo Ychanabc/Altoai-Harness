@@ -66,6 +66,7 @@ export const apply = ctx => globalThis.__webStartupApply(ctx)
     '    publicUrl: !!js ctx.webStartup.publicUrl',
     '    trustedHosts: !!js ctx.webStartup.trustedHosts',
     '    tls: !!js ctx.webStartup.tls',
+    '    sshWorkspace: !!js ctx.webStartup.sshWorkspace',
     '- id: provider',
     `  name: ${pathToFileURL(join(dir, 'provider.mjs')).href}`,
     '',
@@ -94,6 +95,16 @@ export const apply = ctx => globalThis.__webStartupApply(ctx)
 }
 
 describe('web command-line provider', () => {
+  it('accepts an SSH project only with a private loopback listener', async () => {
+    const args = ['--ssh-workspace', '/srv/project', '--port', '0', '--no-open']
+    const good = await bootProvider([...args, '--host', '127.0.0.1'])
+    expect(good.values).toMatchObject({ sshWorkspace: '/srv/project', host: '127.0.0.1', port: 0, openBrowser: false })
+    expect(good.observed.readerConfig).toMatchObject({ sshWorkspace: '/srv/project' })
+    const bad = await bootProvider([...args, '--host', '192.0.2.1'])
+    expect(bad.values).toBeUndefined()
+    expect(bad.observed.exits).toEqual([1])
+  })
+
   it('publishes each flag and releases direct service expressions', async () => {
     const { values, observed } = await bootProvider([
       '--host', '127.0.0.1',

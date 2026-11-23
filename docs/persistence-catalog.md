@@ -1335,7 +1335,7 @@ Source: [`packages/web/web-search-deepseek/src/provider.ts:90`](../packages/web/
 }
 ```
 
-Source: [`packages/session/working-directory/src/index.ts:62`](../packages/session/working-directory/src/index.ts)
+Source: [`packages/session/working-directory/src/index.ts:63`](../packages/session/working-directory/src/index.ts)
 
 ### `workspace/*`
 
@@ -1368,7 +1368,7 @@ Source: [`packages/deliverables/workspace-changes/src/types.ts:106`](../packages
 }
 ```
 
-Source: [`packages/session/working-directory/src/index.ts:67`](../packages/session/working-directory/src/index.ts)
+Source: [`packages/session/working-directory/src/index.ts:68`](../packages/session/working-directory/src/index.ts)
 
 ## Resolved persistence types
 
@@ -3761,7 +3761,7 @@ Sources: [`packages/goal/goal/src/domain.ts:24`](../packages/goal/goal/src/domai
 
 SHA-256: `18ee62b8900a4c3d046700f05d7a4d49d6cab2a660a020c87481d1603dd8bd4f`
 
-Sources: [`packages/session/session-persistence-jsonl/src/format.ts:83`](../packages/session/session-persistence-jsonl/src/format.ts)
+Sources: [`packages/session/session-persistence-jsonl/src/format.ts:84`](../packages/session/session-persistence-jsonl/src/format.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -6246,7 +6246,7 @@ Sources: [`packages/compaction/compaction/src/types.ts:24`](../packages/compacti
 
 SHA-256: `da60ed58a8fa23d7aa4920ab5c1f4e3d28109cb0797ef9e5c8b125721b847582`
 
-Sources: [`packages/session/working-directory/src/index.ts:62`](../packages/session/working-directory/src/index.ts) · [`packages/session/working-directory/src/index.ts:67`](../packages/session/working-directory/src/index.ts)
+Sources: [`packages/session/working-directory/src/index.ts:63`](../packages/session/working-directory/src/index.ts) · [`packages/session/working-directory/src/index.ts:68`](../packages/session/working-directory/src/index.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -8000,7 +8000,7 @@ Sources: [`packages/experimental/webhook/src/types.ts:75`](../packages/experimen
 
 SHA-256: `2235d957bf4b7c6cf959231d480f0ba1f3a6d72d82981493fb6c7c963021d3d5`
 
-Sources: [`packages/session/working-directory/src/index.ts:49`](../packages/session/working-directory/src/index.ts)
+Sources: [`packages/session/working-directory/src/index.ts:50`](../packages/session/working-directory/src/index.ts)
 
 | Property | Presence | Type |
 |---|---|---|

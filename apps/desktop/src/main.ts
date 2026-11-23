@@ -262,6 +262,38 @@ function platformLoginUrl(authorizeUrl: string): string {
   return url.href
 }
 
+function openSshProjectWindow(owner: BrowserWindow, target: URL, icon?: string): void {
+  target.hash = ''
+  const remote = new BrowserWindow({
+    width: 1280,
+    height: 820,
+    minWidth: 520,
+    minHeight: 600,
+    parent: owner,
+    title: 'Altoai Harness · SSH',
+    ...(icon === undefined ? {} : { icon }),
+    webPreferences: {
+      partition: `altoai-remote-ssh-${target.port}-${Date.now()}`,
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      webviewTag: false,
+    },
+  })
+  const origin = target.origin
+  const restrictNavigation = (event: { preventDefault(): void }, url: string): void => {
+    if (URL.parse(url)?.origin !== origin) event.preventDefault()
+  }
+  remote.webContents.on('will-navigate', restrictNavigation)
+  remote.webContents.on('will-redirect', restrictNavigation)
+  remote.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  remote.webContents.session.setPermissionRequestHandler((_contents, _permission, respond) => { respond(false) })
+  remote.webContents.session.setPermissionCheckHandler(() => false)
+  // Chromium's load error page reports loss of the tunnel without logging the authentication URL.
+  void remote.loadURL(target.href).catch(() => {})
+}
+
 function createWindow(preload: string, show = false, primary = false, title?: string, icon?: string): BrowserWindow {
   const window = new BrowserWindow({
     width: 1280,
@@ -299,7 +331,14 @@ function createWindow(preload: string, show = false, primary = false, title?: st
     },
   })
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (['http:', 'https:'].includes(new URL(url).protocol)) void shell.openExternal(url)
+    const target = URL.parse(url)
+    if (primary && target?.protocol === 'http:' && target.hostname === '127.0.0.1'
+      && target.port !== '' && target.pathname === '/' && target.searchParams.has('token')
+      && target.hash === '#altoai-remote-ssh') {
+      openSshProjectWindow(window, target, icon)
+    } else if (target?.protocol === 'http:' || target?.protocol === 'https:') {
+      void shell.openExternal(url)
+    }
     return { action: 'deny' }
   })
   if (process.platform === 'darwin' || process.platform === 'win32') {
@@ -541,7 +580,11 @@ async function main(): Promise<void> {
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
-      hostInspectPort, { ...hostEnvironment, ALTOAIH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
+      hostInspectPort, {
+        ...hostEnvironment,
+        ALTOAIH_CLIENT_VERSION: desktopClientVersion(),
+        ALTOAIH_SSH_RUNTIME_DIR: development ? join(app.getAppPath(), '..', '..', 'dist-exe', 'ssh-web') : join(process.resourcesPath, 'ssh-web'),
+      }, onFailure,
       primaryRuntime,
       resources, (next) => { platformView.setSession(next) }, (record) => {
         operationJournal ??= new OperationJournal(join(app.getPath('userData'), 'plugin-operations'), {

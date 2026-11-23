@@ -33,6 +33,7 @@ beforeEach(() => { localStorage.clear() })
 
 const ALPHA = 'w-alpha' as WorkspaceId
 const ADD = '添加工作区…'
+const ADD_SSH = '添加 SSH 工作区…'
 
 /** Test-owned consumer surface: another plugin's dialog that owns the anchor, open state, and pick meaning. */
 function ImportDialog({ renderFactorySlot }: PropsRenderFactories) {
@@ -113,7 +114,7 @@ describe('workspace.picker Factory', () => {
     try {
       await runtime.mount(probeFlowPlugin)
       openMenu()
-      expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Alpha', ADD])
+      expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Alpha', ADD, ADD_SSH])
       fireEvent.click(screen.getByRole('menuitem', { name: 'Alpha' }))
       expect(screen.getByRole('status').textContent).toBe(ALPHA)
       expect(screen.queryByRole('menu')).toBeNull()
@@ -157,12 +158,12 @@ describe('workspace.picker Factory', () => {
     const runtime = await bench()
     try {
       openMenu()
-      expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Alpha'])
+      expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Alpha', ADD_SSH])
       // A picker package activating later fills the hole; the open menu follows.
       const flow = await runtime.mount(probeFlowPlugin)
-      expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Alpha', ADD])
+      expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Alpha', ADD, ADD_SSH])
       await flow.dispose()
-      expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Alpha'])
+      expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Alpha', ADD_SSH])
     } finally {
       await runtime.dispose()
     }

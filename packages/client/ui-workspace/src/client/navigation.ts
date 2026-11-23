@@ -26,6 +26,7 @@ import type { RowToast } from './contract/slots.ts'
 import { pinOrderAccounts, pinOrderSource } from './pin-order.ts'
 import { RecentSessionViews } from './recent-views.ts'
 import type { WorkspaceViewStoreActions } from './stores.ts'
+import { parseSshWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 
 interface MainSelection {
   readonly sessionId?: SessionId
@@ -322,6 +323,26 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     reuse: Pick<StartSessionOptions, 'agentPreset'>,
   ): Promise<void> {
     const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal])
+    const workspace = this.workspaces.list.getSnapshot().items.find(item => item.workspaceId === workspaceId)
+    if (workspace !== undefined && parseSshWorkspacePath(workspace.path) !== undefined) {
+      const t = this.ctx.locale.bind('workspace')
+      try {
+        const result = await this.ctx.remote.workspace.openSsh({ workspaceId })
+        if (navigation.aborted) return
+        if (!result.ok) throw new Error(result.error.message)
+        const url = new URL(result.value.url)
+        if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.port === '') {
+          throw new Error('Invalid SSH tunnel URL')
+        }
+        url.hash = 'altoai-remote-ssh'
+        window.open(url.href, '_blank', 'noopener,noreferrer')
+        return
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (!navigation.aborted) this.notify({ kind: 'createFailed', message: t('ssh.openFailed', { message }) })
+        throw error
+      }
+    }
     let sessionId: SessionId
     try {
       sessionId = await this.connectBlank(workspaceId, reuse)

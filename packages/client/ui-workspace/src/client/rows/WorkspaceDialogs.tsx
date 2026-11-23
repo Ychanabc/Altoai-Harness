@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import { parseSshWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 import type { WorkspaceActionRequest, WorkspaceBrowserProps } from '../contract/slots.ts'
 import css from './WorkspaceBrowser.module.css'
 
@@ -47,6 +48,10 @@ export function WorkspaceDialogs({
 
   const deleteTarget = request.action === 'delete' ? request : null
   const deleteSessionTarget = request.action === 'deleteSession' ? request : null
+  const deletePath = deleteTarget === null ? undefined
+    : workspaces.find(workspace => workspace.workspaceId === deleteTarget.workspaceId)?.path
+  const deleteRemoteWorkspace = deletePath !== undefined && parseSshWorkspacePath(deletePath) !== undefined
+  const deleteTitle = t(deleteSessionTarget !== null ? 'delete.session' : deleteRemoteWorkspace ? 'delete.remote' : 'delete.workspace')
   const [deleting, setDeleting] = useState(false)
   const [deleteCommittedId, setDeleteCommittedId] = useState<WorkspaceId | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -127,9 +132,9 @@ export function WorkspaceDialogs({
       open={deleteTarget !== null || deleteSessionTarget !== null}
       onClose={closeDelete}
       closeLabel={t('close')}
-      title={deleteSessionTarget === null ? t('delete.workspace') : t('delete.session')}
+      title={deleteTitle}
       {...deleteTarget !== null
-        ? { description: t('delete.desc', { name: deleteTarget.displayTitle }) }
+        ? { description: t(deleteRemoteWorkspace ? 'delete.remote.desc' : 'delete.desc', { name: deleteTarget.displayTitle }) }
         : deleteSessionTarget === null ? {} : { description: t('delete.session.desc', { name: deleteSessionTarget.displayTitle }) }}
       footer={(
         <>
@@ -140,12 +145,12 @@ export function WorkspaceDialogs({
             disabled={deleting}
             onClick={confirmDelete}
           >
-            {deleteSessionTarget === null ? t('delete.workspace') : t('delete.session')}
+            {deleteTitle}
           </Button>
         </>
       )}
     >
-      {deleting && <div className={css.deleteStatus} role="status">{t('delete.pending')}</div>}
+      {deleting && <div className={css.deleteStatus} role="status">{deleteRemoteWorkspace ? deleteTitle : t('delete.pending')}</div>}
       {deleteError !== null && <div className={css.renameError} role="alert">{deleteError}</div>}
     </Modal>
   </>

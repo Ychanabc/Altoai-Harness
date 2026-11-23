@@ -40,6 +40,7 @@ interface HarnessOptions {
   liveSessions?: SessionHeader[]
   sessionStore?: boolean
   backend?: StorageBackend
+  sshWorkspace?: string
 }
 
 /** Boot the real storage/domain/registry composition over controllable header-only peers. */
@@ -72,7 +73,8 @@ async function harness(options: HarnessOptions = {}) {
 
   const changes: DomainChanged[] = []
   ctx.on('domain/changed', (change) => { changes.push(change) })
-  const fiber = await ctx.plugin(WorkspaceRegistry)
+  const registryConfig = options.sshWorkspace === undefined ? undefined : { sshWorkspace: options.sshWorkspace }
+  const fiber = await ctx.plugin(WorkspaceRegistry, registryConfig)
   const initChanges = [...changes]
   changes.length = 0
   return {
@@ -365,6 +367,26 @@ describe('WorkspaceRegistry lifecycle and bootstrap', () => {
 })
 
 describe('WorkspaceRegistry create and lookup', () => {
+  it('registers the project selected by an SSH launcher and preserves project files and history on removal', async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'dsh-ssh-project-mode-')))
+    const file = join(root, 'keep.txt')
+    await writeFile(file, 'preserve')
+    const saved = header('ssh-server-history', root)
+    const result = await harness({ sshWorkspace: root, sessions: [saved] })
+    try {
+      const [workspace] = result.registry.list()
+      expect(workspace?.path).toBe(root)
+      expect(workspace?.sessionIds).toEqual([saved.id])
+      await expect(result.registry.deleteSession(saved.id)).rejects.toThrow('Session history is preserved')
+      await expect(result.registry.deletePermanently(workspace!.id)).resolves.toBe(true)
+      expect(result.registry.list()).toEqual([])
+      expect(result.deleteSession).not.toHaveBeenCalled()
+      await expect(realpath(file)).resolves.toBe(file)
+    } finally {
+      await result.ctx.fiber.dispose()
+      await rm(root, { recursive: true, force: true })
+    }
+  })
   it('accepts fully qualified roots and directories without accepting drive-relative paths', () => {
     expect(fullyQualifiedWorkspacePath('C:\\', 'win32')).toBe(true)
     expect(fullyQualifiedWorkspacePath('C:\\work', 'win32')).toBe(true)
@@ -558,6 +580,23 @@ describe('WorkspaceRegistry create and lookup', () => {
     expect(result.registry.archivedSessionIds).toEqual([])
     expect(result.registry.pinnedSessionIds).toEqual([])
     await expect(realpath(dir)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('deletes the local logs and registration of an offline SSH workspace', async () => {
+    const path = 'ssh://account@192.0.2.7:2222/srv/project'
+    const session = header('remote-session', path)
+    const workspaceId = brandString<WorkspaceId>('remote-workspace')
+    const pool = storedPool([[workspaceId, record(path, [session.id])]], {
+      initialized: true, workspaceIds: [workspaceId],
+    })
+    const result = await harness({ pool, sessions: [session] })
+    expect(result.registry.get(workspaceId)?.sessionIds).toEqual([session.id])
+
+    await expect(result.registry.deletePermanently(workspaceId)).resolves.toBe(true)
+
+    expect(result.deleteSession).toHaveBeenCalledExactlyOnceWith(session.id)
+    expect(result.registry.get(workspaceId)).toBeUndefined()
+    expect(result.registry.list()).toEqual([])
   })
 
   it('retains Workspace membership when the Session owner fails to drain', async () => {

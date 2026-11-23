@@ -13,6 +13,7 @@ import { createPluginProfile } from '../src/project-manager.ts'
 import type { DesktopRuntimeDescriptor } from '../src/runtime-tree.ts'
 
 const OFFICE_SKILLS = ['office', 'office-docx', 'office-pptx', 'office-xlsx']
+const SSH_WORKSPACE_CWD = 'ssh://project@192.0.2.7:22/srv/project'
 
 /**
  * Require each bundled Office skill to be listed and loaded with a nonempty body.
@@ -26,7 +27,7 @@ export function assertOfficeSkillsLoadable(results: ReadonlyArray<{ readonly nam
 }
 
 /**
- * Check CLI package operations, Host startup, its frontend, external plugins, packaged Office skill loading,
+ * Check CLI package operations, Host startup, its frontend, SSH Session persistence, external plugins, packaged Office skill loading,
  * and real Office rendering, conversion, and recalculation.
  * @param root - Materialized dsh resources.
  * @param node - Prepared target Electron executable.
@@ -105,6 +106,22 @@ export function apply(ctx) {
   if (!(ctx instanceof Context)) throw new Error('desktop runtime: external plugin loaded another Cordis instance')
   ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: '/desktop-smoke',
     handler(_request, response) { response.end('plugin route ready') } }))
+  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: '/desktop-smoke-ssh-session',
+    async handler(_request, response) {
+      try {
+        const stored = (await ctx.sessionPersistence.list()).find(entry => entry.header.cwd === ${JSON.stringify(SSH_WORKSPACE_CWD)})
+        if (!stored) throw new Error('SSH Session missing from storage')
+        const reader = await ctx.sessionPersistence.open(stored.header.id, 'read')
+        try {
+          response.end(JSON.stringify({ id: reader.header.id, cwd: reader.header.cwd }))
+        } finally {
+          await reader.close()
+        }
+      } catch (error) {
+        response.statusCode = 500
+        response.end(inspect(error, { depth: 5 }))
+      }
+    } }))
   ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: '/desktop-smoke-install',
     async handler(_request, response) {
       try {
@@ -171,7 +188,7 @@ export function apply(ctx) {
   }
 }
 `)
-    writeFileSync(join(plugin, 'bundle.yml'), '- insert:\n    - id: desktop-runtime-smoke-plugin\n      name: desktop-runtime-smoke-plugin\n      inject: [webServer, officeKit, pluginManager, skills]\n')
+    writeFileSync(join(plugin, 'bundle.yml'), '- insert:\n    - id: desktop-runtime-smoke-plugin\n      name: desktop-runtime-smoke-plugin\n      inject: [webServer, officeKit, pluginManager, skills, sessionPersistence]\n')
     cpSync(plugin, join(profile, 'node_modules', pluginName), { recursive: true })
     const manifest = JSON.parse(readFileSync(join(profile, 'package.json'), 'utf8')) as {
       dependencies?: Record<string, string>
@@ -190,6 +207,29 @@ export function apply(ctx) {
     if (response.status !== 200 || !(await response.text()).includes('<html')) {
       throw new Error('desktop runtime: packaged frontend smoke failed')
     }
+    const sessionCreated = await fetch(new URL('/api/session/create', ready.url), {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json', origin: new URL(ready.url).origin },
+      body: JSON.stringify({
+        type: 'client-request', rpcId: 'desktop-smoke-ssh-session', method: 'session/create',
+        payload: { args: { request: { cwd: SSH_WORKSPACE_CWD } } },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    })
+    const creationBody = await sessionCreated.text()
+    if (!sessionCreated.ok) throw new Error(`desktop runtime: SSH Session request failed: ${creationBody}`)
+    const creation = JSON.parse(creationBody) as { result?: { ok: boolean; value?: { sessionId: string } } }
+    const sessionId = creation.result?.value?.sessionId
+    if (creation.result?.ok !== true || !sessionId) {
+      throw new Error(`desktop runtime: SSH Session creation failed: ${creationBody}`)
+    }
+    const session = await fetch(new URL('/desktop-smoke-ssh-session', ready.url), { headers: { cookie }, signal: AbortSignal.timeout(30_000) })
+    if (!session.ok) throw new Error(`desktop runtime: SSH Session reopen failed: ${await session.text()}`)
+    const restored = await session.json() as { id: string; cwd?: string }
+    if (restored.id !== sessionId || restored.cwd !== SSH_WORKSPACE_CWD) {
+      throw new Error(`desktop runtime: unexpected persisted SSH Session: ${JSON.stringify(restored)}`)
+    }
+    console.log('desktop runtime: SSH Session created and reopened with its original working directory')
     const pluginResponse = await fetch(new URL('/desktop-smoke', ready.url), { headers: { cookie } })
     if (await pluginResponse.text() !== 'plugin route ready') throw new Error('desktop runtime: plugin HTTP route failed')
     const installation = await fetch(new URL('/desktop-smoke-install', ready.url), {

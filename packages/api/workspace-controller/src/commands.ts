@@ -48,6 +48,10 @@ export class WorkspaceCommands {
   create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue> {
     return this.enqueue(async () => {
       try {
+        if (request.ssh !== undefined) {
+          const { workspace, created } = await this.ctx.workspaceRegistry.createSsh(request.path, request.ssh)
+          return { workspace: workspaceView(workspace), created }
+        }
         const existing = await this.ctx.workspaceRegistry.resolveByPath(request.path)
         if (existing !== undefined) {
           return { workspace: workspaceView(existing), created: false }
@@ -94,7 +98,7 @@ export class WorkspaceCommands {
   }
 
   /**
-   * Permanently delete one Workspace and its accounted Session logs while retaining its project directory.
+   * Permanently delete one Workspace and its accounted Session logs. Only a local project directory is deleted.
    * @param request - Workspace identity to remove.
    * @returns deletion confirmation.
    */

@@ -33,6 +33,8 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   interface RemoteErrorDetailsMap {
     /** The requested directory cannot back a Workspace. */
     'workspace/invalid-path': { readonly path: string }
+    /** The saved remote project could not start a reachable Altoai Host. */
+    'workspace/ssh-unavailable': { readonly workspaceId: WorkspaceId }
     /** Another Workspace already uses the requested name. */
     'workspace/name-conflict': { readonly name: string }
     /**
@@ -64,12 +66,29 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 /** Existing directory requested for Workspace adoption. */
 export interface WorkspaceCreateRequest {
   readonly path: string
+  /** When set, path is an absolute directory on this SSH endpoint. */
+  readonly ssh?: {
+    readonly host: string
+    readonly port: number
+    readonly username: string
+    readonly password: string
+  }
 }
 
 /** Created or previously registered Workspace. */
 export interface WorkspaceCreateValue {
   readonly workspace: WorkspaceView
   readonly created: boolean
+}
+
+/** Selects a locally registered remote project. */
+export interface WorkspaceOpenSshRequest {
+  readonly workspaceId: WorkspaceId
+}
+
+/** Local tunnel launch URL for the authorized owner. */
+export interface WorkspaceOpenSshValue {
+  readonly url: string
 }
 
 /** Workspace title mutation. */

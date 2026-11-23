@@ -14,7 +14,7 @@ import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import type { WorkspaceRecord } from './spec.ts'
 import type { Workspace, WorkspaceId } from './types.ts'
 import { realpathNormalize } from './paths.ts'
-import { parseSshWorkspacePath, verifySshWorkspacePath } from './ssh-path.ts'
+import { parseSshWorkspacePath } from './ssh-path.ts'
 
 /** An insertSessionBefore request named a session or anchor not on the account (storage failures stay plain errors). */
 export class WorkspaceMoveInvalidError extends Error {
@@ -34,6 +34,13 @@ export class WorkspaceMoveInvalidError extends Error {
  * attach-time header reads.
  */
 export interface WorkspaceEntityHost {
+  /**
+   * Verify that an SSH directory is reachable with the Host's current credentials.
+   * @param path - Stored SSH workspace location.
+   * @returns The canonical SSH path.
+   */
+  verifySsh(path: string): Promise<string>
+
   /**
    * Resolve the open `workspaces` table.
    * @returns the table; throws while the registry has not started yet.
@@ -195,7 +202,7 @@ export class WorkspaceEntity implements Workspace {
   async status(): Promise<'ok' | 'missing-dir'> {
     if (parseSshWorkspacePath(this.record.path) !== undefined) {
       try {
-        await verifySshWorkspacePath(this.record.path)
+        await this.host.verifySsh(this.record.path)
         return 'ok'
       } catch {
         return 'missing-dir'

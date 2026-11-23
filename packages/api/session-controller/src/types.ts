@@ -179,6 +179,8 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'session/provider-credentials-unavailable': Record<string, never>
     'session/provider-models-unavailable': { readonly provider: string }
     'session/model-unavailable': { readonly provider: string; readonly model: string }
+    /** A locally recorded SSH session has no remote execution environment. */
+    'session/ssh-connection-required': { readonly sessionId: SessionId }
     'session/conflict': {
       readonly sessionId: SessionId
       readonly requestedCwd: string

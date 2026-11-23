@@ -62,7 +62,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  ssh-runtime:
+    uses: ./.github/workflows/build-ssh-web-runtime.yml
+    with:
+      source_ref: ${{ inputs.source_ref }}
   package:
+    needs: ssh-runtime
     outputs:
       directory: ${{ steps.retained.outputs.directory }}
       runner: ${{ steps.retained.outputs.runner }}
@@ -137,6 +142,27 @@ jobs:
           }
           if(!fs.readFileSync('apps/desktop/scripts/retain-desktop-ci.ts','utf8').includes('--check-runner')) throw Error('Source lacks independent Desktop artifact archival support; select a newer source');
           if(!fs.readFileSync('apps/desktop/scripts/desktop-ci-version.mjs','utf8').includes('PACKAGE_VERSION_MODE')) throw Error('Source lacks Desktop channel/version CI support; select a newer release');"
+      - name: Retrieve the SSH runtime archives
+        if: hashFiles('scripts/build-ssh-web-runtime.ts') != ''
+        uses: actions/download-artifact@v8.0.1
+        with:
+          pattern: altoaih-ssh-linux-*
+          path: dist-exe/ssh-web
+          merge-multiple: true
+      - name: Check the SSH archives match the selected source
+        if: hashFiles('scripts/build-ssh-web-runtime.ts') != ''
+        run: |
+          $commit = (git rev-parse HEAD).Trim()
+          foreach ($arch in @('x64', 'arm64')) {
+            $archive = "dist-exe/ssh-web/altoaih-ssh-linux-$arch.tar.gz"
+            if ((Get-Content -LiteralPath "$archive.commit" -Raw).Trim() -cne $commit) {
+              throw "SSH runtime source changed during packaging. Re-run for a stable source ref."
+            }
+            $digest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ((Get-Content -LiteralPath "$archive.sha256" -Raw).Trim() -cne $digest) {
+              throw "SSH runtime archive checksum mismatch for $arch."
+            }
+          }
       - uses: pnpm/action-setup@v5.0.0
         with:
           dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}

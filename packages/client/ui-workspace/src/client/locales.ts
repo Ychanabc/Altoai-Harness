@@ -5,7 +5,24 @@
  */
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
+const sshFieldsEn = {
+  'ssh.add.connectionHint': 'Enter the server details and an absolute remote directory. The workspace is added after the connection succeeds.',
+  'ssh.add.ip': 'IP address',
+  'ssh.add.port': 'Port',
+  'ssh.add.username': 'Username',
+  'ssh.add.password': 'Password',
+  'ssh.add.connecting': 'Connecting…',
+  'ssh.openFailed': 'Could not open the SSH workspace. {message}',
+}
+
 export const zh = {
+  'ssh.add.connectionHint': '填写服务器连接信息和远端绝对目录。连接成功后会登记为工作区。',
+  'ssh.add.ip': 'IP 地址',
+  'ssh.add.port': '端口',
+  'ssh.add.username': '账号',
+  'ssh.add.password': '密码',
+  'ssh.add.connecting': '正在连接…',
+  'ssh.openFailed': 'SSH 工作区打开失败。{message}',
   'defaultWorkspace.failed': '无法创建默认工作区，请通过“选择工作区”选择文件夹',
   'draft.workspaceRequired': '请先选择工作区',
   'draft.initializationFailed': '暂时无法填入草稿，请稍后重试',
@@ -72,9 +89,11 @@ export const zh = {
   'field.workspaceName': '工作区名称',
   'field.sessionName': '会话名称',
   'delete.workspace': '删除工作目录',
+  'delete.remote': '移除 SSH 工作区',
   'delete.session': '删除对话',
   'delete.session.desc': '将永久删除“{name}”及其会话记录，此操作无法撤销。',
   'delete.desc': '将永久删除“{name}”及其中的会话记录。工作目录会被递归删除，此操作无法撤销。',
+  'delete.remote.desc': '将从本机永久删除“{name}”的工作区登记和会话记录。服务器上的目录和文件会保留。',
   'delete.pending': '正在删除工作目录…',
   'menu.fork': '分叉会话',
   'menu.archiveSession': '归档会话',
@@ -155,6 +174,7 @@ export type WorkspaceKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
+  ...sshFieldsEn,
   'defaultWorkspace.failed': 'Unable to create default workspace. Use Choose workspace to select a folder.',
   'draft.workspaceRequired': 'Choose a workspace first.',
   'draft.initializationFailed': 'Could not fill the draft. Please try again shortly.',
@@ -221,9 +241,11 @@ export const en = {
   'field.workspaceName': 'Workspace name',
   'field.sessionName': 'Session name',
   'delete.workspace': 'Delete work directory',
+  'delete.remote': 'Remove SSH workspace',
   'delete.session': 'Delete conversation',
   'delete.session.desc': 'This permanently deletes “{name}” and its session history. This cannot be undone.',
   'delete.desc': 'This permanently deletes “{name}” and its session logs. The work directory is recursively deleted. This cannot be undone.',
+  'delete.remote.desc': 'This permanently removes the local registration and session logs for “{name}”. The directory and files on the server are kept.',
   'delete.pending': 'Deleting work directory…',
   'menu.fork': 'Fork session',
   'menu.archiveSession': 'Archive session',
@@ -301,6 +323,7 @@ export const en = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  ...sshFieldsEn,
   'defaultWorkspace.failed': 'デフォルトのワークスペースを作成できません。ワークスペースを選択してフォルダーを選んでください。',
   'draft.workspaceRequired': '先にワークスペースを選択してください。',
   'draft.initializationFailed': '下書きを埋め込めませんでした。しばらくしてからもう一度お試しください。',
@@ -367,9 +390,11 @@ export const ja = {
   'field.workspaceName': 'ワークスペース名',
   'field.sessionName': 'セッション名',
   'delete.workspace': '作業ディレクトリを削除',
+  'delete.remote': 'SSH ワークスペースを削除',
   'delete.session': '会話を削除',
   'delete.session.desc': '「{name}」とそのセッション履歴を完全に削除します。この操作は取り消せません。',
   'delete.desc': '「{name}」とそのセッションログを完全に削除します。作業ディレクトリも再帰的に削除され、この操作は取り消せません。',
+  'delete.remote.desc': 'この端末から「{name}」の登録とセッションログを完全に削除します。サーバー上のディレクトリとファイルは保持されます。',
   'delete.pending': 'ワークスペースを削除中…',
   'menu.fork': 'セッションをフォーク',
   'menu.archiveSession': 'セッションをアーカイブ',
@@ -447,6 +472,7 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  ...sshFieldsEn,
   'defaultWorkspace.failed': 'No se puede crear el espacio de trabajo predeterminado. Utilice Elegir espacio de trabajo para seleccionar una carpeta.',
   'draft.workspaceRequired': 'Elija un espacio de trabajo primero.',
   'draft.initializationFailed': 'No se pudo completar el borrador. Inténtelo de nuevo en breve.',
@@ -513,9 +539,11 @@ export const es = {
   'field.workspaceName': 'Nombre del espacio de trabajo',
   'field.sessionName': 'Nombre de la sesión',
   'delete.workspace': 'Eliminar directorio de trabajo',
+  'delete.remote': 'Quitar espacio de trabajo SSH',
   'delete.session': 'Eliminar conversación',
   'delete.session.desc': 'Esto elimina permanentemente “{name}” y su historial de sesión. Esta acción no se puede deshacer.',
   'delete.desc': 'Esto elimina permanentemente "{name}" y sus registros de sesión. El directorio de trabajo se elimina de forma recursiva. Esta acción no se puede deshacer.',
+  'delete.remote.desc': 'Se eliminarán permanentemente el registro local y los registros de sesión de "{name}". El directorio y los archivos del servidor se conservarán.',
   'delete.pending': 'Eliminando espacio de trabajo…',
   'menu.fork': 'Crear una bifurcación de la sesión',
   'menu.archiveSession': 'Sesión de archivo',
@@ -593,6 +621,7 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  ...sshFieldsEn,
   'defaultWorkspace.failed': 'Impossible de créer un espace de travail par défaut. Utilisez Choisir un espace de travail pour sélectionner un dossier.',
   'draft.workspaceRequired': "Choisissez d'abord un espace de travail.",
   'draft.initializationFailed': 'Impossible de remplir le projet. Veuillez réessayer sous peu.',
@@ -659,9 +688,11 @@ export const fr = {
   'field.workspaceName': "Nom de l'espace de travail",
   'field.sessionName': 'Nom de la séance',
   'delete.workspace': 'Supprimer le répertoire de travail',
+  'delete.remote': 'Retirer l’espace de travail SSH',
   'delete.session': 'Supprimer la conversation',
   'delete.session.desc': 'Cela supprime définitivement « {name} » et son historique de session. Cette action est irréversible.',
   'delete.desc': 'Cela supprime définitivement « {name} » et ses journaux de session. Le répertoire de travail est supprimé récursivement. Cette action est irréversible.',
+  'delete.remote.desc': 'L’enregistrement local et les journaux de session de « {name} » seront supprimés définitivement. Le répertoire et les fichiers sur le serveur seront conservés.',
   'delete.pending': "Suppression de l'espace de travail…",
   'menu.fork': 'Créer une branche de la session',
   'menu.archiveSession': "Séance d'archivage",
@@ -739,6 +770,7 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  ...sshFieldsEn,
   'defaultWorkspace.failed': 'Der Standardarbeitsbereich kann nicht erstellt werden. Verwenden Sie „Arbeitsbereich auswählen“, um einen Ordner auszuwählen.',
   'draft.workspaceRequired': 'Wählen Sie zunächst einen Arbeitsbereich.',
   'draft.initializationFailed': 'Der Entwurf konnte nicht ausgefüllt werden. Bitte versuchen Sie es in Kürze noch einmal.',
@@ -805,9 +837,11 @@ export const de = {
   'field.workspaceName': 'Name des Arbeitsbereichs',
   'field.sessionName': 'Sitzungsname',
   'delete.workspace': 'Arbeitsverzeichnis löschen',
+  'delete.remote': 'SSH-Arbeitsbereich entfernen',
   'delete.session': 'Unterhaltung löschen',
   'delete.session.desc': 'Dadurch werden „{name}“ und sein Sitzungsverlauf dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden.',
   'delete.desc': 'Dadurch werden „{name}“ und seine Sitzungsprotokolle dauerhaft gelöscht. Das Arbeitsverzeichnis wird rekursiv gelöscht. Dies kann nicht rückgängig gemacht werden.',
+  'delete.remote.desc': 'Der lokale Eintrag und die Sitzungsprotokolle von „{name}“ werden dauerhaft gelöscht. Verzeichnis und Dateien auf dem Server bleiben erhalten.',
   'delete.pending': 'Arbeitsbereich wird gelöscht…',
   'menu.fork': 'Sitzung abzweigen',
   'menu.archiveSession': 'Archivsitzung',
@@ -885,6 +919,7 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  ...sshFieldsEn,
   'defaultWorkspace.failed': 'Невозможно создать рабочую область по умолчанию. Используйте «Выбрать рабочее пространство», чтобы выбрать папку.',
   'draft.workspaceRequired': 'Сначала выберите рабочее место.',
   'draft.initializationFailed': 'Не удалось заполнить черновик. Пожалуйста, повторите попытку в ближайшее время.',
@@ -951,9 +986,11 @@ export const ru = {
   'field.workspaceName': 'Имя рабочей области',
   'field.sessionName': 'Имя сеанса',
   'delete.workspace': 'Удалить рабочий каталог',
+  'delete.remote': 'Удалить рабочую область SSH',
   'delete.session': 'Удалить разговор',
   'delete.session.desc': 'Это навсегда удалит «{name}» и историю его сеанса. Это действие нельзя отменить.',
   'delete.desc': 'Это навсегда удалит «{name}» и журналы его сеансов. Рабочий каталог будет удален рекурсивно. Это действие нельзя отменить.',
+  'delete.remote.desc': 'Локальная регистрация «{name}» и журналы его сеансов будут удалены навсегда. Каталог и файлы на сервере сохранятся.',
   'delete.pending': 'Удаление рабочей области…',
   'menu.fork': 'Создать ответвление сеанса',
   'menu.archiveSession': 'Архив сеанса',
@@ -1031,6 +1068,7 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  ...sshFieldsEn,
   'defaultWorkspace.failed': 'Não foi possível criar o espaço de trabalho padrão. Use Escolher espaço de trabalho para selecionar uma pasta.',
   'draft.workspaceRequired': 'Escolha um espaço de trabalho primeiro.',
   'draft.initializationFailed': 'Não foi possível preencher o rascunho. Por favor, tente novamente em breve.',
@@ -1097,9 +1135,11 @@ export const pt = {
   'field.workspaceName': 'Nome do espaço de trabalho',
   'field.sessionName': 'Nome da sessão',
   'delete.workspace': 'Excluir diretório de trabalho',
+  'delete.remote': 'Remover espaço de trabalho SSH',
   'delete.session': 'Excluir conversa',
   'delete.session.desc': 'Isso exclui permanentemente “{name}” e seu histórico de sessão. Esta ação não pode ser desfeita.',
   'delete.desc': 'Isso exclui permanentemente “{name}” e seus registros de sessão. O diretório de trabalho é excluído recursivamente. Esta ação não pode ser desfeita.',
+  'delete.remote.desc': 'O registro local e os registros de sessão de “{name}” serão excluídos permanentemente. O diretório e os arquivos no servidor serão mantidos.',
   'delete.pending': 'Excluindo espaço de trabalho…',
   'menu.fork': 'Bifurcar sessão',
   'menu.archiveSession': 'Sessão de arquivamento',

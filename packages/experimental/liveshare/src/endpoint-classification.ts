@@ -150,6 +150,7 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'directoryPicker/pick': 'owner-only', // owner filesystem picker
   'workspace/archiveSession': 'owner-only', // owner archives a Session
   'workspace/create': 'owner-only', // owner creates a Workspace
+  'workspace/openSsh': 'owner-only', // opens the owner's stored SSH connection
   'workspace/delete': 'owner-only', // owner deletes a Workspace
   'workspace/deleteSession': 'owner-only', // owner permanently deletes a Session
   'workspace/initializeDefault': 'owner-only', // owner initializes the default Workspace

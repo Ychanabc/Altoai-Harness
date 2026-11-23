@@ -8,6 +8,7 @@
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import { isAbsolute } from 'node:path'
+import { parseSshWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { assertNever, deepFreeze, snapshotJsonValue } from '@deepseek-ai/dsh-util-values'
 import { scopeOf, scopeTarget } from '@deepseek-ai/dsh-scope'
@@ -116,7 +117,7 @@ function validateSessionHeader(id: SessionId, input: unknown): SessionHeader {
   }
   if (record.cwd !== undefined) {
     if (typeof record.cwd !== 'string') throw new Error('session header cwd must be a string')
-    if (!isAbsolute(record.cwd)) {
+    if (!isAbsolute(record.cwd) && parseSshWorkspacePath(record.cwd) === undefined) {
       throw new Error(`session header cwd must be an absolute path, got "${record.cwd}"`)
     }
   }

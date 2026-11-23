@@ -76,7 +76,11 @@ A session joins the project of the directory it runs in: create a session in a p
 
 Hide a session from the grouping when it should stop appearing there: it disappears from the visible list, while its session, history, and place in the project stay intact. A session with running work — its own turn, a running subagent, a background job, or an active reminder — is not hidden underneath that work: the registry refuses with the list of what runs, and a caller that asks to stop the work first has it stopped the way the user's own stop actions do, then hidden. Restore a hidden session when it should appear again: it returns to its recorded position under its project, or to the ungrouped sessions when it belongs to none, and continues the conversation from a regularly ended log. Remove a project when it is no longer needed: it leaves the list, and its folder, files, and session histories are never touched — those sessions become ungrouped. Adding the same directory again afterwards starts a fresh project without the old sessions.
 
-Workspace registration does not establish ownership of its directory. A future destructive filesystem action must be separately named, explicitly confirmed, and enforce ownership and safety checks.
+Permanent deletion removes the workspace registration and its session logs. For a local workspace it also recursively deletes the registered directory after validating the path. For a desktop SSH workspace it can run offline and preserves the server directory and files.
+
+### Opening desktop SSH projects
+
+A desktop build with a matching Linux runtime archive uploads it over SSH on first connection and reuses the installed checksum on later connections. The SSH account needs a writable home directory, a POSIX shell, PTY and loopback TCP forwarding, and the standard Linux archive and checksum utilities. The remote Web Host uses the project’s absolute directory and keeps its sessions and model configuration in the server account’s project-specific Altoai home. A build without a matching archive can use a server-installed `dsh` with `web --ssh-workspace` support.
 
 -----
 

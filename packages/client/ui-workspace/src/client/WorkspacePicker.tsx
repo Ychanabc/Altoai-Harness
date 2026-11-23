@@ -5,23 +5,21 @@
  * registration and by WorkspacePickerFactory for the `workspace.picker`
  * Factory. Directory picking itself lives in the composed flow package's
  * slot occupant (see the contract module doc): this core only opens the flow,
- * adopts the picked path, and owns the error surface. Adding a workspace has
- * exactly one route — pick a host directory, new or existing — because the
- * occupant's own create-folder affordance already covers creating one.
+ * adopts the picked path, and owns the error surface. The SSH form submits
+ * connection details directly with the existing remote directory.
  */
 import type { ReactElement, ReactNode, RefObject } from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   Button, IconFolderCloseRegular, IconPlusOutlineRegular, Menu, Modal, type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
-  WorkspaceId, WorkspaceSnapshot, WorkspaceView,
+  WorkspaceCreateRequest, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
 } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import { workspaceDisplayTitle } from '@deepseek-ai/dsh-api-workspace-controller/default-workspace'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DirectoryFlowOwnerProps, WorkspacePickerFactoryProps, WorkspacePickerProps } from './contract/slots.ts'
 import { distinguishingPathSuffixes } from './path-suffix.ts'
-import { canFormatSshWorkspacePath, formatSshWorkspacePath } from './ssh-workspace.ts'
 import css from './WorkspacePicker.module.css'
 
 const ADD_WORKSPACE = '::add-workspace'
@@ -38,7 +36,7 @@ export interface WorkspacePickFlowProps {
   /** Selector hook over the workspace list (framework standard hook). */
   useWorkspaces: <S>(selector: (state: WorkspaceSnapshot) => S) => S
   /** Adopt a picked host directory as a real Workspace. */
-  createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  createWorkspace: (input: WorkspaceCreateRequest) => Promise<WorkspaceView>
   /** Bound occupancy selector hook for this surface's directory-flow hole (empty leaves the surface with no add action). */
   useDirectoryFlow: SnapshotSelectorHook<boolean>
   /** Render this surface's directory-flow hole with the owner conversation (the entry's narrowed renderSlot). */
@@ -85,9 +83,17 @@ export function WorkspacePickFlow({
   const [modalError, setModalError] = useState<string | null>(null)
   const [flowOpen, setFlowOpen] = useState(false)
   const [sshOpen, setSshOpen] = useState(false)
+  const sshFormId = useId()
   const [sshHost, setSshHost] = useState('')
+  const [sshPort, setSshPort] = useState('22')
+  const [sshUsername, setSshUsername] = useState('')
+  const [sshPassword, setSshPassword] = useState('')
   const [sshRemote, setSshRemote] = useState('')
+  const [sshError, setSshError] = useState<string | null>(null)
   const [pickingFolder, setPickingFolder] = useState(false)
+  const port = Number(sshPort)
+  const sshValid = sshHost.trim() !== '' && sshUsername.trim() !== '' && sshPassword !== ''
+    && sshRemote.trim().startsWith('/') && Number.isInteger(port) && port >= 1 && port <= 65535
   // One picking interaction at a time: while the flow is open (native chooser
   // pending, browse dialog up) or its pick is being adopted, every other
   // menu action stays disabled — a late outcome must not race a concurrent
@@ -182,6 +188,7 @@ export function WorkspacePickFlow({
     setErrorOpen(false)
     setModalError(null)
     setFlowOpen(false)
+    setSshError(null)
     setSshOpen(true)
   }, [onClose])
 
@@ -229,17 +236,29 @@ export function WorkspacePickFlow({
     onPick(id as WorkspaceId)
   }
 
-  const submitSshWorkspace = (): void => {
-    if (!canFormatSshWorkspacePath(sshHost, sshRemote)) {
-      setModalError(t('ssh.add.invalid'))
-      setErrorOpen(true)
-      return
-    }
+  const closeSshWorkspace = (): void => {
+    if (pickingFolder) return
+    setSshPassword('')
+    setSshOpen(false)
+  }
+
+  const submitSshWorkspace = async (): Promise<void> => {
+    if (!sshValid || pickingFolder) return
     setPickingFolder(true)
-    void adoptDirectory(formatSshWorkspacePath(sshHost, sshRemote)).finally(() => {
-      setPickingFolder(false)
+    setSshError(null)
+    try {
+      const workspace = await createWorkspace({
+        path: sshRemote.trim(),
+        ssh: { host: sshHost.trim(), port, username: sshUsername.trim(), password: sshPassword },
+      })
       setSshOpen(false)
-    })
+      onPick(workspace.workspaceId)
+    } catch (reason: unknown) {
+      setSshError(reason instanceof Error ? reason.message : String(reason))
+    } finally {
+      setSshPassword('')
+      setPickingFolder(false)
+    }
   }
 
   return (
@@ -260,44 +279,52 @@ export function WorkspacePickFlow({
       {renderDirectoryFlow(flowOwner)}
       <Modal
         open={sshOpen}
-        onClose={() => { setSshOpen(false) }}
+        onClose={closeSshWorkspace}
         closeLabel={t('close')}
         title={t('ssh.add.title')}
         footer={(
           <>
-            <Button variant="outline" className={css.modalAction} onClick={() => { setSshOpen(false) }}>{t('cancel')}</Button>
+            <Button variant="outline" className={css.modalAction} disabled={pickingFolder} onClick={closeSshWorkspace}>{t('cancel')}</Button>
             <Button
               variant="primary"
               className={css.modalAction}
-              disabled={!canFormatSshWorkspacePath(sshHost, sshRemote) || pickingFolder}
-              onClick={submitSshWorkspace}
+              disabled={!sshValid || pickingFolder}
+              type="submit"
+              form={sshFormId}
             >
-              {t('ssh.add.submit')}
+              {t(pickingFolder ? 'ssh.add.connecting' : 'ssh.add.submit')}
             </Button>
           </>
         )}
       >
-        <p className={css.sshHint}>{t('ssh.add.description')}</p>
-        <label className={css.sshField}>
-          <span>{t('ssh.add.host')}</span>
-          <input
-            value={sshHost}
-            placeholder={t('ssh.add.host.placeholder')}
-            autoComplete="off"
-            spellCheck={false}
-            onChange={(event) => { setSshHost(event.target.value) }}
-          />
-        </label>
-        <label className={css.sshField}>
-          <span>{t('ssh.add.path')}</span>
-          <input
-            value={sshRemote}
-            placeholder={t('ssh.add.path.placeholder')}
-            autoComplete="off"
-            spellCheck={false}
-            onChange={(event) => { setSshRemote(event.target.value) }}
-          />
-        </label>
+        <form id={sshFormId} onSubmit={(event) => { event.preventDefault(); void submitSshWorkspace() }}>
+          <fieldset className={css.sshFields} disabled={pickingFolder}>
+            <p className={css.sshHint}>{t('ssh.add.connectionHint')}</p>
+            <label className={css.sshField}>
+              <span>{t('ssh.add.ip')}</span>
+              <input value={sshHost} placeholder="192.0.2.10" autoComplete="off" spellCheck={false}
+                onChange={(event) => { setSshHost(event.target.value) }} />
+            </label>
+            <label className={css.sshField}>
+              <span>{t('ssh.add.port')}</span>
+              <input type="number" min="1" max="65535" value={sshPort} onChange={(event) => { setSshPort(event.target.value) }} />
+            </label>
+            <label className={css.sshField}>
+              <span>{t('ssh.add.username')}</span>
+              <input autoComplete="username" spellCheck={false} value={sshUsername} onChange={(event) => { setSshUsername(event.target.value) }} />
+            </label>
+            <label className={css.sshField}>
+              <span>{t('ssh.add.password')}</span>
+              <input type="password" autoComplete="current-password" value={sshPassword} onChange={(event) => { setSshPassword(event.target.value) }} />
+            </label>
+            <label className={css.sshField}>
+              <span>{t('ssh.add.path')}</span>
+              <input value={sshRemote} placeholder={t('ssh.add.path.placeholder')} autoComplete="off" spellCheck={false}
+                onChange={(event) => { setSshRemote(event.target.value) }} />
+            </label>
+          </fieldset>
+        </form>
+        {sshError !== null && <div className={css.modalError} role="alert">{sshError}</div>}
       </Modal>
       <Modal
         open={errorOpen}

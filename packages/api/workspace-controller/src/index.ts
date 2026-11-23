@@ -2,7 +2,7 @@
 
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import { principalOf, Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-api-remote-access'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { WorkspaceCommands } from './commands.ts'
@@ -24,6 +24,8 @@ import type {
   WorkspaceInsertBeforeRequest,
   WorkspaceInsertSessionBeforeRequest,
   WorkspaceOrderValue,
+  WorkspaceOpenSshRequest,
+  WorkspaceOpenSshValue,
   WorkspacePinSessionRequest,
   WorkspacePinValue,
   WorkspaceRenameRequest,
@@ -92,6 +94,25 @@ export class WorkspaceController extends TypertRemoteService {
   @Remote('create')
   create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue> {
     return this.commands.create(request)
+  }
+
+  /**
+   * Connect the owner's saved SSH Workspace to a foreground Host on the server.
+   * @param request - local SSH workspace identity.
+   * @returns Private launch URL forwarded through the local desktop Host.
+   */
+  @Remote('openSsh')
+  async openSsh(request: WorkspaceOpenSshRequest): Promise<WorkspaceOpenSshValue> {
+    if (principalOf(this.ctx.invocation) !== undefined) {
+      throw new RemoteError('workspace/ssh-unavailable', 'Only the owner can open a saved SSH workspace.', { workspaceId: request.workspaceId })
+    }
+    try {
+      return { url: await this.ctx.workspaceRegistry.openSsh(request.workspaceId) }
+    } catch (error) {
+      throw new RemoteError('workspace/ssh-unavailable',
+        error instanceof Error ? error.message : 'Could not start the remote Altoai Host',
+        { workspaceId: request.workspaceId }, { cause: error })
+    }
   }
 
   /**

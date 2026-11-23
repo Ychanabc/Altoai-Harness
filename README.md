@@ -17,6 +17,12 @@ Altoai Harness is the official desktop client for [Altoai](https://ai.vpss.eu.cc
 
 The model list, account details, and device authorization state are provided by Altoai. If a model is not listed, it is not available to the current account or deployment.
 
+### SSH workspaces
+
+On first connection to Linux x64 or arm64, the desktop uploads its bundled runtime over SSH and installs it in the login account's home directory. Later connections reuse the installed runtime. The SSH server must allow loopback TCP forwarding and terminal allocation. The login account needs a writable home directory and the standard Linux shell, archive and checksum tools.
+
+Enter the server IP, port, username, password, and an absolute server path such as `/srv/project`. Select **New session** on the workspace to open the remote window and configure its model. The server runs conversations and tools and stores their history. Deleting the Windows registration clears its local records and preserves the server's project and history.
+
 ## Build from source
 
 Use Node.js 24.9.0 or later, pnpm 11.28.5, and Git.
