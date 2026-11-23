@@ -72,8 +72,9 @@ const temporary = await mkdtemp(join(tmpdir(), 'altoaih-ssh-web-'))
 try {
   const app = join(temporary, 'app')
   const node = join(temporary, 'node')
+  // The shared closure declares the peer providers needed when the CLI is unpacked outside a workspace.
   const [command, args] = pnpmInvocation([
-    '--filter', '@deepseek-ai/dsh', 'deploy', '--prod',
+    '--filter', 'dsh-python-runtime-closure', 'deploy', '--prod',
     '--config.allow-unused-patches=true',
     '--config.node-linker=hoisted',
     '--config.link-workspace-packages=true',
@@ -84,6 +85,9 @@ try {
   await materializeStagedLinks(app)
   await deduplicateStagedWorkspacePackages(app, app)
   await verifyStagedDependencies(app)
+  await mkdir(join(app, 'lib'), { recursive: true })
+  const entry = join(app, 'lib/bin.js')
+  await writeFile(entry, "import { runCli } from '@deepseek-ai/dsh/lib/bin.js'\nawait runCli()\n")
 
   const pty = resolveLinuxNodePtyAddon(join(root, 'packages/subprocess/subprocess-local/node_modules/node-pty'), arch)
   const ptyPath = join(app, 'node_modules/node-pty/build/Release')
@@ -95,7 +99,7 @@ try {
   await chmod(executable, 0o755)
   const project = join(temporary, 'project')
   await mkdir(project)
-  await smokeRuntime(executable, join(app, 'lib/bin.js'), project, join(temporary, 'smoke-home'))
+  await smokeRuntime(executable, entry, project, join(temporary, 'smoke-home'))
 
   await mkdir(output, { recursive: true })
   const filename = 'altoaih-ssh-' + target + '.tar.gz'
