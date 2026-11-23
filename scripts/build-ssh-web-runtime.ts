@@ -7,7 +7,6 @@ import { delimiter, dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
-import { create as createTar } from 'tar'
 import { deduplicateStagedWorkspacePackages, materializeStagedLinks } from './build-exe-for-python-sdk-staging.ts'
 import { pnpmInvocation, verifyStagedDependencies } from './executable-packaging.ts'
 import { resolveLinuxNodePtyAddon } from './executable-native-pty.ts'
@@ -106,7 +105,7 @@ try {
   const staging = await mkdtemp(join(output, '.incoming-'))
   try {
     const archive = join(staging, filename)
-    await createTar({ cwd: temporary, file: archive, gzip: true, portable: true }, ['node', 'app'])
+    execFileSync('tar', ['-czf', archive, '-C', temporary, 'node', 'app'], { stdio: 'inherit' })
     const hash = createHash('sha256')
     for await (const block of createReadStream(archive)) hash.update(block)
     await writeFile(archive + '.sha256', hash.digest('hex') + '\n')
