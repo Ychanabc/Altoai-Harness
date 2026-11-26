@@ -37,7 +37,7 @@ afterEach(() => {
  * Render the shell and expose its column element.
  * @returns the column element and whether it currently carries the quiet state.
  */
-function mountColumn(): { column: HTMLElement; quiet: () => boolean } {
+function mountColumn(): { column: HTMLElement; quiet: () => boolean; measure: ReturnType<typeof vi.fn> } {
   const view = render(
     <SidebarRoot
       drawer={false}
@@ -58,15 +58,16 @@ function mountColumn(): { column: HTMLElement; quiet: () => boolean } {
   if (!(column instanceof HTMLElement)) throw new Error('sidebar column not rendered')
   // jsdom lays nothing out, and the leave decision is geometric: pin the box
   // the shell reads so a coordinate can be inside or outside it.
+  const measure = vi.fn(() => ({
+    left: 0, top: 0, right: COLUMN_WIDTH, bottom: COLUMN_HEIGHT,
+    x: 0, y: 0, width: COLUMN_WIDTH, height: COLUMN_HEIGHT, toJSON: () => ({}),
+  }))
   Object.defineProperty(column, 'getBoundingClientRect', {
-    value: () => ({
-      left: 0, top: 0, right: COLUMN_WIDTH, bottom: COLUMN_HEIGHT,
-      x: 0, y: 0, width: COLUMN_WIDTH, height: COLUMN_HEIGHT, toJSON: () => ({}),
-    }),
+    value: measure,
   })
   // CSS-module locals are hashed in this bench, so the state is read as a
   // substring of the class list rather than as an exact local name.
-  return { column, quiet: () => [...column.classList].some(name => name.includes('quietBars')) }
+  return { column, quiet: () => [...column.classList].some(name => name.includes('quietBars')), measure }
 }
 
 /**
@@ -123,5 +124,17 @@ describe('SidebarRoot pointer-revealed scrollbars', () => {
     expect(quiet()).toBe(false)
     movePointerOver(overlay, 10, COLUMN_HEIGHT + 10)
     expect(quiet()).toBe(true)
+  })
+
+  it('reuses the cached column bounds while the pointer moves', () => {
+    const { column, measure } = mountColumn()
+    const overlay = column.querySelector('[data-testid="region"]')
+    if (overlay === null) throw new Error('region not rendered')
+    movePointer(column, 'in')
+    expect(measure).toHaveBeenCalled()
+    measure.mockClear()
+    movePointerOver(overlay, 40, 300)
+    movePointerOver(overlay, 80, 300)
+    expect(measure).not.toHaveBeenCalled()
   })
 })

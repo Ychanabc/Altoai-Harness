@@ -14,7 +14,7 @@ import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import type { WorkspaceRecord } from './spec.ts'
 import type { Workspace, WorkspaceId } from './types.ts'
 import { realpathNormalize } from './paths.ts'
-import { parseSshWorkspacePath, verifySshWorkspacePath } from './ssh-path.ts'
+import { parseSshWorkspacePath } from './ssh-path.ts'
 
 /** An insertSessionBefore request named a session or anchor not on the account (storage failures stay plain errors). */
 export class WorkspaceMoveInvalidError extends Error {
@@ -34,6 +34,13 @@ export class WorkspaceMoveInvalidError extends Error {
  * attach-time header reads.
  */
 export interface WorkspaceEntityHost {
+  /**
+   * Verify that an SSH directory is reachable with the Host's current credentials.
+   * @param path - Stored SSH workspace location.
+   * @returns The canonical SSH path.
+   */
+  verifySsh(path: string): Promise<string>
+
   /**
    * Resolve the open `workspaces` table.
    * @returns the table; throws while the registry has not started yet.
@@ -109,16 +116,49 @@ export class WorkspaceEntity implements Workspace {
   }
 
   get sessionIds(): readonly SessionId[] {
-    return this.record.sessionIds.filter(id => this.host.candidateMatches(id, this.record.path))
+    return this.record.sessionIds.filter(id => this.matches(id, this.record.path))
+  }
+
+  private matches(id: SessionId, path: string): boolean {
+    return parseSshWorkspacePath(path) !== undefined || this.host.candidateMatches(id, path)
+  }
+
+  /** Merge server Session references without reading or writing their logs. */
+  async syncSshSessions(ids: readonly SessionId[]): Promise<void> {
+    await this.mutate((record) => {
+      const incoming = new Set(ids)
+      const hidden = new Set(record.hiddenSshSessionIds)
+      const retained = record.sessionIds.filter(id =>
+        (incoming.delete(id) || this.host.candidateMatches(id, record.path)) && !hidden.has(id))
+      const next = [...Array.from(incoming).filter(id => !hidden.has(id)), ...retained]
+      if (next.length === record.sessionIds.length && next.every((id, index) => id === record.sessionIds[index])) return record
+      return { ...record, sessionIds: next }
+    })
+  }
+
+  /** Remove the desktop reference and suppress rediscovery of the same server log. */
+  async hideSshSession(id: SessionId): Promise<void> {
+    await this.mutate(record => record.sessionIds.includes(id) ? {
+      ...record,
+      sessionIds: record.sessionIds.filter(candidate => candidate !== id),
+      hiddenSshSessionIds: [...new Set([...(record.hiddenSshSessionIds ?? []), id])],
+    } : record)
   }
 
   /** Reads the registry's startup and attach-time header index without persistence I/O. */
   getSessionHeaders(): readonly SessionHeader[] {
-    return this.sessionIds.map(id => this.host.sessionHeader(id))
+    return this.sessionIds
+      .filter(id => this.host.candidateMatches(id, this.record.path))
+      .map(id => this.host.sessionHeader(id))
   }
 
   async setTitle(title: string): Promise<void> {
     await this.mutate(record => ({ ...record, title }))
+  }
+
+  /** Replace the stored path durably (used when editing an SSH workspace's endpoint or directory). */
+  async setPath(path: string): Promise<void> {
+    await this.mutate(record => record.path === path ? record : { ...record, path })
   }
 
   async attachSession(sessionId: SessionId): Promise<void> {
@@ -195,7 +235,7 @@ export class WorkspaceEntity implements Workspace {
   async status(): Promise<'ok' | 'missing-dir'> {
     if (parseSshWorkspacePath(this.record.path) !== undefined) {
       try {
-        await verifySshWorkspacePath(this.record.path)
+        await this.host.verifySsh(this.record.path)
         return 'ok'
       } catch {
         return 'missing-dir'
@@ -228,7 +268,7 @@ export class WorkspaceEntity implements Workspace {
       next = await this.host.table().update(this.id, (current) => {
         const changed = fn(current)
         const sessionIds = changed.sessionIds.filter(
-          id => this.host.candidateMatches(id, changed.path),
+          id => this.matches(id, changed.path),
         )
         if (changed === current && sessionIds.length === current.sessionIds.length) {
           throw unchangedSentinel

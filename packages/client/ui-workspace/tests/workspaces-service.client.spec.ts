@@ -141,6 +141,7 @@ class FakeSessions implements ISessions {
   readonly list: MutableSource<SessionListState>
   readonly create: ReturnType<typeof vi.fn<ISessions['create']>>
   readonly fork = vi.fn<ISessions['fork']>(async () => sid('forked'))
+  readonly rewind = vi.fn<ISessions['rewind']>(async () => sid('rewound'))
   readonly retained: RetainedSession[] = []
   readonly refreshProjections = vi.fn<ISessions['refreshProjections']>(() => Promise.resolve())
   readonly retain = vi.fn<ISessions['retain']>((target) => {
@@ -198,6 +199,7 @@ class FakeWorkspaces implements IWorkspaces {
 
   declare readonly create: IWorkspaces['create']
   declare readonly rename: IWorkspaces['rename']
+  declare readonly updateSsh: IWorkspaces['updateSsh']
   declare readonly delete: IWorkspaces['delete']
   readonly deleteSession = vi.fn<IWorkspaces['deleteSession']>(async () => {})
   declare readonly insertBefore: IWorkspaces['insertBefore']
@@ -1138,6 +1140,30 @@ describe('UiWorkspaceService', () => {
       workspaces: workspaceState([workspace('a', [sid('first'), sid('saved')])]),
     })
     await expect(b.uiWorkspace.connectWorkspace(wid('a'))).resolves.toBe(sid('first'))
+  })
+
+  it('restores the saved SSH conversation when its delayed summary arrives', async () => {
+    const saved = sid('remote-history')
+    const selection = persistSelection({ sessionId: saved })
+    const remoteWorkspace = {
+      ...workspace('remote', [saved]),
+      path: 'ssh://project@192.0.2.2:22/srv/project',
+    }
+    const b = bench({
+      sessions: sessionState(),
+      workspaces: workspaceState([remoteWorkspace, workspace('local')]),
+    })
+
+    await setImmediate()
+    expect(b.sessions.retain).not.toHaveBeenCalled()
+    expect(b.sessions.create).not.toHaveBeenCalled()
+
+    b.sessions.list.set(sessionState([summary('remote-history', { cwd: '/srv/project' })]))
+    expect(b.sessions.retain).toHaveBeenCalledExactlyOnceWith(saved, {
+      source: 'mainView', facets: { conversation: true },
+    })
+    expect(b.sessions.create).not.toHaveBeenCalled()
+    expect(JSON.parse(selection.get('dsh.sessions.current')!)).toEqual({ sessionId: saved })
   })
 
   it.each([

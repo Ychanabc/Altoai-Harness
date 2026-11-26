@@ -259,6 +259,7 @@ export function apply(ctx: Context, config: SyncedConfig<ConversationConfig>): v
   }, 'ui-conversation: View selection')
 
   const stop = (sessionId: SessionId): void => {
+    inputHub.shell(sessionId).abortInflight()
     scopedConversation(sessions, sessionId).cancel().catch((_error: unknown) => {
       // Stop failure is published through Session promptError.
     })

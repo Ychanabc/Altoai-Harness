@@ -43,6 +43,31 @@ describe('V4 framing and restoration', () => {
     expect(() => releasedV4SessionFormatCodec.decodeHeader({ type: 'session', ...header, extra: 1 })).toThrow(/field|member/)
   })
 
+  it('round trips an SSH working directory in V4 while historical V2 still rejects it', () => {
+    const cwd = 'ssh://project@192.0.2.7:22/srv/project'
+    const logical = { ...header, cwd }
+    const physical = { type: 'session', ...logical }
+    const output = new SessionFormatEventCollector()
+    expect(releasedV4SessionFormatCodec.encodeHeader(logical, 0)).toEqual(physical)
+    expect(releasedV4SessionFormatCodec.decodeHeader(physical)).toEqual(logical)
+    const decoder = releasedV4SessionFormatCodec.createDecoder(physical, 'strict')
+    expect(decoder.header).toEqual(logical)
+    decoder.decodeRow(releasedV4SessionFormatCodec.encodeEvent(fact), output)
+    expect(decoder.finish(output)).toBe(0)
+    expect(output.values).toEqual([fact])
+    expect(() => releasedV2SessionFormatCodec.decodeHeader({ ...physical, version: 2 })).toThrow('format v2 header cwd')
+    expect(() => releasedV4SessionFormatCodec.decodeHeader({ ...physical, type: 'event' })).toThrow(/physical Session header/)
+    expect(() => releasedV4SessionFormatCodec.createDecoder({ ...physical, extra: true }, 'strict')).toThrow(/unexpected field extra/)
+  })
+
+  it.each(['relative', 'ssh://project:password@192.0.2.7/srv/project'])('rejects invalid V4 working directory %s on write and restore', (cwd) => {
+    const logical = { ...header, cwd }
+    const physical = { type: 'session', ...logical }
+    expect(() => releasedV4SessionFormatCodec.encodeHeader(logical, 0)).toThrow('format v4 header cwd')
+    expect(() => releasedV4SessionFormatCodec.decodeHeader(physical)).toThrow('header cwd must be absolute')
+    expect(() => releasedV4SessionFormatCodec.createDecoder(physical, 'strict')).toThrow('header cwd must be absolute')
+  })
+
   it('rejects malformed optional and required native header fields', () => {
     const { id: _id, ...missingId } = header
     const malformed = [

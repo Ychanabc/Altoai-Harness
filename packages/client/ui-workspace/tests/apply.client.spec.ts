@@ -160,8 +160,9 @@ async function bench(access: 'fake' | 'static' = 'fake') {
   } as never)
   const pickDirectory = vi.fn(() => Promise.resolve({ ok: true as const, value: '/projects/picked' }))
   const directoryPicker = { pick: pickDirectory }
-  Object.assign(new TestRemote(ctx), { directoryPicker })
-  ctx.provide('remote.directoryPicker', directoryPicker as never)
+  const disconnectSsh = vi.fn(async () => ({ ok: true as const, value: { disconnected: true } }))
+  const reconnectSsh = vi.fn(async () => ({ ok: true as const, value: { reconnected: true } }))
+  const remote = new TestRemote(ctx, { directoryPicker, workspace: {}, session: { disconnectSsh, reconnectSsh } })
   const locale = new LocaleRuntime(ctx)
   // These specs assert the shipped Chinese copy. There is no jsdom `window`
   // in this lane, so browser-language detection never runs and the locale
@@ -171,7 +172,8 @@ async function bench(access: 'fake' | 'static' = 'fake') {
   return {
     ctx, slots: ctx.get('slots') as SlotRegistry, locale, create, rename, commands, accessSource,
     whenResourceAccess, stopGuard, status,
-    retain, using, selectPanel, search, renameSession, binding, fork, pickDirectory, pinSession, unpinSession,
+    retain, using, selectPanel, search, renameSession, binding, fork, pickDirectory,
+    pinSession, unpinSession, remote, disconnectSsh, reconnectSsh,
     workspacesSubscribe, initializeDefault, history, scope, sessionOf,
     setWorkspaces: (snapshot: WorkspaceSnapshot): void => { workspaceSnapshot = snapshot },
     setSessions: (snapshot: SessionListState): void => { sessionSnapshot = snapshot },
@@ -240,7 +242,7 @@ const settled = (): Promise<void> => new Promise((resolve) => { setTimeout(resol
 describe('ui-workspace apply', () => {
   it('declares the services it drives', () => {
     expect(inject).toEqual(['contextMenus',
-      'slots', 'sessions', 'workspaces', 'locale', 'remote', 'remote.directoryPicker', 'layout', 'shortcuts', 'remoteAccess',
+      'slots', 'sessions', 'workspaces', 'locale', 'remote', 'remote.directoryPicker', 'remote.session', 'layout', 'shortcuts', 'remoteAccess',
       'uiSession', 'uiSession.sessionStatus',
     ])
   })
@@ -1041,6 +1043,70 @@ it('falls back to the ordinary notice when a follow-up notice provider fails', a
   await vi.waitFor(() => { expect(toast.hooks.toast.getSnapshot()).toEqual({ kind: 'archived', sessionId: 'one', seq: 1 }) })
   expect(warning).toHaveBeenCalledWith('session archive notice unavailable:', failure)
   warning.mockRestore()
+})
+
+it('disconnects connected SSH Workspaces, prompts for a password when required, and restores its selected Session on reconnect', async () => {
+  const b = await bench()
+  onTestFinished(() => b.ctx.fiber.dispose())
+  const sshPath = 'ssh://root@192.0.2.2:22/srv/project'
+  const sshWorkspace = { ...workspace('ssh-project', ['remote-session']), path: sshPath }
+  b.setWorkspaces(workspaceState([sshWorkspace]))
+  b.setSessions(sessionState([{
+    ...summary('remote-session', 1), cwd: sshPath, retainedBy: { mainView: 1 },
+  }]))
+  declare(b.slots, 'sidebar.workspaces')
+  await b.ctx.plugin({ inject: [...inject], apply }, syncedConfig({ recentViewLimit: 10 })).await()
+  const browser = faceOf(b.slots.entries('sidebar.workspaces')[0]!) as WorkspaceBrowserInjected
+  const target = {
+    kind: 'workspace' as const,
+    value: { workspaceId: sshWorkspace.workspaceId, path: sshPath, displayTitle: 'SSH project' },
+  }
+  // Saved SSH Workspaces start disconnected (never auto-connected on startup).
+  const initialMenu = b.ctx.contextMenus.resolve(target)
+  await initialMenu.ready
+  expect(initialMenu.source.getSnapshot().map(item => item.id)).toContain('workspace.ssh-connection/reconnect-ssh')
+  initialMenu.dispose()
+
+  // Once connected, Disconnect SSH calls remote.session.disconnectSsh and marks the workspace paused.
+  b.remote.emit('workspace/ssh-status', [sshWorkspace.workspaceId, 'connected'])
+  const connectedMenu = b.ctx.contextMenus.resolve(target)
+  await connectedMenu.ready
+  expect(connectedMenu.source.getSnapshot().map(item => item.id)).toContain('workspace.ssh-connection/disconnect-ssh')
+  connectedMenu.select('workspace.ssh-connection/disconnect-ssh')
+  await vi.waitFor(() => {
+    expect(b.disconnectSsh).toHaveBeenCalledExactlyOnceWith({ workspaceId: sshWorkspace.workspaceId, sessionId: sid('remote-session') })
+    expect(browser.hooks.sshStatus.getSnapshot().get(sshWorkspace.workspaceId)).toBe('paused')
+  })
+  connectedMenu.dispose()
+
+  // Reconnecting without an in-memory password opens the password prompt dialog.
+  b.reconnectSsh.mockResolvedValueOnce({
+    ok: false,
+    error: new RemoteError('workspace/ssh-password-required', 'Enter the SSH password to connect.', { workspaceId: sshWorkspace.workspaceId }),
+  } as never)
+  const pausedMenu = b.ctx.contextMenus.resolve(target)
+  await pausedMenu.ready
+  expect(pausedMenu.source.getSnapshot().map(item => item.id)).toContain('workspace.ssh-connection/reconnect-ssh')
+  pausedMenu.select('workspace.ssh-connection/reconnect-ssh')
+  await vi.waitFor(() => {
+    expect(browser.hooks.workspaceActionRequest.getSnapshot()).toEqual({
+      action: 'connectSsh',
+      workspaceId: sshWorkspace.workspaceId,
+      path: sshPath,
+      displayTitle: 'SSH project',
+      sessionId: sid('remote-session'),
+    })
+  })
+  browser.settleWorkspaceAction()
+
+  // Submitting the password reconnects SSH and restores the active session.
+  await browser.reconnectSshWorkspace(sshWorkspace.workspaceId, 'secret-pass', sid('remote-session'))
+  expect(b.reconnectSsh).toHaveBeenLastCalledWith({
+    workspaceId: sshWorkspace.workspaceId,
+    password: 'secret-pass',
+    sessionId: sid('remote-session'),
+  })
+  expect(b.retain).toHaveBeenCalledWith(sid('remote-session'), { source: 'mainView', facets: { conversation: true } })
 })
 
 it('captures Workspace menu requests, rechecks mutable access, and withdraws registrations on unload', async () => {

@@ -179,6 +179,9 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'session/provider-credentials-unavailable': Record<string, never>
     'session/provider-models-unavailable': { readonly provider: string }
     'session/model-unavailable': { readonly provider: string; readonly model: string }
+    /** A locally recorded SSH session has no remote execution environment. */
+    'session/ssh-connection-required': { readonly sessionId: SessionId }
+    'session/desktop-model-disconnected': Record<string, never>
     'session/conflict': {
       readonly sessionId: SessionId
       readonly requestedCwd: string
@@ -198,6 +201,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'session/steer-unavailable': { readonly itemId: MessageId }
     'session/title-invalid': { readonly sessionId: SessionId }
     'session/fork-unavailable': { readonly sessionId: SessionId }
+    'session/rewind-unavailable': { readonly sessionId: SessionId }
     'session/migration-required': { readonly sessionId: SessionId }
     'subagent/not-found': {
       readonly parentSessionId: SessionId
@@ -312,6 +316,18 @@ export interface SessionForkValue {
   readonly sessionId: SessionId
 }
 
+/** Session rewind request: replace the Session with its prefix immediately before one sent user message. */
+export interface SessionRewindRequest {
+  readonly sessionId: SessionId
+  /** Exact source event seq of the user-authored message to rewind before. */
+  readonly beforeSeq: number
+}
+
+/** Identity of the standalone rewound Session that replaced the source. */
+export interface SessionRewindValue {
+  readonly sessionId: SessionId
+}
+
 /** Session prompt request. */
 export interface SessionPromptRequest {
   /** Client-minted identity persisted on the accepted inbox input, including empty continuation. */
@@ -362,6 +378,36 @@ export interface SessionCancelRequest {
 /** Receipt after cancellation is admitted to the live Agent. */
 export interface SessionCancelValue {
   readonly accepted: true
+}
+
+/** Request to end a locally relayed SSH Workspace connection. */
+export interface SessionDisconnectSshRequest {
+  /** Saved SSH Workspace whose desktop relay should close. */
+  readonly workspaceId: WorkspaceId
+  /** Current remote Session to cancel before closing the relay, when one is selected. */
+  readonly sessionId?: SessionId
+}
+
+/** Confirmation that the desktop ended its local SSH relay. */
+export interface SessionDisconnectSshValue {
+  /** The local relay was closed; reconnect to establish the remote task outcome. */
+  readonly disconnected: true
+}
+
+/** Request to restore a saved SSH Workspace's local relay without creating a Session. */
+export interface SessionReconnectSshRequest {
+  /** Saved SSH Workspace whose desktop relay should reconnect. */
+  readonly workspaceId: WorkspaceId
+  /** Existing remote Session the caller will reopen in the main desktop window. */
+  readonly sessionId?: SessionId
+  /** Interactive SSH password supplied for this connection; never persisted to disk. */
+  readonly password?: string
+}
+
+/** Confirmation that the existing remote Workspace relay is ready again. */
+export interface SessionReconnectSshValue {
+  /** The desktop re-established its relay and refreshed the remote Session list. */
+  readonly reconnected: true
 }
 
 /** Request to open one path prepared by a Session-aware caller on the Host desktop. */

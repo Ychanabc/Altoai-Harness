@@ -4,6 +4,7 @@ import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
 import { continuationProjectionDefinition, type ContinuationState } from './continuation.ts'
 
 import { modelAvailable } from './catalog.ts'
+import type { SshProjectModels } from './ssh-models.ts'
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
@@ -18,7 +19,7 @@ import {
   type ReasoningEffortId, createUserMessage, freezeMessage,
 } from '@deepseek-ai/dsh-llm'
 import type { MessageId, MessageSource } from '@deepseek-ai/dsh-llm'
-import { buildForkSeed } from '@deepseek-ai/dsh-session/fork'
+import { buildForkSeed, openTurnClosers } from '@deepseek-ai/dsh-session/fork'
 import { SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { Session, SessionEvent, SessionHeader, SessionId, UserMessage } from '@deepseek-ai/dsh-session'
 import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-session-query'
@@ -44,6 +45,8 @@ import type {
   SessionCreateValue,
   SessionForkRequest,
   SessionForkValue,
+  SessionRewindRequest,
+  SessionRewindValue,
   SessionPromptRequest,
   SessionPromptValue,
   SessionRenameRequest,
@@ -84,6 +87,90 @@ function latestCompletedPrefixBoundary(events: readonly SessionEvent[]): Session
   return boundary
 }
 
+/**
+ * Build a standalone event prefix immediately before one user-authored message.
+ *
+ * When `beforeSeq` opens its turn (no earlier user message in that turn), the
+ * prefix excludes that turn's `turn/start`, its claim splice, and any
+ * immediately preceding pure-enqueue inbox splice for the target message. When
+ * `beforeSeq` is a mid-turn steering message, the prefix excludes `beforeSeq`
+ * and closes the open turn with interrupted closers. Any leftover pending inbox
+ * entries in the prefix are durably canceled so the rewound Session starts idle.
+ *
+ * @param events - source log with contiguous seqs from zero.
+ * @param beforeSeq - exact seq of the user-authored `user/message` event to rewind before.
+ * @returns a standalone event array with contiguous seqs from zero (empty when rewinding before Turn 1).
+ */
+export function buildRewindSeed(events: readonly SessionEvent[], beforeSeq: SessionSeq): SessionEvent[] {
+  const target = events[beforeSeq]
+  if (target === undefined || target.seq !== beforeSeq || target.type !== 'user/message') {
+    throw new Error(`rewind target ${String(beforeSeq)} is not a user/message event`)
+  }
+  const targetMessageId = target.data.id
+  let turnStartIdx: number | undefined
+  let hasEarlierUserInTurn = false
+  for (let i = beforeSeq - 1; i >= 0; i--) {
+    // oxlint-disable-next-line typescript/no-non-null-assertion -- index is bounded within [0, beforeSeq).
+    const ev = events[i]!
+    if (ev.type === 'turn/end') break
+    if (ev.type === 'turn/start') {
+      turnStartIdx = i
+      break
+    }
+    if (ev.type === 'user/message' && ev.data.source.kind === 'user') {
+      hasEarlierUserInTurn = true
+    }
+  }
+  let cutExclusive = turnStartIdx !== undefined && !hasEarlierUserInTurn ? turnStartIdx : beforeSeq
+  while (cutExclusive > 0) {
+    // oxlint-disable-next-line typescript/no-non-null-assertion -- cutExclusive > 0 guarantees index is valid.
+    const prev = events[cutExclusive - 1]!
+    if (
+      prev.type === 'agent/inbox/spliced'
+      && (prev.data.removedCount ?? 0) === 0
+      && prev.data.inserted.length === 1
+      && prev.data.inserted[0]?.id === targetMessageId
+    ) {
+      cutExclusive -= 1
+    } else {
+      break
+    }
+  }
+  const prefix = events.slice(0, cutExclusive)
+  const closed = prefix.concat(openTurnClosers(prefix, { kind: 'interrupted' }))
+  let nextTurnCount = 0
+  let nextStepCount = 0
+  for (const ev of closed) {
+    if (ev.type !== 'agent/inbox/spliced') continue
+    const removed = ev.data.removedCount ?? 0
+    const delta = ev.data.inserted.length - removed
+    if (ev.data.target === 'next-turn') nextTurnCount = Math.max(0, nextTurnCount + delta)
+    else nextStepCount = Math.max(0, nextStepCount + delta)
+  }
+  const last = closed.at(-1)
+  if (last !== undefined && (nextStepCount > 0 || nextTurnCount > 0)) {
+    let seq = last.seq + 1
+    const time = last.time
+    if (nextStepCount > 0) {
+      closed.push({
+        type: 'agent/inbox/spliced',
+        seq: SessionSeq(seq++),
+        time,
+        data: { target: 'next-step', start: 0, removedCount: nextStepCount, inserted: [], outcome: 'canceled' },
+      })
+    }
+    if (nextTurnCount > 0) {
+      closed.push({
+        type: 'agent/inbox/spliced',
+        seq: SessionSeq(seq++),
+        time,
+        data: { target: 'next-turn', start: 0, removedCount: nextTurnCount, inserted: [], outcome: 'canceled' },
+      })
+    }
+  }
+  return closed
+}
+
 /** Implements Session business commands delegated by the Session Controller Remote service. */
 export class SessionCommandController {
   /** First-insertion facts cached per exact Session; the log remains the recovery source. */
@@ -109,6 +196,7 @@ export class SessionCommandController {
     private readonly ctx: Context,
     private readonly agents: ApiSessionAgentController,
     private readonly defaultCwd: string,
+    private readonly projectModels?: SshProjectModels,
   ) {}
 
   /**
@@ -177,7 +265,7 @@ export class SessionCommandController {
         }
         await this.ctx.llm.resolveCallConfig(selected)
         agent.model.select(selected)
-        void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {
+        if (this.projectModels === undefined) void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {
           this.ctx.logger.warn(
             `session-controller: model selection changed for the Session but the default was not saved: ${String(error)}`,
           )
@@ -277,6 +365,7 @@ export class SessionCommandController {
     const composition = await this.agents.composeAgent(this.agents.presetForObservation(source))
     try {
       const { provider, model } = this.ctx.agentDefaultModel.currentSelection()
+      const agentOptions = await this.projectModels?.agentOptions() ?? { provider, model }
       await this.agents.createFork({
         sessionId: childId,
         seed,
@@ -289,7 +378,7 @@ export class SessionCommandController {
             ? {}
             : { agentPreset: composition.agentPreset }),
         },
-        agentOptions: { provider, model },
+        agentOptions,
         setup: composition.setup,
       })
     } catch (error) {
@@ -314,6 +403,142 @@ export class SessionCommandController {
   }
 
   /**
+   * Replace an ordinary Session in-place with a standalone copy cut immediately
+   * before one user-authored message. Preserves workspace order, pin state,
+   * agent preset, and latest model selection while removing the old Session.
+   * @param request - source Session and exact seq of the user message to rewind before.
+   * @returns the replacement Session identity.
+   */
+  async rewind(request: SessionRewindRequest): Promise<SessionRewindValue> {
+    let beforeSeq: ReturnType<typeof SessionSeq>
+    try {
+      beforeSeq = SessionSeq(request.beforeSeq)
+    } catch {
+      throw new RemoteError('gateway/bad-request', 'beforeSeq must be a non-negative safe integer', {})
+    }
+    let observed: SessionObservation
+    try {
+      observed = await this.ctx.sessionQuery.observeSession(request.sessionId)
+    } catch (error) {
+      if (error instanceof SessionQueryError
+        && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {
+        throw new RemoteError('session/not-found', `session "${request.sessionId}" not found`, {
+          sessionId: request.sessionId,
+        })
+      }
+      throw new RemoteError(
+        'gateway/internal',
+        `rewind source unavailable for session "${request.sessionId}": ${String(error)}`,
+        {},
+      )
+    }
+    let seed: SessionEvent[]
+    let cwd: string | undefined
+    let presetId: string | undefined
+    let lastModelSelection: AgentModelSelection | undefined
+    let workspace: Workspace | undefined
+    {
+      using source = observed
+      if (source.header.origin === 'subagent') {
+        throw apiSessionSubagentOwnershipError(request.sessionId)
+      }
+      const target = source.events[beforeSeq]
+      if (target === undefined || target.seq !== beforeSeq
+        || target.type !== 'user/message' || target.data.source.kind !== 'user') {
+        throw new RemoteError(
+          'session/rewind-unavailable',
+          `event ${String(request.beforeSeq)} is not a user-authored message in session "${request.sessionId}"`,
+          { sessionId: request.sessionId },
+        )
+      }
+      seed = buildRewindSeed(source.events, beforeSeq)
+      cwd = source.header.cwd
+      presetId = this.agents.presetForObservation(source)
+      if (!seed.some(event => event.type === 'model/selection')) {
+        const lastModelEvent = source.events.findLast(event => event.type === 'model/selection')
+        if (lastModelEvent !== undefined) {
+          lastModelSelection = lastModelEvent.data
+        }
+      }
+      try {
+        workspace = await this.forkWorkspace(source.header)
+      } catch (error) {
+        throw new RemoteError(
+          'gateway/internal',
+          `failed to resolve rewind workspace for session "${request.sessionId}": ${String(error)}`,
+          {},
+        )
+      }
+    }
+    const wasPinned = this.ctx.workspaceRegistry.pinnedSessionIds.includes(request.sessionId)
+    const nextId = brandString<SessionId>(`session-${randomUUID()}`)
+    const composition = await this.agents.composeAgent(presetId)
+    let createdAgent: Agent
+    try {
+      const { provider, model } = this.ctx.agentDefaultModel.currentSelection()
+      const agentOptions = await this.projectModels?.agentOptions() ?? { provider, model }
+      createdAgent = await this.agents.createFork({
+        sessionId: nextId,
+        ...(seed.length === 0 ? {} : { seed }),
+        meta: {
+          ...(cwd === undefined ? {} : { cwd }),
+          ...(composition.agentPreset === undefined
+            ? {}
+            : { agentPreset: composition.agentPreset }),
+        },
+        agentOptions,
+        setup: composition.setup,
+      })
+    } catch (error) {
+      throw new RemoteError(
+        'gateway/internal',
+        `failed to rewind session "${request.sessionId}": ${String(error)}`,
+        {},
+      )
+    }
+    if (lastModelSelection !== undefined) {
+      try {
+        createdAgent.model.select(lastModelSelection)
+      } catch {
+        // Model selection preservation is best-effort if the previous model is no longer routable.
+      }
+    }
+    if (workspace !== undefined) {
+      try {
+        await workspace.attachSession(nextId)
+      } catch (error) {
+        throw new RemoteError(
+          'session/workspace-attach-failed',
+          `session "${nextId}" was rewound but could not attach to workspace "${workspace.id}": ${String(error)}`,
+          { sessionId: nextId, workspaceId: workspace.id },
+        )
+      }
+      try {
+        await workspace.insertSessionBefore(nextId, request.sessionId)
+      } catch {
+        // Ordering preservation is best-effort if the source session left the workspace concurrently.
+      }
+    }
+    if (wasPinned) {
+      try {
+        await this.ctx.workspaceRegistry.pinSession(nextId)
+      } catch {
+        // Pin preservation is best-effort.
+      }
+    }
+    if (this.ctx.workspaceRegistry.sshProjectHost) {
+      this.ctx.agents.get(request.sessionId)?.cancel({ kind: 'user' }, { keepInbox: false })
+    } else {
+      try {
+        await this.ctx.workspaceRegistry.deleteSession(request.sessionId, { stopActivity: true })
+      } catch {
+        // The replacement session is already durable and attached; ignore cleanup races on the source.
+      }
+    }
+    return { sessionId: nextId }
+  }
+
+  /**
    * Admit one prompt after Agent and attachment validation; the Remote method
    * has already validated the content and built the durable message source.
    * @param request - Session identity, prompt content, and delivery mode.
@@ -323,6 +548,18 @@ export class SessionCommandController {
   async prompt(request: SessionPromptRequest, source: MessageSource): Promise<SessionPromptValue> {
     const agent = await this.resolveAgent(request.sessionId)
     if (this.hasPromptRequest(agent.session, request.requestId)) return { accepted: true }
+    if (agent.session.header.cwd?.startsWith('ssh://')) {
+      throw new RemoteError('session/ssh-connection-required',
+        'Reconnect the SSH workspace and open the conversation stored on the server. This local session contains history only.',
+        { sessionId: request.sessionId })
+    }
+    const desktopDefault = await this.projectModels?.refresh()
+    if (desktopDefault !== undefined && this.projectModels !== undefined) {
+      await this.agents.serializeImageAdmission(agent, async () => {
+        const selected = agent.model.current()
+        if (selected === undefined || !this.projectModels?.supports(selected)) agent.model.select(desktopDefault)
+      })
+    }
     if (request.content.length === 0) {
       try {
         return await agent.runMaintenance(() => {

@@ -30,6 +30,7 @@ import type {
   WorkspaceRenameRequest,
   WorkspaceUnarchiveSessionRequest,
   WorkspaceUnpinSessionRequest,
+  WorkspaceUpdateSshRequest,
   WorkspaceValue,
 } from './types.ts'
 
@@ -48,6 +49,10 @@ export class WorkspaceCommands {
   create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue> {
     return this.enqueue(async () => {
       try {
+        if (request.ssh !== undefined) {
+          const { workspace, created } = await this.ctx.workspaceRegistry.createSsh(request.path, request.ssh)
+          return { workspace: workspaceView(workspace), created }
+        }
         const existing = await this.ctx.workspaceRegistry.resolveByPath(request.path)
         if (existing !== undefined) {
           return { workspace: workspaceView(existing), created: false }
@@ -94,13 +99,43 @@ export class WorkspaceCommands {
   }
 
   /**
-   * Permanently delete one Workspace and its accounted Session logs while retaining its project directory.
-   * @param request - Workspace identity to remove.
+   * Update an existing SSH Workspace's server coordinates, credentials, and remote directory.
+   * @param request - Workspace identity, remote path, and updated SSH endpoint details.
+   * @returns the updated Workspace projection.
+   */
+  updateSsh(request: WorkspaceUpdateSshRequest): Promise<WorkspaceValue> {
+    return this.enqueue(async () => {
+      const workspace = this.requireWorkspace(request.workspaceId)
+      try {
+        const updated = await this.ctx.workspaceRegistry.updateSsh(workspace.id, request.path, request.ssh)
+        return { workspace: workspaceView(updated) }
+      } catch (error) {
+        if (remoteErrorOf(error) !== undefined) throw error
+        throw new RemoteError(
+          'workspace/invalid-path',
+          `cannot update SSH Workspace at "${request.path}": ${errorMessage(error)}`,
+          { path: request.path },
+          { cause: error },
+        )
+      }
+    })
+  }
+
+  /**
+   * Permanently delete one Workspace and its accounted Session logs.
+   * For a local Workspace, the project directory on disk is deleted only when `request.deleteDirectory !== false`.
+   * @param request - Workspace identity and optional local directory deletion flag.
    * @returns deletion confirmation.
    */
   delete(request: WorkspaceDeleteRequest): Promise<WorkspaceDeleteValue> {
     return this.enqueue(async () => {
-      if (!await this.ctx.workspaceRegistry.deletePermanently(brandString<WorkspaceId>(request.workspaceId), { stopActivity: true })) {
+      if (!await this.ctx.workspaceRegistry.deletePermanently(
+        brandString<WorkspaceId>(request.workspaceId),
+        {
+          stopActivity: true,
+          ...(request.deleteDirectory === undefined ? {} : { deleteDirectory: request.deleteDirectory }),
+        },
+      )) {
         throw workspaceNotFound(request.workspaceId)
       }
       return { deleted: true }

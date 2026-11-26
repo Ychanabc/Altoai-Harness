@@ -6,6 +6,7 @@
   },
   "include": ["src"],
   "references": [
+    { "path": "../../util/workspace-path" },
     { "path": "../../../vendor/cordis" },
     { "path": "../session-format" },
     { "path": "../session-format-v2-to-v3" }

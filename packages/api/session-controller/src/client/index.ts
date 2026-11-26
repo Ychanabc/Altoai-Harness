@@ -26,7 +26,7 @@ export type {
 } from './transport.ts'
 export { createScope, scopeOf } from './scope.ts'
 export type { AgentContext, AgentScopeHandle } from './scope.ts'
-export { SessionCreateError, SessionForkError } from './sessions/service.ts'
+export { SessionCreateError, SessionForkError, SessionRewindError } from './sessions/service.ts'
 export type { SessionBinding, SessionListState, SessionSummary } from './sessions/service.ts'
 export type {
   SessionListPhase,
@@ -121,7 +121,9 @@ export const inject = [
 export function apply(ctx: Context): void {
   const remotes = ctx.remote as unknown as SessionRemotes
   const connection = ctx.get('connection') as ConnectionHandle
-  const sessions = new ClientSessions(ctx, remotes)
+  const sessions = new ClientSessions(ctx, remotes, {
+    isDisconnected: () => connection.state.getSnapshot() !== 'connected',
+  })
   ctx.remote.$on('api-session/added', (summary) => { sessions.handleSessionAdded(summary) })
   ctx.remote.$on('api-session/deleted', (sessionId) => { sessions.handleSessionRemoved(sessionId, true) })
   ctx.remote.$on('api-session/removed', (sessionId) => { sessions.handleSessionRemoved(sessionId) })

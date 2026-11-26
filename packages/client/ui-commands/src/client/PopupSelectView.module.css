@@ -24,9 +24,11 @@
      (see ui-theme styles/scrollbar.css for the rebinding contract). */
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
-  border: 0;
-  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
-  box-shadow: var(--dsw-elevation-prominent);
+  border: 1px solid var(--dsh-glass-border-strong);
+  --dsw-elevation-stroke-color: transparent;
+  box-shadow:
+    inset 0 1px 0 var(--dsh-glass-highlight),
+    var(--dsw-elevation-prominent);
   outline: none;
 }
 

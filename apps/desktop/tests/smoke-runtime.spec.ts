@@ -84,11 +84,21 @@ it('uses the private readiness Cookie for every packaged runtime HTTP probe', as
     requests.push({ path: request.url, cookie: request.headers.cookie })
     await next()
   })
+  ctx.effect(() => ctx.webServer.register({
+    kind: 'exact', path: '/api/session/create',
+    handler(_request, response) {
+      response.end(JSON.stringify({ result: { ok: true, value: { sessionId: 'ssh-fixture-session' } } }))
+    },
+  }))
   ctx.effect(() => ctx.webServer.registerFallback({
     handler(request, response) {
       const path = request.url
       if (path === '/') response.end('<html>packaged fixture</html>')
+      else if (path === '/desktop-smoke-ssh-session') response.end(JSON.stringify({
+        id: 'ssh-fixture-session', cwd: 'ssh://project@192.0.2.7:22/srv/project',
+      }))
       else if (path === '/desktop-smoke') response.end('plugin route ready')
+      else if (path === '/desktop-smoke-model') response.end('desktop smoke model ready')
       else if (path === '/desktop-smoke-install') response.end('{}')
       else if (path === '/desktop-smoke-installed') response.end('installed plugin ready')
       else if (path === '/desktop-smoke-skills') response.end(JSON.stringify(loadedSkills))
@@ -123,7 +133,8 @@ it('uses the private readiness Cookie for every packaged runtime HTTP probe', as
   vi.spyOn(console, 'log').mockImplementation(() => {})
   await smokeDesktopRuntime(join(root, 'payload'), process.execPath, runtime, {}, resources)
   expect(requests.map(request => request.path)).toEqual([
-    '/', '/desktop-smoke', '/desktop-smoke-install', '/desktop-smoke-installed', '/desktop-smoke-skills',
+    '/', '/desktop-smoke-model', '/api/session/create', '/desktop-smoke-ssh-session', '/desktop-smoke', '/desktop-smoke-install',
+    '/desktop-smoke-installed', '/desktop-smoke-skills',
     '/desktop-smoke-office/docx', '/desktop-smoke-office/xlsx', '/desktop-smoke-office/pptx',
     '/desktop-smoke-office-operations/docx', '/desktop-smoke-office-operations/xlsx', '/desktop-smoke-office-operations/pptx',
   ])

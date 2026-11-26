@@ -1,14 +1,14 @@
 /* Shared tint for full-window Desktop surfaces; native material owns the blur. */
 :root {
-  --dsw-desktop-window-tint: #f8f9fb;
+  --dsw-desktop-window-tint: #eef2f9;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-ds-theme-source]) {
-    --dsw-desktop-window-tint: #16181d;
+    --dsw-desktop-window-tint: #0c1220;
   }
 }
 
 body[data-ds-dark-theme] {
-  --dsw-desktop-window-tint: #16181d;
+  --dsw-desktop-window-tint: #0c1220;
 }

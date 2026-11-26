@@ -31,6 +31,8 @@ export interface WorkspaceView {
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface RemoteErrorDetailsMap {
+    /** A saved SSH project could not be read over SFTP. */
+    'workspace/ssh-files-failed': { readonly workspaceId: WorkspaceId }
     /** The requested directory cannot back a Workspace. */
     'workspace/invalid-path': { readonly path: string }
     /** Another Workspace already uses the requested name. */
@@ -64,6 +66,26 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 /** Existing directory requested for Workspace adoption. */
 export interface WorkspaceCreateRequest {
   readonly path: string
+  /** When set, path is an absolute directory on this SSH endpoint. */
+  readonly ssh?: {
+    readonly host: string
+    readonly port: number
+    readonly username: string
+    readonly password: string
+  }
+}
+
+/** Updated SSH endpoint coordinates and remote directory for an existing SSH Workspace. */
+export interface WorkspaceUpdateSshRequest {
+  readonly workspaceId: WorkspaceId
+  readonly path: string
+  readonly ssh: {
+    readonly host: string
+    readonly port: number
+    readonly username: string
+    /** Omit or leave empty to reuse the saved SSH password. */
+    readonly password?: string
+  }
 }
 
 /** Created or previously registered Workspace. */
@@ -71,6 +93,18 @@ export interface WorkspaceCreateValue {
   readonly workspace: WorkspaceView
   readonly created: boolean
 }
+
+/** Read one directory or preview one file, relative to a saved SSH project. */
+export interface SshWorkspaceFilesRequest {
+  readonly workspaceId: WorkspaceId
+  readonly path: string
+  readonly kind: 'list' | 'read'
+}
+
+/** The explorer does not follow directory entries reported as links. */
+export type SshWorkspaceFilesValue =
+  | { readonly kind: 'list'; readonly entries: readonly { readonly name: string; readonly kind: 'directory' | 'file' | 'other' }[] }
+  | { readonly kind: 'read'; readonly text: string }
 
 /** Workspace title mutation. */
 export interface WorkspaceRenameRequest {
@@ -86,6 +120,8 @@ export interface WorkspaceValue {
 /** Workspace registration deletion. */
 export interface WorkspaceDeleteRequest {
   readonly workspaceId: WorkspaceId
+  /** When `false`, delete only the client Workspace registration and Session logs while keeping the local directory on disk. */
+  readonly deleteDirectory?: boolean
 }
 
 /** Session permanently removed from durable history and Workspace grouping. */

@@ -51,6 +51,12 @@
       "path": "../ui-sidebar-right"
     },
     {
+      "path": "../ui-layout"
+    },
+    {
+      "path": "../ui-sidebar"
+    },
+    {
       "path": "../../util/workspace-path"
     }
   ]

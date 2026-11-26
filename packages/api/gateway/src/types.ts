@@ -4,6 +4,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import type { ConnectionRpcResult } from '@deepseek-ai/dsh-client-connection'
 import type { PeerScope, RemoteUplinkWindow, TypertResourceReader } from '@deepseek-ai/dsh-typert-protocol'
 import type { RemoteEventAgentId, RemoteEventHostInfo } from './stream-protocol.ts'
 
@@ -156,6 +157,13 @@ export interface TypertGateway {
   readonly wireStream: TypertGatewayWireStream
 
   /**
+   * Register an owner-only carrier for a subset of calls. Return undefined to dispatch locally.
+   * @param route - selects explicitly supported endpoints and validates their target.
+   * @returns disposer withdrawing the route.
+   */
+  registerOwnerRoute(route: OwnerRemoteRoute): () => void
+
+  /**
    * Check for an active owner Client event stream, the only kind that can answer forwarded waterfalls.
    * @returns whether an owner stream is open and has not been cancelled.
    */
@@ -189,6 +197,12 @@ export interface TypertGateway {
    * @returns a cancellation-aware iterable over the business results.
    */
   stream(request: InvokeRemoteRequest): Promise<AsyncIterable<unknown>>
+}
+
+/** An owner-only route used to forward Session operations to a connected SSH project. */
+export interface OwnerRemoteRoute {
+  call(request: InvokeRemoteRequest): Promise<ConnectionRpcResult<unknown> | undefined>
+  stream(request: InvokeRemoteRequest): AsyncIterable<unknown> | undefined
 }
 
 declare module '@deepseek-ai/cordis' {

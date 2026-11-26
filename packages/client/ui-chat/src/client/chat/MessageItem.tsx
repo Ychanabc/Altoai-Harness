@@ -1,9 +1,11 @@
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { PendingSubmission } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { PropsRenderFactories, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import type { UserTextFacts } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { IconBranchOutlineRegular, JsonBlock, StateDot, TextShimmer } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  Button, IconBranchOutlineRegular, InlineEditor, JsonBlock, StateDot, TextShimmer,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   ChatNodeOwnerProps, ChatNodeViewProps, ChatViewSlotProps, UserContentAttachment, UserContentData, UserContentInput,
 } from '../contract/slots.ts'
@@ -330,33 +332,137 @@ export function PendingSubmissionBubble({ submission, loadImage, renderFactorySl
  * bubble without asking for it.
  */
 export const UserMessageNodeView = memo(function UserMessageNodeView({
-  node, renderFactorySlot, loadImage, renderSlotChain, t,
+  node, renderFactorySlot, loadImage, renderSlotChain, recallMessage, editMessage, useSession, useAccess, t,
 }: ChatNodeViewProps<'user' | 'steering'> & {
   /** Bound by the `user` keyed registration, the only entry that declares the seat. */
   renderSlotChain: PropsRenderSlots<'conversation.chat.user.before'>['renderSlotChain']
 }) {
   const data = node.data
+  const subagent = useSession(s => s.subagent)
+  const rewindAllowed = useAccess('session/rewind')
+  const promptAllowed = useAccess('session/prompt')
+  const parts = useMemo(() => contentParts(data.content), [data.content])
+  const hasDurableImages = useMemo(
+    () => parts.attachments.some(item => item.type === 'image' && 'attachment' in item.image),
+    [parts.attachments],
+  )
+  const isUserAuthored = data.source === null || data.source === undefined
+    || (typeof data.source === 'object' && 'kind' in data.source && data.source.kind === 'user')
+  const canRecall = subagent === null && isUserAuthored && rewindAllowed && recallMessage !== undefined
+  const canEdit = subagent === null && isUserAuthored && rewindAllowed && promptAllowed && editMessage !== undefined
+
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [busy, setBusy] = useState<'edit' | 'recall' | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  const startEdit = useCallback((initialText: string) => {
+    setDraft(initialText)
+    setActionError(null)
+    setEditing(true)
+  }, [])
+
+  const cancelEdit = useCallback(() => {
+    if (busy !== null) return
+    setEditing(false)
+    setActionError(null)
+  }, [busy])
+
+  const submitEdit = useCallback(() => {
+    if (busy !== null || editMessage === undefined) return
+    const trimmed = draft.trim()
+    if (trimmed === '' && !hasDurableImages) return
+    setBusy('edit')
+    setActionError(null)
+    void editMessage(data.seq, trimmed, parts.attachments).then(
+      () => {
+        setBusy(null)
+        setEditing(false)
+      },
+      (error: unknown) => {
+        setBusy(null)
+        const message = error instanceof Error && error.message !== '' ? error.message : t('message.edit.failed')
+        setActionError(message)
+      },
+    )
+  }, [busy, draft, editMessage, hasDurableImages, data.seq, parts.attachments, t])
+
+  const handleRecall = useCallback((text: string) => {
+    if (busy !== null || recallMessage === undefined) return
+    setBusy('recall')
+    setActionError(null)
+    void recallMessage(data.seq, text).then(
+      () => {
+        setBusy(null)
+      },
+      (error: unknown) => {
+        setBusy(null)
+        const message = error instanceof Error && error.message !== '' ? error.message : t('message.recall.failed')
+        setActionError(message)
+      },
+    )
+  }, [busy, recallMessage, data.seq, t])
+
+  if (editing) {
+    const canSave = busy === null && (draft.trim() !== '' || hasDurableImages)
+    return (
+      <div className={css.userRow} data-user-message-editing="">
+        <div className={css.userEditCard}>
+          <InlineEditor
+            value={draft}
+            label={t('message.edit.placeholder')}
+            onChange={setDraft}
+            onSave={submitEdit}
+            onCancel={cancelEdit}
+            {...(css.userEditInput === undefined ? {} : { className: css.userEditInput })}
+          />
+          <div className={css.userEditFooter}>
+            {actionError !== null && (
+              <span className={css.userActionError} role="alert">{actionError}</span>
+            )}
+            <div className={css.userEditButtons}>
+              <Button variant="outline" size="sm" disabled={busy !== null} onClick={cancelEdit}>
+                {t('cancel')}
+              </Button>
+              <Button variant="primary" size="sm" disabled={!canSave} onClick={submitEdit}>
+                {busy === 'edit' ? t('message.edit.saving') : t('message.edit.save')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <UserStyleBubble
-      node={node}
-      renderSlotChain={renderSlotChain}
-      content={data.content}
-      interactive
-      renderFactorySlot={renderFactorySlot}
-      loadImage={loadImage}
-      batchStart={node.kind === 'steering' && node.data.batchStart === true}
-      {...data.referenceLabels === undefined ? {} : { referenceLabels: data.referenceLabels }}
-      {...data.skillNames === undefined ? {} : { skillNames: data.skillNames }}
-      actions={text => (
-        <MessageIconActions
-          text={text}
-          time={data.time}
-          clock="start"
-          className={css.actions}
-          t={t}
-        />
+    <>
+      <UserStyleBubble
+        node={node}
+        renderSlotChain={renderSlotChain}
+        content={data.content}
+        interactive
+        renderFactorySlot={renderFactorySlot}
+        loadImage={loadImage}
+        batchStart={node.kind === 'steering' && node.data.batchStart === true}
+        {...data.referenceLabels === undefined ? {} : { referenceLabels: data.referenceLabels }}
+        {...data.skillNames === undefined ? {} : { skillNames: data.skillNames }}
+        actions={text => (
+          <MessageIconActions
+            text={text}
+            time={data.time}
+            clock="start"
+            onEdit={canEdit ? () => { startEdit(text) } : undefined}
+            onRecall={canRecall ? () => { handleRecall(text) } : undefined}
+            actionsBusy={busy !== null}
+            className={css.actions}
+            t={t}
+          />
+        )}
+      />
+      {actionError !== null && (
+        <div className={css.userActionErrorRow} role="alert">{actionError}</div>
       )}
-    />
+    </>
   )
 })
 

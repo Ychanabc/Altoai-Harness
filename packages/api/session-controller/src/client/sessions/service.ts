@@ -102,6 +102,22 @@ export class SessionForkError extends Error {
   }
 }
 
+/** Structured session-rewind failure. */
+export class SessionRewindError extends Error {
+  override readonly name = 'SessionRewindError'
+
+  /**
+   * @param rpcError - Host business or folded transport error.
+   * @param sourceSessionId - the session the rewind was cut from.
+   */
+  constructor(
+    readonly rpcError: RemoteFailure,
+    readonly sourceSessionId: SessionId,
+  ) {
+    super(`session rewind failed: ${rpcError.code}: ${rpcError.message}`)
+  }
+}
+
 /** Identity-stable logical binding for one materialized Client Session. */
 export interface SessionBinding {
   readonly sessionId: SessionId
@@ -273,12 +289,14 @@ export class ClientSessions implements ISessions {
   /**
    * @param ctx - client root context (scope fibers mount under it).
    * @param remote - generated Remote namespaces shared with every Session.
+   * @param options - optional transport connection observer for local stop fallback.
    */
   constructor(
     private readonly rootCtx: Context,
     remote: SessionRemotes,
+    options: { readonly isDisconnected?: () => boolean } = {},
   ) {
-    this.manager = new SessionManager(remote)
+    this.manager = new SessionManager(remote, options)
     this.list = createSnapshotStore<SessionListState>({
       ids: [], byId: {}, phase: 'pending', projectionsBySession: {},
     })
@@ -506,6 +524,27 @@ export class ClientSessions implements ISessions {
       if (!renamed.ok) throw new Error(`fork child rename failed: ${renamed.error.code}: ${renamed.error.message}`)
     }
     return childId
+  }
+
+  /**
+   * Replace an ordinary session in-place with a standalone copy cut immediately
+   * before one sent user message; on resolution the replacement is catalogued
+   * and can be explicitly retained.
+   * @param opts - source session id and the exact event seq of the user message to rewind before.
+   * @returns the replacement session id.
+   * @throws {SessionRewindError} with the source id.
+   */
+  async rewind(opts: {
+    sessionId: SessionId
+    beforeSeq: number
+  }): Promise<SessionId> {
+    const result = await this.manager.rewind({
+      sessionId: opts.sessionId,
+      beforeSeq: SessionSeq(opts.beforeSeq),
+    })
+    if (!result.ok) throw new SessionRewindError(result.error, opts.sessionId)
+    this.projectList()
+    return result.value.sessionId
   }
 
   /**

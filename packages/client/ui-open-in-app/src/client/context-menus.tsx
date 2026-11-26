@@ -12,7 +12,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionWorkspacePathApplication } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { OpenInAppController } from './controller.ts'
 import { selectSessionDirectory } from '@deepseek-ai/dsh-api-session-controller/client/directories'
-import { fileAddressFor, resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
+import { fileAddressFor, parseSshWorkspacePath, resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 import type { OpenInAppPathController } from './open-path.ts'
 import type { OpenInAppKey } from './locales.ts'
 import type { OpenInAppToastSource } from './open-toast.tsx'
@@ -75,6 +75,7 @@ export function registerContextMenus(
   ctx.effect(() => ctx.contextMenus.register({
     id: 'open-in-app.workspace', target: 'workspace', order: 200,
     resolve: async ({ path }, signal) => {
+      if (parseSshWorkspacePath(path) !== undefined) return []
       await directories.load()
       signal.throwIfAborted()
       const manager = directories.apps.getSnapshot()?.find(id => ['finder', 'explorer', 'filemanager'].includes(id))

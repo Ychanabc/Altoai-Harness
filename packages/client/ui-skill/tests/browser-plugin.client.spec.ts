@@ -52,6 +52,8 @@ function providePresentation(ctx: Context): PresentationCapture {
     children: {
       'tool.call.toolview': { kind: 'keyed', scope: 'session' },
       'conversation.user.text.node': { kind: 'keyed', scope: 'session', inline: true },
+      'main': { kind: 'keyed', scope: 'root' },
+      'sidebar.panellist': { kind: 'list', scope: 'root' },
     },
   } as never, () => null)
   const capture: PresentationCapture = {
@@ -140,10 +142,18 @@ describe('apply', () => {
     expect(entry?.options).toMatchObject({ key: 'skill' })
     expect(entry?.locale).toBe('skill')
     expect(entry?.component).toBe(SkillToolRow)
+    expect(presentation.slots.entries('main').map(row => row.options.key)).toContain('skills')
+    expect(presentation.slots.entries('sidebar.panellist').map(row => row.options.id)).toContain('skills')
     expect(presentation.dictionaries).toEqual([{
       namespace: 'skill', dictionaries: {
         es, fr, de, ru, pt,
         zh: {
+          'library.title': 'Skill 技能库',
+          'library.refresh': '刷新',
+          'library.search': '搜索技能',
+          'library.loading': '正在同步技能…',
+          'library.failed': '无法从 GitHub 同步技能，请重试',
+          'library.empty': '没有找到技能',
           'row.title': '加载技能',
           'row.running': '正在加载 skill',
           'row.preparing': '准备加载技能',
@@ -154,6 +164,12 @@ describe('apply', () => {
           'menu.userOnly': '仅用户',
         },
         en: {
+          'library.title': 'Skill Library',
+          'library.refresh': 'Refresh',
+          'library.search': 'Search skills',
+          'library.loading': 'Syncing skills…',
+          'library.failed': 'Could not sync skills from GitHub. Try refreshing.',
+          'library.empty': 'No skills found.',
           'row.title': 'Skill',
           'row.running': 'Loading skill',
           'row.preparing': 'Preparing to load a skill',
@@ -164,6 +180,12 @@ describe('apply', () => {
           'menu.userOnly': 'user-only',
         },
         ja: {
+          'library.title': 'Skill Library',
+          'library.refresh': 'Refresh',
+          'library.search': 'Search skills',
+          'library.loading': 'Syncing skills…',
+          'library.failed': 'Could not sync skills from GitHub. Try refreshing.',
+          'library.empty': 'No skills found.',
           'row.title': 'スキル',
           'row.running': 'スキルを読み込み中',
           'row.preparing': 'スキルの読み込みを準備中',
@@ -201,6 +223,8 @@ describe('apply', () => {
     await fiber.dispose()
     expect(() => inputTriggers.registerSource(rival)).not.toThrow()
     expect(presentation.slots.entries('tool.call.toolview')).toHaveLength(0)
+    expect(presentation.slots.entries('main')).toHaveLength(0)
+    expect(presentation.slots.entries('sidebar.panellist')).toHaveLength(0)
     expect(presentation.localeDisposed).toBe(true)
   })
 })

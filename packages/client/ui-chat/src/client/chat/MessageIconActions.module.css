@@ -94,13 +94,15 @@
 }
 
 /* Unavailable stays focusable and hoverable so Tooltip can explain why. */
-.action[data-unavailable] {
+.action[data-unavailable],
+.action:disabled {
   cursor: default;
   opacity: 0.4;
 }
 
 @media (hover: hover) {
-  .action[data-unavailable]:hover {
+  .action[data-unavailable]:hover,
+  .action:disabled:hover {
     background: transparent;
     color: var(--dsw-alias-label-tertiary);
   }

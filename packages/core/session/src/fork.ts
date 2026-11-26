@@ -18,6 +18,8 @@ import type { SessionEvent, SessionSeq as SessionSeqType } from './types.ts'
  * @returns a new array retaining the source event objects, followed by synthetic
  *   closers outside the inherited prefix counted by `inheritedEventCount`.
  */
+export { openTurnClosers } from './repair.ts'
+
 export function buildForkSeed(events: readonly SessionEvent[], boundary: SessionSeqType): SessionEvent[] {
   const prefix = events.slice(0, boundary + 1)
   prefix.push({

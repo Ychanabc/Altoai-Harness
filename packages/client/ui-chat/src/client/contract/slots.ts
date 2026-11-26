@@ -242,6 +242,10 @@ export interface ChatNodeOwnerProps {
   openFile: (path: string, options?: OpenFileOptions) => void
   inspectCall: ((callId: ToolCallId) => void) | undefined
   forkAt: (seq: number) => void
+  /** Rewind before a sent user message and place its text back into the composer. */
+  recallMessage?: ((seq: number, text: string) => Promise<void>) | undefined
+  /** Rewind before a sent user message and immediately submit edited text. */
+  editMessage?: ((seq: number, text: string, attachments?: readonly UserContentAttachment[]) => Promise<void>) | undefined
   /** Session-authorized image loader supplied by the Chat view. */
   loadImage: MessageImageLoader
   /** Turn-process state when this Node belongs to a projected Turn. */
@@ -359,6 +363,10 @@ export interface ChatViewInjected {
     read: () => ChatScrollPosition | null
   }
   forkAt: (seq: number) => void
+  /** Rewind before a sent user message and place its text back into the composer. */
+  recallMessage?: ((seq: number, text: string) => Promise<void>) | undefined
+  /** Rewind before a sent user message and immediately submit edited text. */
+  editMessage?: ((seq: number, text: string, attachments?: readonly UserContentAttachment[]) => Promise<void>) | undefined
 }
 
 /** Session-owned node sources shared with the view, plus the flow's connection state. */
@@ -371,7 +379,7 @@ export type ChatFlowDataInjected = Pick<ChatViewInjected, 'keyedHooks'> & {
 
 /** Ordered rows and reconciled local echoes rendered inside one Chat viewport. */
 export interface ChatFlowOwnerProps extends Pick<ChatNodeOwnerProps,
-  'cwd' | 'openFile' | 'inspectCall' | 'forkAt' | 'loadImage'> {
+  'cwd' | 'openFile' | 'inspectCall' | 'forkAt' | 'recallMessage' | 'editMessage' | 'loadImage'> {
   readonly entries: readonly RenderEntry[]
   readonly pendingInputs: readonly (PendingSubmission | InboxState['next-step'][number])[]
   readonly lastInputTurn: number | undefined

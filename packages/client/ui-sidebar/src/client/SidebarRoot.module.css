@@ -25,10 +25,6 @@
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
-:global([data-animating]:not([data-dragging])) .root {
-  transition: width var(--ds-transition-duration-slow) var(--ds-ease-in-out);
-}
-
 /* macOS desktop: the AppFrame column owns the translucent sidebar tint; an
    opaque fill here would sit on top of it and block the window vibrancy. */
 :global([data-platform='darwin']) .root {
@@ -137,8 +133,7 @@
    linearly over 200ms; an eased or shorter fade of this pale thumb completes
    most of its change in a few frames and reads as a cut. Only the quiet state
    carries the transition, so a reveal is immediate and a pointer that returns
-   during the delay sees no change. The collapse rule's `transition: width`
-   outranks this one, so a leave during collapse or expand hides at once. */
+   during the delay sees no change. */
 .root.quietBars {
   --dsh-scrollbar-thumb: transparent;
   --dsh-scrollbar-thumb-hover: transparent;
@@ -455,20 +450,32 @@
   padding: 8px 12px;
   margin: 0;
   box-sizing: border-box;
-  border: 0.5px solid var(--dsw-alias-border-l3);
+  border: 1px solid var(--dsh-glass-border-strong);
   border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-button-elevated-fill);
+  background: var(--dsh-glass-card-bg);
+  box-shadow:
+    inset 0 1px 0 var(--dsh-glass-highlight),
+    var(--dsh-glass-shadow-sm);
   color: var(--dsw-alias-label-primary);
   font-size: 14px;
   font-weight: 500;
   line-height: 22px;
   cursor: pointer;
   overflow: hidden;
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 100ms ease;
+}
+
+.newSession:active {
+  transform: scale(0.99);
 }
 
 @media (hover: hover) {
   .newSession:hover {
+    border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 35%, var(--dsh-glass-border-strong));
     background: var(--dsw-alias-button-floating-hover);
+    box-shadow:
+      inset 0 1px 0 var(--dsh-glass-highlight),
+      0 8px 22px -12px color-mix(in srgb, var(--dsw-alias-brand-primary) 26%, rgb(15 23 42 / 24%));
   }
 }
 
@@ -627,6 +634,7 @@
 }
 
 :global([data-platform='darwin']) .scrollFade,
+:global([data-windows-titlebar]) .scrollFade,
 .collapsed .scrollFade,
 .collapsed .scrollArea::before,
 .collapsed .scrollArea::after {

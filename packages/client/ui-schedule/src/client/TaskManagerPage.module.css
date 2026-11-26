@@ -6,7 +6,7 @@
   min-height: 0;
   overflow: hidden;
   color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-bg-base);
+  background: transparent;
   font-size: 14px;
   line-height: 1.6;
 }
@@ -1301,7 +1301,7 @@
   gap: 8px;
   padding: 20px var(--detail-gutter);
   border-top: 0.5px solid var(--dsw-alias-border-l4);
-  background: var(--dsw-alias-bg-base);
+  background: var(--dsh-glass-sheet-solid);
 }
 
 .saveFooter > button {
@@ -1324,7 +1324,7 @@
   flex-shrink: 0;
   margin: 0;
   padding: 12px 0 0;
-  background: var(--dsw-alias-bg-base);
+  background: transparent;
   color: var(--dsw-alias-state-error-primary);
   font-size: 12px;
   line-height: 1.6;
@@ -1338,7 +1338,7 @@
   color: var(--dsw-alias-label-secondary);
   font-size: 12px;
   overflow-wrap: anywhere;
-  background: var(--dsw-alias-bg-base);
+  background: transparent;
 }
 
 .confirmDialog {

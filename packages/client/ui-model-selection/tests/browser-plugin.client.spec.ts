@@ -79,6 +79,7 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
   let catalogFailure = false
   let groups = GROUPS
   let selectionFailure: RemoteError<'session/writer-held'> | undefined
+  let relaySelectionProjection = true
   const sessionRemote = {
     modelCatalog: () => {
       calls.models += 1
@@ -103,7 +104,7 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
           ? {}
           : { reasoningEffort: brandString<ReasoningEffortId>(payload.reasoningEffort) },
       }
-      projections.get(payload.sessionId)?.set({ lastUsed: null, next: selected })
+      if (relaySelectionProjection) projections.get(payload.sessionId)?.set({ lastUsed: null, next: selected })
       return Promise.resolve({ ok: true as const, value: { selected } })
     },
   }
@@ -200,6 +201,7 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
     setGroups: (next: typeof GROUPS) => { groups = next },
     setCatalogFailure: (next: boolean) => { catalogFailure = next },
     setRoutable: (next: boolean) => { routable = next },
+    setSelectionProjectionRelay: (next: boolean) => { relaySelectionProjection = next },
     blockOf: (key: string) => blocks.get(sid(key)),
   }
 }
@@ -292,6 +294,29 @@ describe('ui-model-selection dual entry', () => {
     // The POPUP's next options pass reflects it without a seat-side reload.
     const options = await b.popup().options(projection('s1'), new AbortController().signal)
     expect(options.find((o: SelectOption) => o.label === 'DeepSeek-V4-Pro')).toMatchObject({ active: true })
+  })
+
+  it('keeps an accepted reasoning level while an SSH projection frame is delayed', async () => {
+    const b = await bench()
+    b.mint('ssh')
+    b.setSelectionProjectionRelay(false)
+    const face = b.seat().inject!(sid('ssh'))
+    const selected: ModelSelection = {
+      provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: brandString<ReasoningEffortId>('max'),
+    }
+
+    expect(await face.select(selected)).toEqual({ ok: true, value: undefined })
+    expect(face.directory.getSnapshot()).toMatchObject({
+      current: selected, status: 'ready', pending: null,
+    })
+
+    // A catalog refresh still sees the old default until the remote control
+    // stream forwards the durable model/selection projection.
+    await face.load()
+    expect(face.directory.getSnapshot().current).toEqual(selected)
+
+    b.setProjected(sid('ssh'), { lastUsed: null, next: selected })
+    expect(face.directory.getSnapshot().current).toEqual(selected)
   })
 
   it('a popup selection lands on the seat store — the reverse direction of the same state', async () => {

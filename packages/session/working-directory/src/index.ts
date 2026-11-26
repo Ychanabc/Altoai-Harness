@@ -4,6 +4,7 @@
  */
 
 import { isAbsolute } from 'node:path'
+import { parseSshWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { z as zod } from 'zod'
@@ -109,7 +110,8 @@ export class WorkingDirectoryService extends Service {
 
   protected async [Service.init](): Promise<void> {
     const ctx = this.ctx
-    const directorySchema = zod.string().min(1).refine(isAbsolute).nullable()
+    const directorySchema = zod.string().min(1)
+      .refine(path => isAbsolute(path) || parseSshWorkspacePath(path) !== undefined).nullable()
     this.workingDirectoryProjectionHandle = await ctx.sessionProjections.register({
       key: 'workingDirectory',
       stateVersion: 3,
@@ -168,6 +170,7 @@ export class WorkingDirectoryService extends Service {
   ensure(agent: Agent, signal?: AbortSignal): Promise<string> {
     return this.serialize(agent, signal, control => this.ctx.waterfall('working-directory/access', { agent, path: null, signal: control }, async () => {
       const current = this.get(agent.session)
+      this.assertNativeCwd(current)
       const target = await this.ctx.fs.resolve(current, { signal: control })
       const info = await this.ctx.fs.stat(target, control)
       control.throwIfAborted()
@@ -204,7 +207,10 @@ export class WorkingDirectoryService extends Service {
   set(agent: Agent, path: string, signal?: AbortSignal): Promise<string> {
     return this.serialize(agent, signal, control => this.ctx.waterfall('working-directory/access', { agent, path, signal: control }, async () => {
       if (path.length === 0) throw new WorkingDirectoryError('working-directory: path must not be empty', 'WORKING_DIRECTORY_INVALID')
-      const directory = await this.directory(path, this.get(agent.session), control)
+      const cwd = this.get(agent.session)
+      this.assertNativeCwd(cwd)
+      this.assertNativeCwd(path)
+      const directory = await this.directory(path, cwd, control)
       this.commit(agent, directory, false, control)
       return directory
     }))
@@ -212,6 +218,12 @@ export class WorkingDirectoryService extends Service {
 
   private contextText(session: Session): string {
     return `Current working directory: ${JSON.stringify(this.get(session))}.`
+  }
+
+  private assertNativeCwd(path: string): void {
+    if (parseSshWorkspacePath(path) !== undefined) {
+      throw new WorkingDirectoryError('This SSH workspace has no execution provider configured for the session.', 'WORKING_DIRECTORY_UNAVAILABLE')
+    }
   }
 
   private async directory(

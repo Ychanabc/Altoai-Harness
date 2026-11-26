@@ -41,6 +41,8 @@ ctx.sessions.get(sessionId)      // the live session
 ctx.sessions.list()              // every live session, in creation order
 ```
 
+Desktop SSH sessions record the password-free `ssh://` workspace address in `cwd` for session grouping and persistence. Remote command and file operations require a separate execution provider.
+
 ### Append and derive
 
 `session.append(type, data, opts?)` commits one typed event. It rejects read-only instances before reading payload fields, snapshots and freezes valid JSON, then rechecks write permission before committing and notifying observers. `session.deriveMessages()` projects the log into the `Message[]` the model sees, incrementally and cached:

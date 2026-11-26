@@ -47,6 +47,13 @@
   line-height: 20px;
 }
 
+.sshFields {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
 .sshField {
   display: flex;
   flex-direction: column;

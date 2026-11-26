@@ -173,6 +173,7 @@ describe('Remote event Host source', () => {
       ['api-session/error', ['s-error', 'boom'], 's-error'],
       ['api-session/removed', ['s-removed'], 's-removed'],
       ['api-session/status', ['s-status', true], 's-status'],
+      ['workspace/ssh-status', ['workspace-ssh', 'connected'], 'workspace-ssh'],
     ]
     for (const [event, args, sessionId] of cases) {
       emitRaw(ctx, event, args)
@@ -180,7 +181,8 @@ describe('Remote event Host source', () => {
       if (next.done === true || 'context' in next.value) throw new Error(`${event} was not forwarded as a notification`)
       const frame = next.value
       expect(frame).toMatchObject({ event, args })
-      expect(frame.resources?.['session']?.(...frame.args)).toBe(sessionId)
+      const resource = event === 'workspace/ssh-status' ? 'workspace' : 'session'
+      expect(frame.resources?.[resource]?.(...frame.args)).toBe(sessionId)
     }
     // An event that declares no resources carries no readers, so access control sees the global resource.
     emitRaw(ctx, 'commands/change', [])

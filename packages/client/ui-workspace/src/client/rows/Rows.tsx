@@ -20,8 +20,9 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
-import { abbreviateHomePath } from '@deepseek-ai/dsh-util-workspace-path'
+import { abbreviateHomePath, parseSshWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { SshWorkspaceConnectionState } from '@deepseek-ai/dsh-workspace/types'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { GroupNode, SearchResultNode, SessionNode } from '../tree.ts'
 import css from './Rows.module.css'
@@ -135,6 +136,8 @@ type ProjectRowItemProps = {
   drag?: WorkspaceRowDragProps | undefined
   /** Host account home; POSIX home-rooted hover paths display as `~`. */
   home?: string | undefined
+  /** Current carrier state when this Workspace is backed by SSH. */
+  sshStatus?: SshWorkspaceConnectionState | undefined
   t: RowTranslate
 } & Pick<WorkspaceBrowserProps, 'useWorkspaceAccess' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu'>
 
@@ -186,7 +189,7 @@ function WorkspaceProjectRow({ workspaceId, ...props }: ProjectRowItemProps & { 
 
 function ProjectRow({
   group, containsCurrentDescendant = false, onToggle, drag: offeredDrag, home, newShortcut, t, actions,
-  renderFactorySlot, useContextMenuTarget, useContextMenu,
+  renderFactorySlot, useContextMenuTarget, useContextMenu, sshStatus,
 }: Omit<ProjectRowItemProps, 'onCreate'> & { actions: ProjectRowActions }) {
   const { getTriggerProps } = useContextMenu()
   const drag = actions.reorder ? offeredDrag : undefined
@@ -199,6 +202,7 @@ function ProjectRow({
   const dragPreview = useRowDragPreview(css.dragPreview as string, DRAG_PREVIEW_PROPERTIES)
   const workspaceMenuTarget = row.workspaceId !== undefined && row.cwd !== undefined
     ? { workspaceId: row.workspaceId, path: row.cwd } : undefined
+  const sshWorkspace = row.cwd !== undefined && parseSshWorkspacePath(row.cwd) !== undefined
   const ownRow = (
     <div
       className={clsx(css.projectRow, menuOpen && css.menuOpen)}
@@ -226,6 +230,9 @@ function ProjectRow({
       </span>
       <span className={css.projectText}>
         <span className={css.title}>{label}</span>
+        {sshWorkspace && sshStatus !== undefined && (
+          <span className={css.sshStatus} data-ssh-state={sshStatus}>{sshStatusLabel(sshStatus, t)}</span>
+        )}
       </span>
       <span className={css.rowActions}>
         {workspaceMenuTarget !== undefined && (
@@ -270,6 +277,16 @@ function ProjectRow({
       copiedLabel={t('hover.copied')}
     />
   )
+}
+
+/** Match the compact SSH label to the desktop relay's last known state. */
+function sshStatusLabel(status: SshWorkspaceConnectionState, t: RowTranslate): string {
+  switch (status) {
+    case 'connecting': return t('ssh.status.connecting')
+    case 'connected': return t('ssh.status.connected')
+    case 'paused': return t('ssh.status.paused')
+    case 'interrupted': return t('ssh.status.interrupted')
+  }
 }
 
 /* v8 ignore next 3 -- closed-union backstop; only reached if the status is forged */

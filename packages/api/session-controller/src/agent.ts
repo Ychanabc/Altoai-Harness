@@ -14,6 +14,7 @@ import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-ses
 import { RemoteError, remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-typert-registry'
 import type {} from '@deepseek-ai/dsh-workspace'
+import type { SshProjectModels } from './ssh-models.ts'
 
 /** Cold Session identity absent from persistence. */
 export class ApiSessionNotFound extends Error {}
@@ -123,7 +124,7 @@ export class ApiSessionAgentController {
   private readonly imageAdmissionChains = new WeakMap<Agent, Promise<void>>()
 
   /** @param ctx - Host context carrying Agent, model, persistence, and Typert services. */
-  constructor(private readonly ctx: Context) {}
+  constructor(private readonly ctx: Context, private readonly projectModels?: SshProjectModels) {}
 
   /**
    * Configure Session and Agent lookups for Typert.
@@ -523,6 +524,7 @@ export class ApiSessionAgentController {
   }
 
   private async agentOptions(): Promise<AgentOptions> {
+    if (this.projectModels !== undefined) return await this.projectModels.agentOptions()
     const defaults = this.ctx.agentDefaultModel
     const configured = defaults.currentSelection()
     const resolved = await defaults.resolveSelection()

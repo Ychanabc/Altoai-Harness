@@ -29,7 +29,7 @@
   animation: modalEnter var(--ds-transition-duration) var(--ds-ease-in-out);
 }
 
-/* Dialogs use the prominent elevation on the secondary layer. */
+/* High-opacity crisp modal over the dimmed backdrop so underlying text never bleeds through. */
 .dialog {
   box-sizing: border-box;
   position: relative;
@@ -37,19 +37,34 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  width: min(380px, 100%);
+  width: min(416px, 100%);
   padding: 0 0 24px;
   overflow: hidden;
-  border: 0;
+  border: 1px solid var(--dsh-glass-border-strong);
   border-radius: var(--dsw-radius-panel);
-  background: var(--dsw-alias-bg-layer-2);
-  box-shadow: var(--dsw-elevation-prominent);
-  animation: modalEnter var(--ds-transition-duration) var(--ds-ease-in-out);
+  background: var(--dsh-glass-modal-bg);
+  backdrop-filter: var(--dsh-glass-blur);
+  -webkit-backdrop-filter: var(--dsh-glass-blur);
+  box-shadow:
+    inset 0 1px 0 var(--dsh-glass-highlight),
+    var(--dsw-elevation-prominent);
+  animation: modalDialogEnter 180ms var(--ds-ease-in-out);
 }
 
 @keyframes modalEnter {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@keyframes modalDialogEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

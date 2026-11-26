@@ -46,7 +46,7 @@ async function createRuntime(): Promise<SlotTestRuntime> {
   // The rename flow never picks a directory; the namespace only has to be there
   // for ui-workspace's inject to settle.
   const directoryPicker = {}
-  runtime.remote.provideNamespaces({ directoryPicker })
+  runtime.remote.provideNamespaces({ directoryPicker, workspace: {} })
   const locale = new LocaleRuntime(runtime.ctx)
   runtime.ctx.provide('locale', locale)
   runtime.slots.installLocale(locale)
@@ -77,14 +77,31 @@ async function declareFrame(runtime: SlotTestRuntime): Promise<void> {
 }
 
 /** One Workspace holding the fixture Session. */
-async function seedWorkspace(runtime: SlotTestRuntime): Promise<void> {
+async function seedWorkspace(runtime: SlotTestRuntime, path = '/w/alpha'): Promise<void> {
   await runtime.workspaces.update((draft) => {
     draft.items = [{
-      workspaceId: 'w1' as WorkspaceId, title: 'alpha', path: '/w/alpha',
+      workspaceId: 'w1' as WorkspaceId, title: 'alpha', path,
       sessionIds: [SID], createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
     }] as never
   })
 }
+
+it('describes SSH conversation removal as local in the confirmation dialog', async () => {
+  const runtime = await createRuntime()
+  onTestFinished(() => runtime.dispose())
+  const path = 'ssh://project@192.0.2.2:22/srv/project'
+  await runtime.sessions.add({ id: SID, summary: { title: '远程对话', displayTitle: '远程对话', cwd: path } })
+  await runtime.sessions.retainFor(runtime.ctx, SID, { source: 'mainView', facets: { conversation: true } }).ready
+  await seedWorkspace(runtime, path)
+  await declareFrame(runtime)
+  await runtime.mount({ inject: [...inject], apply }, syncedConfig({ recentViewLimit: 10 }))
+  const view = runtime.renderRoot()
+
+  fireEvent.click(await view.findByRole('button', { name: '会话“远程对话”的操作' }))
+  fireEvent.click(await view.findByRole('menuitem', { name: '永久删除对话' }))
+  const dialog = await view.findByRole('dialog', { name: '从本机移除对话' })
+  expect(within(dialog).getByText('“远程对话”将从这台设备的列表中移除。服务器上的对话记录会保留。')).toBeDefined()
+})
 
 describe('session rename through the assembled browser', () => {
   it('renders independently registered Session actions in declared order', async () => {

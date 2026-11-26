@@ -150,8 +150,11 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     unarchiveSession: vi.fn(async () => {}),
     insertWorkspaceBefore: vi.fn(async () => {}),
     createWorkspace: vi.fn(async () => workspace('created', [])),
+    updateSshWorkspace: vi.fn(async () => workspace('updated', [])),
+    reconnectSshWorkspace: vi.fn(async () => {}),
     useDirectoryFlow: bindSnapshotSelector({ getSnapshot: () => true, subscribe: () => () => {} }),
     useHostInfo: selector => selector({ home: undefined, isLoopback: true }),
+    useSshStatus: hook(new Map()),
     renderSlot: renderDirectoryFlowOnly,
     renderFactorySlot: renderMenuButton,
     t,
@@ -326,7 +329,7 @@ describe('WorkspaceBrowser', () => {
     const add = screen.getByRole('button', { name: '添加工作区' })
     add.focus()
     fireEvent.click(add)
-    expect(document.activeElement).toBe(add)
+    fireEvent.click(screen.getByRole('menuitem', { name: '添加工作区…' }))
     expect(screen.getByTestId('directory-flow')).toBeTruthy()
     expect(panelInfo.activePanelId).toBe('panel-a')
     expect(b.props.open).not.toHaveBeenCalled()
@@ -1957,6 +1960,7 @@ describe('WorkspaceBrowser', () => {
     const b = mount({ wide: false })
     const add = screen.getByRole('button', { name: '添加工作区' })
     fireEvent.click(add)
+    fireEvent.click(screen.getByRole('menuitem', { name: '添加工作区…' }))
     const flow = screen.getByTestId('directory-flow')
     for (const wide of [true, false, true]) {
       rerender(b, { wide })
@@ -2062,15 +2066,15 @@ describe('WorkspaceBrowser', () => {
     }
   })
 
-  it('rail add-workspace raises the directory flow in place, with no menu and no expansion', () => {
+  it('offers local and SSH creation from the rail without expanding it', () => {
     const expandSidebar = vi.fn()
     mount({ wide: false, expandSidebar, useWorkspaces: hook(workspaceState([workspace('alpha', [])])) })
     fireEvent.click(screen.getByRole('button', { name: '添加工作区' }))
     expect(expandSidebar).not.toHaveBeenCalled()
-    // Adding is the header's only action, so the gesture IS that action: no
-    // one-row popover, and existing workspaces stay in the tree below.
-    expect(screen.queryByRole('menu')).toBeNull()
+    expect(screen.getByRole('menuitem', { name: '添加 SSH 工作区…' })).toBeTruthy()
     expect(screen.queryByRole('menuitem', { name: 'alpha' })).toBeNull()
+    fireEvent.click(screen.getByRole('menuitem', { name: '添加工作区…' }))
+    expect(screen.queryByRole('menu')).toBeNull()
     expect(screen.getByTestId('directory-flow')).toBeTruthy()
   })
 
@@ -2549,7 +2553,16 @@ describe('WorkspaceBrowser', () => {
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('denied') })
   })
 
-  it('confirms Workspace deletion, explains retention, and blocks duplicate submission', async () => {
+  it('explains that removing an SSH Workspace keeps the server directory', () => {
+    const remote = { ...workspace('remote', ['session'], 'Remote'), path: 'ssh://project@192.0.2.2:22/srv/project' }
+    const browser = mount({ useWorkspaces: hook(workspaceState([remote])) })
+    browser.openDialog(wid('remote'), 'Remote', 'delete')
+    const dialog = screen.getByRole('dialog', { name: '移除 SSH 工作区' })
+    expect(dialog.textContent).toContain('服务器上的目录和文件会保留')
+    expect(within(dialog).getByRole('button', { name: '移除 SSH 工作区' })).toBeTruthy()
+  })
+
+  it('confirms Workspace deletion, defaults to keeping local files, supports deleting local directory, and blocks duplicate submission', async () => {
     let resolveDelete!: () => void
     const deleteWorkspace = vi.fn(() => new Promise<void>((resolve) => { resolveDelete = resolve }))
     const browser = mount({
@@ -2558,18 +2571,21 @@ describe('WorkspaceBrowser', () => {
     })
     browser.openDialog(wid('alpha'), 'Alpha', 'delete')
     const dialog = screen.getByRole('dialog', { name: '删除工作目录' })
-    expect(dialog.textContent).toContain('将永久删除“Alpha”及其中的会话记录')
-    expect(dialog.textContent).toContain('工作目录会被递归删除')
-    expect(dialog.textContent).toContain('此操作无法撤销')
+    expect(dialog.textContent).toContain('将仅从客户端移除“Alpha”及其中的会话记录')
+    expect(dialog.textContent).toContain('本地工作目录和磁盘文件会保留')
 
-    const confirm = screen.getByRole<HTMLButtonElement>('button', { name: '删除工作目录' })
+    const checkbox = within(dialog).getByRole<HTMLInputElement>('checkbox', { name: /同时删除本地工作目录/ })
+    expect(checkbox.checked).toBe(false)
+
+    // Default unchecked mode deletes only client workspace & sessions (deleteDirectory: false).
+    const confirm = screen.getByRole<HTMLButtonElement>('button', { name: '移除会话目录' })
     fireEvent.click(confirm)
     fireEvent.click(confirm)
     expect(deleteWorkspace).toHaveBeenCalledOnce()
-    expect(deleteWorkspace).toHaveBeenCalledWith(wid('alpha'))
+    expect(deleteWorkspace).toHaveBeenCalledWith(wid('alpha'), { deleteDirectory: false })
     expect(confirm.disabled).toBe(true)
     expect(screen.getByRole<HTMLButtonElement>('button', { name: '取消' }).disabled).toBe(true)
-    expect(screen.getByRole('status').textContent).toBe('正在删除工作目录…')
+    expect(screen.getByRole('status').textContent).toBe('正在移除会话目录…')
     fireEvent.keyDown(document, { key: 'Escape' })
     fireEvent.click(screen.getByRole('button', { name: '关闭' }))
     expect(screen.getByRole('dialog', { name: '删除工作目录' })).toBeTruthy()
@@ -2582,6 +2598,24 @@ describe('WorkspaceBrowser', () => {
     expect(screen.queryByRole('dialog', { name: '删除工作目录' })).toBeNull()
   })
 
+  it('deletes the local directory when the user checks the local-directory option', async () => {
+    const deleteWorkspace = vi.fn(async () => {})
+    const browser = mount({
+      useWorkspaces: hook(workspaceState([workspace('alpha', ['session'], 'Alpha')])),
+      deleteWorkspace,
+    })
+    browser.openDialog(wid('alpha'), 'Alpha', 'delete')
+    const dialog = screen.getByRole('dialog', { name: '删除工作目录' })
+    const checkbox = within(dialog).getByRole<HTMLInputElement>('checkbox', { name: /同时删除本地工作目录/ })
+    fireEvent.click(checkbox)
+    expect(checkbox.checked).toBe(true)
+    expect(dialog.textContent).toContain('本地工作目录会被递归删除')
+    expect(dialog.textContent).toContain('此操作无法撤销')
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '永久删除本地目录' }))
+    expect(deleteWorkspace).toHaveBeenCalledExactlyOnceWith(wid('alpha'), { deleteDirectory: true })
+  })
+
   it('keeps the delete dialog open on failure and allows retry or cancellation', async () => {
     const deleteWorkspace = vi.fn()
       .mockRejectedValueOnce(new Error('storage unavailable'))
@@ -2591,10 +2625,10 @@ describe('WorkspaceBrowser', () => {
       deleteWorkspace,
     })
     browser.openDialog(wid('alpha'), 'Alpha', 'delete')
-    fireEvent.click(screen.getByRole('button', { name: '删除工作目录' }))
+    fireEvent.click(screen.getByRole('button', { name: '移除会话目录' }))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('storage unavailable') })
     expect(screen.getByRole('dialog', { name: '删除工作目录' })).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '删除工作目录' }))
+    fireEvent.click(screen.getByRole('button', { name: '移除会话目录' }))
     await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('denied') })
     fireEvent.click(screen.getByRole('button', { name: '取消' }))
     expect(screen.queryByRole('dialog', { name: '删除工作目录' })).toBeNull()
@@ -2649,6 +2683,7 @@ describe('Workspace tree grouping', () => {
         ? <button onClick={() => { owner.onPicked('/projects') }}>Pick directory</button> : null) as WorkspaceBrowserProps['renderSlot'],
     })
     fireEvent.click(screen.getByRole('button', { name: '添加工作区' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '添加工作区…' }))
     fireEvent.click(screen.getByRole('button', { name: 'Pick directory' }))
     await waitFor(() => { expect(b.props.startSession).toHaveBeenCalledWith(wid('root'), { clearPreviousDraft: false }) })
     expect(b.props.createWorkspace).toHaveBeenCalledWith({ path: '/projects' })

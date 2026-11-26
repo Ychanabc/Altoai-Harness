@@ -26,6 +26,7 @@ import type {
   WorkspaceRenameRequest,
   WorkspaceUnarchiveSessionRequest,
   WorkspaceUnpinSessionRequest,
+  WorkspaceUpdateSshRequest,
   WorkspaceValue,
   WorkspaceView,
 } from '../../src/types.ts'
@@ -99,6 +100,11 @@ export const workspaceWorld: RemoteTable = {
     }),
     'workspace/rename': (request: WorkspaceRenameRequest): RemoteResult<WorkspaceValue> => ok({
       workspace: workspace(String(request.workspaceId), { title: request.title }),
+    }),
+    'workspace/updateSsh': (request: WorkspaceUpdateSshRequest): RemoteResult<WorkspaceValue> => ok({
+      workspace: workspace(String(request.workspaceId), {
+        path: `ssh://${encodeURIComponent(request.ssh.username)}@${request.ssh.host}:${request.ssh.port}${request.path}`,
+      }),
     }),
     'workspace/delete': (_request: WorkspaceDeleteRequest): RemoteResult<WorkspaceDeleteValue> => ok({ deleted: true }),
     'workspace/deleteSession': (_request: WorkspaceDeleteSessionRequest): RemoteResult<WorkspaceDeleteSessionValue> => ok({ deleted: true }),

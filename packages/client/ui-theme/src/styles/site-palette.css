@@ -1,5 +1,5 @@
-/* Site overrides semantic roles only; upstream static colors, artwork, state colors
- * and platform materials retain their original owners. */
+/* Site overrides semantic roles with ui-ux-pro-max Liquid Glassmorphism tokens;
+ * upstream static colors, artwork, state colors and platform materials retain their original owners. */
 body {
   color-scheme: light;
 }
@@ -10,43 +10,93 @@ body[data-ds-dark-theme] {
 
 body,
 body[data-ds-dark-theme] {
-  --dsw-alias-bg-base: light-dark(#ffffff, #111214);
-  --dsw-alias-bg-layer-1: light-dark(#ffffff, #1a1c20);
-  --dsw-alias-bg-layer-2: light-dark(#ffffff, #1e2026);
-  --dsw-alias-bg-layer-3: light-dark(#f8f9fb, #252830);
-  --dsw-alias-brand-primary: light-dark(#0060df, #0a62c0);
-  --dsw-alias-button-primary-hover: light-dark(#0054c4, #237aad);
-  --dsw-alias-label-primary: light-dark(#1c1c1e, #f5f5f7);
-  --dsw-alias-label-secondary: light-dark(#3a3a3c, #c7c7cc);
-  --dsw-alias-label-tertiary: light-dark(#48484a, #aeaeb2);
-  --dsw-alias-label-caption: light-dark(#48484a, #aeaeb2);
-  --dsw-alias-link: light-dark(#0060df, #64b5ff);
-  --dsw-alias-state-business-primary: light-dark(#0060df, #64b5ff);
-  --dsw-alias-state-business-tertiary: light-dark(#e6f1fa, #263d4c);
-  --dsw-alias-border-l1: light-dark(#17212f0a, #ffffff0f);
-  --dsw-alias-border-l2: light-dark(#17212f14, #ffffff1a);
-  --dsw-alias-border-l3: light-dark(#17212f1c, #ffffff21);
-  --dsw-alias-border-l4: light-dark(#17212f24, #ffffff2b);
-  --dsw-alias-card-fill: light-dark(#f1f5f9, #292929);
-  --dsw-alias-card-fill-hover: light-dark(#eaf0f6, #313131);
-  --dsw-alias-card-tile-fill: light-dark(#ffffff, #353535);
+  /* Core semantic palette: Frosted Pearl Glass (light) & Obsidian Smoked Glass (dark). */
+  --dsw-alias-bg-base: light-dark(#f4f6fb, #080c16);
+  --dsw-alias-bg-layer-1: light-dark(#ffffff, #111827);
+  --dsw-alias-bg-layer-2: light-dark(#ffffff, #151d30);
+  --dsw-alias-bg-layer-3: light-dark(#eaf0fa, #1c263d);
+  --dsw-alias-brand-primary: light-dark(#2563eb, #2563eb);
+  --dsw-alias-button-primary-hover: light-dark(#1d4ed8, #1d4ed8);
+  --dsw-alias-button-info-fill: light-dark(#2563eb, #3b82f6);
+  --dsw-alias-button-info-hover: light-dark(#1d4ed8, #60a5fa);
+  --dsw-alias-label-primary: light-dark(#0f172a, #f1f5f9);
+  --dsw-alias-label-secondary: light-dark(#475569, #cbd5e1);
+  --dsw-alias-label-tertiary: light-dark(#526074, #94a3b8);
+  --dsw-alias-label-caption: light-dark(#5c6a7e, #7e8ea5);
+  --dsw-alias-link: light-dark(#2563eb, #60a5fa);
+  --dsw-alias-state-business-primary: light-dark(#2563eb, #60a5fa);
+  --dsw-alias-state-business-tertiary: light-dark(rgb(37 99 235 / 11%), rgb(59 130 246 / 18%));
+  --dsw-alias-border-l1: light-dark(rgb(15 23 42 / 6%), rgb(255 255 255 / 7%));
+  --dsw-alias-border-l2: light-dark(rgb(15 23 42 / 10%), rgb(255 255 255 / 11%));
+  --dsw-alias-border-l3: light-dark(rgb(15 23 42 / 14%), rgb(255 255 255 / 16%));
+  --dsw-alias-border-l4: light-dark(rgb(15 23 42 / 20%), rgb(255 255 255 / 24%));
+  --dsw-alias-card-fill: light-dark(rgb(255 255 255 / 78%), rgb(20 28 45 / 72%));
+  --dsw-alias-card-fill-hover: light-dark(rgb(255 255 255 / 92%), rgb(28 38 60 / 84%));
+  --dsw-alias-card-tile-fill: light-dark(rgb(255 255 255 / 84%), rgb(26 35 56 / 80%));
+  --dsw-alias-interactive-bg-hover: light-dark(rgb(15 23 42 / 5.5%), rgb(255 255 255 / 7.5%));
+  --dsw-alias-interactive-bg-active: light-dark(rgb(15 23 42 / 9.5%), rgb(255 255 255 / 12%));
   --dsw-alias-brand-primary-new-colorprimary-new-color: var(--dsw-alias-brand-primary);
   --dsw-alias-button-primary-fill: var(--dsw-alias-brand-primary);
   --dsw-alias-border-selected: var(--dsw-alias-state-business-primary);
-  --dsw-alias-button-elevated-fill: var(--dsw-alias-bg-layer-2);
-  --dsw-alias-button-floating-fill: var(--dsw-alias-bg-layer-2);
-  --dsw-alias-button-floating-hover: var(--dsw-alias-bg-layer-3);
-  --dsw-alias-settings-card-fill: var(--dsw-alias-bg-layer-2);
+  --dsw-alias-button-elevated-fill: light-dark(rgb(255 255 255 / 84%), rgb(22 30 48 / 78%));
+  --dsw-alias-button-floating-fill: light-dark(rgb(255 255 255 / 86%), rgb(22 30 48 / 82%));
+  --dsw-alias-button-floating-hover: light-dark(rgb(255 255 255 / 96%), rgb(30 41 64 / 92%));
+  --dsw-alias-settings-card-fill: light-dark(rgb(248 250 253 / 92%), rgb(26 34 52 / 90%));
   --dsw-alias-settings-card-stroke: var(--dsw-alias-border-l2);
   --dsw-alias-onboarding-accent: var(--dsw-alias-brand-primary);
-  --dsw-alias-onboarding-card-fill: var(--dsw-alias-bg-layer-2);
+  --dsw-alias-onboarding-card-fill: light-dark(rgb(255 255 255 / 88%), rgb(20 28 45 / 84%));
   --dsw-alias-onboarding-secondary-fill: var(--dsw-alias-bg-layer-3);
   --dsw-alias-onboarding-checkbox-border: var(--dsw-alias-border-l4);
   --dsw-alias-label-primary-foreground: #ffffff;
   --dsw-alias-label-on-color: #ffffff;
-  --dsw-specific-sidebar-fill: light-dark(#f8f9fb, #16181d);
+  --dsw-alias-bg-mask-1: light-dark(rgb(15 23 42 / 34%), rgb(0 0 0 / 56%));
+  --dsw-specific-sidebar-fill: light-dark(#eef2f9, #0c1220);
   --dsw-specific-sidebar-nav-item-active-accent: var(--dsw-alias-state-business-tertiary);
-  --dsw-specific-input-major: light-dark(#f0f4f9, #282a2c);
+  --dsw-specific-input-major: light-dark(rgb(255 255 255 / 86%), rgb(19 27 44 / 82%));
+  --dsw-specific-bubble: light-dark(rgb(235 243 255 / 88%), rgb(30 46 78 / 80%));
   --dsw-linear-gradient-think: linear-gradient(180deg, var(--dsw-alias-bg-base) 20.19%, transparent);
   --dsw-linear-think-select: linear-gradient(180deg, var(--dsw-alias-card-fill) 20.19%, transparent);
+
+  /* Shared GPU-friendly Frosted Glass tokens (zero SVG grain, minimal blur layers). */
+  --dsh-windows-titlebar-overlay: rgba(0, 0, 0, 0);
+  --dsh-glass-shell-tint: light-dark(rgb(245 248 255 / 44%), rgb(11 16 28 / 54%));
+  --dsh-glass-sheet-bg: light-dark(rgb(252 253 255 / 84%), rgb(14 19 31 / 82%));
+  --dsh-glass-sheet-solid: light-dark(rgb(250 252 255 / 94%), rgb(15 21 34 / 94%));
+  --dsh-glass-card-bg: light-dark(rgb(255 255 255 / 84%), rgb(20 28 45 / 80%));
+  --dsh-glass-modal-bg: light-dark(rgb(255 255 255 / 96%), rgb(19 26 40 / 96%));
+  --dsh-glass-bg: light-dark(rgb(255 255 255 / 62%), rgb(16 22 37 / 60%));
+  --dsh-glass-bg-strong: light-dark(rgb(255 255 255 / 86%), rgb(20 28 45 / 84%));
+  --dsh-glass-bg-subtle: light-dark(rgb(255 255 255 / 48%), rgb(255 255 255 / 7%));
+  --dsh-glass-sidebar-bg: light-dark(rgb(244 248 255 / 76%), rgb(12 18 32 / 78%));
+  --dsh-glass-border: light-dark(rgb(255 255 255 / 82%), rgb(255 255 255 / 12%));
+  --dsh-glass-border-strong: light-dark(rgb(15 23 42 / 9%), rgb(255 255 255 / 13%));
+  --dsh-glass-highlight: light-dark(rgb(255 255 255 / 86%), rgb(255 255 255 / 12%));
+  --dsh-glass-blur: blur(12px) saturate(145%);
+  --dsh-glass-blur-heavy: blur(14px) saturate(155%);
+  --dsh-glass-shadow: light-dark(
+    0 14px 32px -18px rgb(15 23 42 / 16%),
+    0 20px 44px -18px rgb(0 0 0 / 62%)
+  );
+  --dsh-glass-shadow-sm: light-dark(
+    0 4px 14px -8px rgb(15 23 42 / 12%),
+    0 8px 20px -10px rgb(0 0 0 / 48%)
+  );
+  --dsh-glass-mesh: light-dark(
+    radial-gradient(ellipse 68% 52% at 8% -6%, rgb(59 130 246 / 18%), transparent 62%),
+    radial-gradient(ellipse 68% 52% at 8% -6%, rgb(59 130 246 / 22%), transparent 62%)
+  ),
+  light-dark(
+    radial-gradient(ellipse 58% 48% at 92% 4%, rgb(99 102 241 / 16%), transparent 60%),
+    radial-gradient(ellipse 58% 48% at 92% 4%, rgb(124 58 237 / 19%), transparent 60%)
+  ),
+  light-dark(
+    radial-gradient(ellipse 62% 44% at 48% 106%, rgb(14 165 233 / 14%), transparent 62%),
+    radial-gradient(ellipse 62% 44% at 48% 106%, rgb(6 182 212 / 16%), transparent 62%)
+  );
+}
+
+/* Windows native Acrylic material shows directly through the caption bar and sidebar. */
+html[data-windows-titlebar],
+html[data-windows-titlebar] body {
+  background-color: transparent !important;
 }

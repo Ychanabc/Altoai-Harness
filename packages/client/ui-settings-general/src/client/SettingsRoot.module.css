@@ -118,10 +118,15 @@
   width: 800px;
   height: min(800px, calc(100vh - 2 * max(24px, var(--dsh-frame-overlay-top, 24px))));
   max-width: calc(100vw - 48px);
+  border: 1px solid var(--dsh-glass-border-strong);
   border-radius: var(--dsw-radius-panel);
   overflow: hidden;
-  background: var(--dsw-alias-bg-layer-2);
-  box-shadow: var(--dsw-elevation-prominent);
+  background: var(--dsh-glass-modal-bg);
+  backdrop-filter: var(--dsh-glass-blur);
+  -webkit-backdrop-filter: var(--dsh-glass-blur);
+  box-shadow:
+    inset 0 1px 0 var(--dsh-glass-highlight),
+    var(--dsw-elevation-prominent);
   /* Elevated surface: the scrollbar thumb takes the l2 elevation tokens.
      Declared on the panel rather than the scrolling `.options` child so the
      elevation choice sits with the surface; the custom properties inherit
@@ -145,6 +150,8 @@
   flex-direction: column;
   padding: 10px 12px 0;
   box-sizing: border-box;
+  border-right: 1px solid var(--dsh-glass-border-strong);
+  background: var(--dsh-glass-bg-subtle);
 }
 
 /* Title row (figma 501:29959): 16/500 lh24, at the rail's 24px text inset.
@@ -153,6 +160,8 @@
 .navTitle {
   grid-area: title;
   padding: 22px 12px 8px 24px;
+  border-right: 1px solid var(--dsh-glass-border-strong);
+  background: var(--dsh-glass-bg-subtle);
   font-size: 16px;
   line-height: 24px;
   font-weight: 500;
@@ -185,18 +194,22 @@
   font-size: 14px;
   line-height: 22px;
   font-weight: 400;
-  color: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-label-secondary);
   text-align: left;
+  transition: background-color 140ms ease, color 140ms ease;
 }
 
 @media (hover: hover) {
   .navCell:hover {
     background-color: var(--dsw-alias-interactive-bg-hover);
+    color: var(--dsw-alias-label-primary);
   }
 }
 
 .navCell.active {
-  background: var(--dsw-specific-sidebar-nav-item-active);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 11%, transparent);
+  color: var(--dsw-alias-state-business-primary);
+  font-weight: 500;
 }
 
 .navIcon {

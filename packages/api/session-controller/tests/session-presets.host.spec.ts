@@ -55,7 +55,7 @@ interface HarnessOptions {
   /** Requested presets whose resolution waits for the paired promise. */
   readonly resolving?: ReadonlyMap<string, Promise<void>>
   /** Workspace placement served to `workspaceId` requests. */
-  readonly workspace?: { readonly members: readonly SessionId[]; readonly archived: readonly SessionId[] }
+  readonly workspace?: { readonly members: readonly SessionId[]; readonly archived: readonly SessionId[]; readonly path?: string }
 }
 
 const WORKSPACE = 'workspace-1' as WorkspaceId
@@ -117,7 +117,7 @@ async function harness(options: HarnessOptions = {}) {
     },
   }) as never)
   const { members, archived } = options.workspace ?? { members: [], archived: [] }
-  const workspace = { id: WORKSPACE, path: cwd, sessionIds: members, attachSession: () => Promise.resolve() }
+  const workspace = { id: WORKSPACE, path: options.workspace?.path ?? cwd, sessionIds: members, attachSession: vi.fn(async () => {}) }
   ctx.provide('workspaceRegistry', {
     get: (id: WorkspaceId) => id === WORKSPACE ? workspace : undefined,
     list: () => [workspace],
@@ -184,7 +184,7 @@ async function harness(options: HarnessOptions = {}) {
       .filter(event => event.type === 'agent-preset/selected')
       .map(event => event.data)
   }
-  return { ctx, remote, cwd, selections, resumed, presetOf, selectedEvents }
+  return { ctx, remote, cwd, selections, resumed, presetOf, selectedEvents, workspace }
 }
 
 function storedHeader(id: SessionId, cwd: string, extra: Partial<SessionHeader> = {}): SessionHeader {
@@ -207,6 +207,18 @@ function completedTurn(seq: number): SessionEvent[] {
 }
 
 describe('session.create Agent preset identity', () => {
+  it('creates a Session under a registered SSH workspace and records the full location', async () => {
+    const path = 'ssh://account@192.0.2.7:2222/home/account/project'
+    const { ctx, remote, workspace } = await harness({
+      presets: ['standard'], workspace: { path, members: [], archived: [] },
+    })
+    const sessionId = brandString<SessionId>('ssh-draft')
+    expect(await remote.create({ sessionId, workspaceId: WORKSPACE }))
+      .toMatchObject({ ok: true, value: { sessionId } })
+    expect(ctx.agents.get(sessionId)?.session.header.cwd).toBe(path)
+    expect(workspace.attachSession).toHaveBeenCalledExactlyOnceWith(sessionId)
+  })
+
   it('records the canonical spelling of the requested project directory', async () => {
     const { ctx, remote, cwd } = await harness({ presets: ['standard'] })
     await ctx.plugin(LocalFileSystem, { cwd })

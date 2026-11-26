@@ -9,13 +9,62 @@ function isWindowsStylePath(value: string): boolean {
   return /^[A-Za-z]:[/\\]/.test(value) || value.startsWith('\\\\')
 }
 
+/** A password-free SSH authority and its absolute POSIX directory. */
+export interface SshWorkspaceLocation {
+  host: string
+  remotePath: string
+}
+
+/** Parsed components of a managed SSH authority (`user@host:port`). */
+export interface SshWorkspaceAuthority {
+  readonly username: string
+  readonly host: string
+  readonly port: number
+}
+
+/**
+ * Parse a stored SSH workspace location without interpreting it as a local path or decoding its directory.
+ * @param path - Candidate workspace path.
+ * @returns The SSH authority and directory, or undefined for other paths and malformed locations.
+ */
+export function parseSshWorkspacePath(path: string): SshWorkspaceLocation | undefined {
+  const location = /^ssh:\/\/((?:[a-zA-Z0-9_.%-]+@)?(?:[a-zA-Z0-9_][a-zA-Z0-9_.-]*|\[[a-fA-F0-9:.]+\])(?::[0-9]+)?)(\/[^\0]*)$/u.exec(path)
+  if (location === null || location[0] !== path) return undefined
+  const [, host, remotePath] = location
+  if (host === undefined || remotePath === undefined) return undefined
+  return { host, remotePath }
+}
+
+/**
+ * Split a stored SSH authority into username, host/IP, and port for editing forms.
+ * @param authority - Authority part from {@link parseSshWorkspacePath} (for example `alice@192.0.2.10:22`).
+ * @returns Decoded username, unbracketed host, and numeric port, or undefined when malformed.
+ */
+export function parseSshWorkspaceAuthority(authority: string): SshWorkspaceAuthority | undefined {
+  const match = /^(?:([a-zA-Z0-9_.%-]+)@)?(\[[a-fA-F0-9:.]+\]|[a-zA-Z0-9_][a-zA-Z0-9_.-]*)(?::([0-9]+))?$/u.exec(authority)
+  if (match === null) return undefined
+  const [, rawUser = '', rawHost, rawPort] = match
+  if (rawHost === undefined) return undefined
+  let username = rawUser
+  try {
+    username = decodeURIComponent(rawUser)
+  } catch (_invalidEncoding) {
+    // Keep the raw authority segment when a legacy alias contains a literal percent sign.
+    username = rawUser
+  }
+  const host = rawHost.startsWith('[') && rawHost.endsWith(']') ? rawHost.slice(1, -1) : rawHost
+  const port = rawPort === undefined ? 22 : Number(rawPort)
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return undefined
+  return { username, host, port }
+}
+
 /**
  * Whether a path is absolute in either spelling the Host accepts: POSIX (`/a/b`) or Windows drive or UNC.
  * @param path - the path to classify.
  * @returns `true` for an absolute path; `false` for a Workspace-relative one.
  */
 export function isAbsoluteWorkspacePath(path: string): boolean {
-  return path.startsWith('ssh://') || path.startsWith('/') || isWindowsStylePath(path)
+  return parseSshWorkspacePath(path) !== undefined || path.startsWith('/') || isWindowsStylePath(path)
 }
 
 /**
@@ -119,6 +168,6 @@ export function relativizeToCwd(text: string, cwd: string | undefined): string {
  */
 export function fileMediaUrl(base: string, path: string): string | undefined {
   if ((!/^https?:/u.test(base) && !base.startsWith('dsh-app://app/')) || !isAbsoluteWorkspacePath(path)
-    || /^[/\\]{2}/u.test(path) || /[\u0000-\u001f\u007f]/u.test(path)) return undefined
+    || parseSshWorkspacePath(path) !== undefined || /^[/\\]{2}/u.test(path) || /[\u0000-\u001f\u007f]/u.test(path)) return undefined
   return new URL(`api/file?path=${encodeURIComponent(path)}`, base).href
 }

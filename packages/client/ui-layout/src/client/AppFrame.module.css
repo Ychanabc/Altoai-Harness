@@ -5,7 +5,8 @@
   height: 100%;
   box-sizing: border-box;
   overflow: hidden;
-  background: var(--dsw-alias-bg-base);
+  background-color: var(--dsw-alias-bg-base);
+  background-image: var(--dsh-glass-mesh);
 }
 
 /* Only discrete collapse/expand and fold changes ease the tracks (the TSX holds
@@ -23,31 +24,48 @@
   transition: none;
 }
 
-/* The Windows caption row remains outside every conversation and file panel. */
+/* Windows native Acrylic material renders GPU-accelerated frosted glass across
+   the entire window frame (titlebar + sidebar + content sheet) without heavy
+   stacked CSS backdrop-filter layers. One continuous aurora tint spans the top
+   bar and sidebar with zero seams; the content area floats as a clean frosted sheet. */
 :global([data-windows-titlebar]) .frame {
-  --dsh-windows-content-radius: 16px;
   box-sizing: border-box;
-  padding-top: var(--dsh-windows-titlebar-height);
-  background: var(--dsw-specific-sidebar-fill);
-}
-
-:global([data-windows-titlebar]) .centerCol {
-  background: var(--dsw-alias-bg-base);
-  border-radius: var(--dsh-windows-content-radius) 0 0 0;
-  corner-shape: round;
+  padding-top: var(--dsh-frame-chrome-top);
+  background-color: var(--dsh-glass-shell-tint);
+  background-image: var(--dsh-glass-mesh);
 }
 
 :global([data-windows-titlebar]) .frame::before {
   content: '';
   position: absolute;
   inset: 0 0 auto;
-  height: var(--dsh-windows-titlebar-height);
-  background: var(--dsw-specific-sidebar-fill);
+  height: var(--dsh-frame-chrome-top);
+  background: transparent;
+  box-shadow: inset 0 1px 0 var(--dsh-glass-highlight);
   -webkit-app-region: drag;
 }
 
 :global([data-windows-titlebar]) .sidebarCol {
+  background: transparent;
   border-right: none;
+  box-shadow: none;
+}
+
+:global([data-windows-titlebar]) .centerCol {
+  background: var(--dsh-glass-sheet-bg);
+  border-top-left-radius: var(--dsw-radius-lg);
+  border-top: 1px solid var(--dsh-glass-border-strong);
+  border-left: 1px solid var(--dsh-glass-border-strong);
+  box-shadow: inset 1px 1px 0 var(--dsh-glass-highlight);
+}
+
+:global([data-windows-titlebar]) .frame[data-sidebar-collapsed] .centerCol {
+  border-top-left-radius: 0;
+  border-left: none;
+}
+
+:global([data-windows-titlebar]) .rightbarCol {
+  border-top: 1px solid var(--dsh-glass-border-strong);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -61,8 +79,8 @@
   grid-row: 1;
   min-width: 0;
   overflow: hidden;
-  background: var(--dsw-specific-sidebar-fill);
-  border-right: 0.5px solid var(--dsw-alias-border-l3);
+  background: var(--dsh-glass-sidebar-bg);
+  border-right: 1px solid var(--dsh-glass-border-strong);
 }
 
 .centerCol {
@@ -72,6 +90,15 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* Let the column clip the slide while the conversation lays out at the destination width. */
+.centerContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: var(--dsh-center-target-width, 100%);
 }
 
 .mainPanel {

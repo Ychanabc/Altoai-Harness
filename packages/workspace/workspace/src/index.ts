@@ -5,12 +5,13 @@
  * @module @deepseek-ai/dsh-workspace
  */
 
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { parse, resolve } from 'node:path'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { mkdir, realpath, rm, stat } from 'node:fs/promises'
 import { Context, Service } from '@deepseek-ai/cordis'
+import type { CredentialKey, CredentialRecord } from '@deepseek-ai/dsh-credentials'
 import type { SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-persistence'
 import type { DomainGlobal, KvTable } from '@deepseek-ai/dsh-storage-domain'
@@ -20,13 +21,53 @@ import type { WorkspaceEntityHost } from './entity.ts'
 export { WorkspaceMoveInvalidError } from './entity.ts'
 export { formatSshWorkspacePath, parseSshWorkspacePath, verifySshWorkspacePath } from './ssh-path.ts'
 import { defaultWorkspaceTitle, fullyQualifiedWorkspacePath, realpathNormalize } from './paths.ts'
-import { parseSshWorkspacePath, verifySshWorkspacePath } from './ssh-path.ts'
+import { SshWebHost } from './ssh-web.ts'
+import { sshFiles, type SshFilesResult } from './ssh-files.ts'
+import {
+  formatSshWorkspacePath, parseSshWorkspacePath, probeSshDirectory, sshWorkspaceAuthority, verifySshWorkspacePath,
+  type SshWorkspaceConnection,
+  type SshWorkspaceUpdateConnection,
+} from './ssh-path.ts'
 import { workspaceDomainSpec } from './spec.ts'
 import type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
-import type { SessionActivity, Workspace, WorkspaceId as WorkspaceIdBrand } from './types.ts'
+import type {
+  SessionActivity,
+  SshWorkspaceConnectionState,
+  Workspace,
+  WorkspaceId as WorkspaceIdBrand,
+} from './types.ts'
+
+function sshCredentialKey(authority: string): CredentialKey {
+  const id = createHash('sha256').update(authority).digest('hex')
+  return brandString<CredentialKey>(`workspace/ssh-${id}`)
+}
+
+interface StoredSshHostRecord {
+  readonly host: string
+  readonly port: number
+  readonly username: string
+  readonly fingerprint: string
+}
+
+function storedSshHost(record: CredentialRecord | undefined): StoredSshHostRecord | undefined {
+  if (record?.kind !== 'grant' || typeof record.payload !== 'object' || record.payload === null) return undefined
+  const value = record.payload as Partial<StoredSshHostRecord>
+  if (typeof value.host !== 'string' || typeof value.port !== 'number' || typeof value.username !== 'string'
+    || typeof value.fingerprint !== 'string') return undefined
+  return { host: value.host, port: value.port, username: value.username, fingerprint: value.fingerprint }
+}
+
+/** Raised when opening an SSH Workspace requires an interactive password prompt. */
+export class SshPasswordRequiredError extends Error {
+  readonly code = 'SSH_PASSWORD_REQUIRED' as const
+  constructor(readonly workspaceId: WorkspaceId) {
+    super('Enter the SSH password to connect to this workspace.')
+    this.name = 'SshPasswordRequiredError'
+  }
+}
 
 export type {
-  SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap, Workspace,
+  SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap, SshWorkspaceConnectionState, Workspace,
 } from './types.ts'
 export { workspaceDomainState, workspaceRecord, workspaceDomainSpec } from './spec.ts'
 export type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
@@ -122,6 +163,12 @@ declare module '@deepseek-ai/cordis' {
 
   interface Events {
     /**
+     * A desktop SSH Session reference was hidden durably.
+     * @mode emit
+     * @param sessionId - removed local reference.
+     */
+    'workspace/ssh-session-hidden'(sessionId: SessionId): void
+    /**
      * Ask the composed providers what still runs for a session before it is
      * archived. A listener prepends its own {@link SessionActivity} entries to
      * the result of `next()`; the registry's innermost callback returns an
@@ -183,6 +230,12 @@ interface BootstrapGroup {
   readonly newestAt: number
 }
 
+/** Workspace registry launch settings. */
+interface Config {
+  /** Existing project to register in a Host opened over an SSH tunnel. */
+  sshWorkspace?: string
+}
+
 const sameIds = (left: readonly WorkspaceId[], right: readonly WorkspaceId[]): boolean =>
   left.length === right.length && left.every((id, index) => id === right[index])
 
@@ -199,6 +252,9 @@ const compareHeaders = (left: SessionHeader, right: SessionHeader): number =>
 export class WorkspaceRegistry extends Service {
   static inject = ['storageDomain', 'sessionPersistence']
 
+  /** Whether this Host exposes a project opened over an SSH tunnel. */
+  readonly sshProjectHost: boolean
+
   private table?: KvTable<WorkspaceId, WorkspaceRecord>
   private global?: DomainGlobal<WorkspaceDomainState>
   private state?: WorkspaceDomainState
@@ -208,9 +264,15 @@ export class WorkspaceRegistry extends Service {
   private readonly missingSessionPaths = new Set<SessionId>()
   private readonly invalidSessionPaths = new Map<SessionId, string>()
   private operationTail: Promise<void> = Promise.resolve()
+  private readonly sshHosts = new Map<string, SshWebHost>()
+  private readonly sshStates = new Map<WorkspaceId, SshWorkspaceConnectionState>()
+  /** Session-only SSH passwords held strictly in memory; cleared on disconnect and never written to disk. */
+  private readonly sshPasswords = new Map<string, string>()
+  private readonly sshLifetime = new AbortController()
 
   private readonly host: WorkspaceEntityHost = {
     table: () => this.requireTable(),
+    verifySsh: path => this.verifySsh(path),
     candidateMatches: (id, path) => this.sessionPaths.get(id) === path || this.missingSessionPaths.has(id),
     readSessionHeader: id => this.readSessionHeader(id),
     sessionHeader: (id) => {
@@ -228,12 +290,21 @@ export class WorkspaceRegistry extends Service {
     },
   }
 
-  constructor(ctx: Context) {
+  constructor(ctx: Context, private readonly config: Config = {}) {
     super(ctx, 'workspaceRegistry')
+    if (config.sshWorkspace !== undefined && (typeof config.sshWorkspace !== 'string'
+      || !fullyQualifiedWorkspacePath(config.sshWorkspace) || parseSshWorkspacePath(config.sshWorkspace) !== undefined)) {
+      throw new TypeError('SSH project mode requires an absolute directory on the machine running the Host')
+    }
+    this.sshProjectHost = config.sshWorkspace !== undefined
   }
 
   /** Open the domain, finish bootstrap when required, and rebuild the ordered cache. */
   protected async [Service.init](): Promise<void> {
+    this.ctx.effect(() => async () => {
+      this.sshLifetime.abort()
+      await Promise.all([...this.sshHosts.values()].map(host => host.close()))
+    }, 'workspace.closeSshHosts')
     const domain = await this.ctx.storageDomain.open(workspaceDomainSpec)
     this.ctx.effect(() => () => domain.close(), 'workspace.domainClose')
     this.table = domain.table('workspaces')
@@ -253,6 +324,7 @@ export class WorkspaceRegistry extends Service {
     await this.indexLiveSessions()
     this.validateStoredState(this.requireState())
     this.rebuildEntities()
+    if (this.config.sshWorkspace !== undefined) await this.create(this.config.sshWorkspace)
     this.reportFilteredCandidates()
   }
 
@@ -274,7 +346,7 @@ export class WorkspaceRegistry extends Service {
   // lines in this package's README pair.
   async create(path: string, title?: string): Promise<Workspace> {
     if (parseSshWorkspacePath(path) !== undefined) {
-      const canonical = await verifySshWorkspacePath(path)
+      const canonical = await this.verifySsh(path)
       return await this.enqueueOperation(() => this.createCanonical(canonical, title))
     }
     const canonical = await realpathNormalize(path)
@@ -282,6 +354,248 @@ export class WorkspaceRegistry extends Service {
       throw new Error(`cannot create a workspace at '${canonical}': path is not a directory`)
     }
     return await this.enqueueOperation(() => this.createCanonical(canonical, title))
+  }
+
+  /**
+   * Verify password authentication and adopt an existing remote directory.
+   * @param path - Absolute POSIX directory on the SSH host.
+   * @param connection - Server coordinates and password for this attempt.
+   * @returns The workspace and whether this request registered it.
+   */
+  async createSsh(path: string, connection: SshWorkspaceConnection): Promise<{ workspace: Workspace; created: boolean }> {
+    if (!path.startsWith('/') || path.length > 4096 || path.includes('\0')) {
+      throw new Error('Enter an absolute remote directory')
+    }
+    const authority = sshWorkspaceAuthority(connection)
+    const canonical = formatSshWorkspacePath(authority, path)
+    const location = parseSshWorkspacePath(canonical)
+    if (location === undefined) throw new Error('Invalid SSH workspace location')
+    return this.enqueueOperation(async () => {
+      const credentials = this.ctx.get('credentials')
+      if (credentials === undefined) throw new Error('SSH credential storage is unavailable')
+      await credentials.modifyRecord(sshCredentialKey(authority), async (current) => {
+        const fingerprint = await probeSshDirectory(connection, location.remotePath, storedSshHost(current)?.fingerprint)
+        // Store only host coordinates and pinned fingerprint; passwords stay strictly in memory.
+        return { kind: 'grant', payload: { host: connection.host, port: connection.port, username: connection.username, fingerprint } }
+      })
+      this.sshPasswords.set(authority, connection.password)
+      const existing = await this.resolveByPath(canonical)
+      if (existing !== undefined) return { workspace: existing, created: false }
+      return { workspace: await this.createCanonical(canonical), created: true }
+    })
+  }
+
+  /**
+   * Verify and update an existing SSH workspace's endpoint coordinates, credentials, and remote directory.
+   * When password is omitted or blank, the previously saved password for the workspace is reused.
+   * @param id - Existing SSH workspace id to update.
+   * @param path - New absolute POSIX directory on the SSH host.
+   * @param connection - Updated SSH coordinates and optional password.
+   * @returns The updated workspace entity.
+   */
+  async updateSsh(id: WorkspaceId, path: string, connection: SshWorkspaceUpdateConnection): Promise<Workspace> {
+    if (!path.startsWith('/') || path.length > 4096 || path.includes('\0')) {
+      throw new Error('Enter an absolute remote directory')
+    }
+    return this.enqueueOperation(async () => {
+      const entity = this.entities.get(id)
+      const previousLocation = entity === undefined ? undefined : parseSshWorkspacePath(entity.path)
+      if (this.sshProjectHost || entity === undefined || previousLocation === undefined) {
+        throw new Error('Select a saved SSH workspace to edit')
+      }
+      const credentials = this.ctx.get('credentials')
+      if (credentials === undefined) throw new Error('SSH credential storage is unavailable')
+      let password = connection.password
+      if (password === undefined || password === '') {
+        password = this.sshPasswords.get(previousLocation.host)
+      }
+      if (password === undefined || password === '') {
+        throw new Error('Enter the SSH password to update this connection')
+      }
+      const resolvedConnection: SshWorkspaceConnection = {
+        host: connection.host,
+        port: connection.port,
+        username: connection.username,
+        password,
+      }
+      const authority = sshWorkspaceAuthority(resolvedConnection)
+      const canonical = formatSshWorkspacePath(authority, path)
+      const location = parseSshWorkspacePath(canonical)
+      if (location === undefined) throw new Error('Invalid SSH workspace location')
+      for (const candidate of this.entities.values()) {
+        if (candidate.id !== id && candidate.path === canonical) {
+          throw new Error('Another workspace already uses this SSH location')
+        }
+      }
+      await credentials.modifyRecord(sshCredentialKey(authority), async (current) => {
+        const trustedFingerprint = previousLocation.host === authority ? storedSshHost(current)?.fingerprint : undefined
+        const fingerprint = await probeSshDirectory(resolvedConnection, location.remotePath, trustedFingerprint)
+        return { kind: 'grant', payload: { host: resolvedConnection.host, port: resolvedConnection.port, username: resolvedConnection.username, fingerprint } }
+      })
+      this.sshPasswords.delete(previousLocation.host)
+      this.sshPasswords.set(authority, password)
+      const previousPath = entity.path
+      const activeHost = this.sshHosts.get(previousPath)
+      if (activeHost !== undefined) {
+        this.sshHosts.delete(previousPath)
+        await activeHost.close()
+        if (this.entities.get(id) === entity) this.reportSshStatus(id, 'paused')
+      }
+      if (previousPath !== canonical) {
+        await entity.setPath(canonical)
+      }
+      return entity
+    })
+  }
+
+  /**
+   * Open the remote Harness for a registered, password-authenticated Workspace.
+   * @param id - local registration selecting the remote project and credentials.
+   * @param models - optional handler for authenticated desktop model calls.
+   * @returns Local, authenticated URL for the SSH tunnel.
+   */
+  async openSsh(id: WorkspaceId, models?: import('node:http').RequestListener, passwordOverride?: string): Promise<string> {
+    const workspace = this.entities.get(id)
+    const location = workspace === undefined ? undefined : parseSshWorkspacePath(workspace.path)
+    if (this.sshProjectHost || workspace === undefined || location === undefined) {
+      throw new Error('Select a saved SSH workspace on the desktop')
+    }
+    const record = await this.ctx.get('credentials')?.readRecord(sshCredentialKey(location.host))
+    this.sshLifetime.signal.throwIfAborted()
+    if (this.entities.get(id) !== workspace) throw new Error('The SSH workspace was removed')
+    const hostInfo = storedSshHost(record)
+    if (hostInfo === undefined || sshWorkspaceAuthority(hostInfo) !== location.host) {
+      throw new Error('Saved SSH host metadata is unavailable. Edit or add the workspace again.')
+    }
+    if (passwordOverride !== undefined && passwordOverride !== '') {
+      this.sshPasswords.set(location.host, passwordOverride)
+    }
+    let host = this.sshHosts.get(workspace.path)
+    if (host === undefined) {
+      const password = this.sshPasswords.get(location.host)
+      if (password === undefined || password === '') {
+        throw new SshPasswordRequiredError(id)
+      }
+      const login = { ...hostInfo, password }
+      const opened = new SshWebHost(login, location.remotePath, process.env.ALTOAIH_SSH_RUNTIME_DIR, models)
+      host = opened
+      this.sshHosts.set(workspace.path, opened)
+      this.reportSshStatus(id, 'connecting')
+      void opened.closed.then(() => {
+        if (this.sshHosts.get(workspace.path) !== opened) return
+        this.sshHosts.delete(workspace.path)
+        if (this.entities.get(id) === workspace) this.reportSshStatus(id, 'interrupted')
+      })
+    }
+    try {
+      const url = await host.url
+      if (this.sshHosts.get(workspace.path) === host) {
+        this.reportSshStatus(id, 'connected')
+      }
+      return url
+    } catch (error) {
+      if (this.sshHosts.get(workspace.path) === host) {
+        this.sshHosts.delete(workspace.path)
+        this.sshPasswords.delete(location.host)
+        this.reportSshStatus(id, 'interrupted')
+      }
+      throw error
+    }
+  }
+
+  /**
+   * Read the last reported local carrier state for a saved SSH Workspace.
+   * @param id - Saved SSH Workspace identity.
+   * @returns the latest reported SSH carrier state, if any.
+   */
+  sshStatus(id: WorkspaceId): SshWorkspaceConnectionState | undefined {
+    return this.sshStates.get(id)
+  }
+
+  /**
+   * Report a carrier state supplied by an SSH consumer without changing its
+   * host ownership. An interrupted API stream can be retried against a still
+   * live tunnel, so only the Session router knows that state.
+   * @param id - Saved SSH Workspace that owns the carrier.
+   * @param state - Current local carrier state.
+   */
+  reportSshStatus(id: WorkspaceId, state: SshWorkspaceConnectionState): void {
+    const workspace = this.entities.get(id)
+    if (this.sshProjectHost || workspace === undefined || parseSshWorkspacePath(workspace.path) === undefined) return
+    if (this.sshStates.get(id) === state) return
+    this.sshStates.set(id, state)
+    this.ctx.emit('workspace/ssh-status', id, state)
+  }
+
+  /**
+   * Stop the local carrier for a saved SSH Workspace after its caller has
+   * attempted any remote cleanup it owns. This only pauses the desktop relay;
+   * it never asserts that the remote task stopped.
+   * @param id - Saved SSH Workspace whose local carrier should close.
+   * @returns resolution after local sockets and the SSH transport have closed.
+   */
+  async closeSsh(id: WorkspaceId): Promise<void> {
+    const workspace = this.entities.get(id)
+    const location = workspace === undefined ? undefined : parseSshWorkspacePath(workspace.path)
+    if (this.sshProjectHost || workspace === undefined || location === undefined) {
+      throw new Error('Select a saved SSH workspace on the desktop')
+    }
+    // Always clear the in-memory password on disconnect so reconnecting prompts again.
+    this.sshPasswords.delete(location.host)
+    const host = this.sshHosts.get(workspace.path)
+    if (host !== undefined) {
+      this.sshHosts.delete(workspace.path)
+      await host.close()
+    }
+    if (this.entities.get(id) === workspace) this.reportSshStatus(id, 'paused')
+  }
+
+  /** Browse a saved SSH project without waiting for a remote chat host. */
+  async browseSsh(id: WorkspaceId, path: string, kind: SshFilesResult['kind'], signal: AbortSignal): Promise<SshFilesResult> {
+    const workspace = this.entities.get(id)
+    const location = workspace === undefined ? undefined : parseSshWorkspacePath(workspace.path)
+    if (this.sshProjectHost || location === undefined) throw new Error('Select a saved SSH workspace')
+    const record = await this.ctx.get('credentials')?.readRecord(sshCredentialKey(location.host))
+    const hostInfo = storedSshHost(record)
+    if (this.entities.get(id) !== workspace) throw new Error('The SSH workspace was removed')
+    if (hostInfo === undefined || sshWorkspaceAuthority(hostInfo) !== location.host) throw new Error('Saved SSH host metadata is unavailable')
+    const password = this.sshPasswords.get(location.host)
+    if (password === undefined || password === '') throw new SshPasswordRequiredError(id)
+    return sshFiles({ ...hostInfo, password }, location.remotePath, path, kind, AbortSignal.any([signal, this.sshLifetime.signal]))
+  }
+
+  /** Publish visible Session references obtained from this workspace's authenticated runtime. */
+  syncSshSessions(id: WorkspaceId, sessions: readonly SessionId[]): Promise<readonly SessionId[]> {
+    return this.enqueueOperation(async () => {
+      const entity = this.entities.get(id)
+      if (this.sshProjectHost || entity === undefined || parseSshWorkspacePath(entity.path) === undefined) return []
+      const occupied = new Set(this.list().filter(workspace => workspace.id !== id).flatMap(workspace => workspace.sessionIds))
+      await entity.syncSshSessions(sessions.filter(sessionId => !occupied.has(sessionId)))
+      return entity.sessionIds
+    })
+  }
+
+  /** Look up a server-owned Session reference, excluding legacy desktop logs. */
+  sshWorkspaceForSession(id: SessionId): Workspace | undefined {
+    if (this.headers.has(id)) return undefined
+    return this.list().find(workspace => parseSshWorkspacePath(workspace.path) !== undefined && workspace.sessionIds.includes(id))
+  }
+
+  private async verifySsh(path: string): Promise<string> {
+    const location = parseSshWorkspacePath(path)
+    if (location === undefined || !/^[^@]+@.+:\d+$/u.test(location.host)) return verifySshWorkspacePath(path)
+    const record = await this.ctx.get('credentials')?.readRecord(sshCredentialKey(location.host))
+    const hostInfo = storedSshHost(record)
+    if (hostInfo === undefined || sshWorkspaceAuthority(hostInfo) !== location.host) {
+      throw new Error('Saved SSH host metadata is unavailable')
+    }
+    const password = this.sshPasswords.get(location.host)
+    if (password === undefined || password === '') {
+      throw new Error('Enter the SSH password to connect to this workspace.')
+    }
+    const canonical = formatSshWorkspacePath(location.host, location.remotePath)
+    await probeSshDirectory({ ...hostInfo, password }, location.remotePath, hostInfo.fingerprint)
+    return canonical
   }
 
   /**
@@ -353,21 +667,48 @@ export class WorkspaceRegistry extends Service {
   }
 
   /**
-   * Permanently remove one Workspace, its accounted Sessions, and its registered
-   * project directory. The registration remains recoverable when directory removal fails.
+   * Permanently remove one Workspace and its accounted Session logs.
+   * For a local Workspace, remove the project directory on disk only when
+   * `options.deleteDirectory !== false`. A local directory failure retains the registration.
    * @param id - Workspace identity to remove.
-   * @param options - whether active Session work is stopped before deletion.
+   * @param options - whether active Session work is stopped and whether to delete the local directory on disk.
    * @returns `true` when the Workspace existed.
    */
-  deletePermanently(id: WorkspaceId, options: ArchiveSessionOptions = {}): Promise<boolean> {
+  deletePermanently(
+    id: WorkspaceId,
+    options: ArchiveSessionOptions & { readonly deleteDirectory?: boolean } = {},
+  ): Promise<boolean> {
     return this.enqueueOperation(async () => {
       const workspace = this.entities.get(id)
       if (workspace === undefined) return false
-      await this.assertDeletableWorkspaceDirectory(workspace.path)
+      const local = parseSshWorkspacePath(workspace.path) === undefined
+      if (this.sshProjectHost) return await this.deleteKnown(id)
+      if (!local) {
+        const references: SessionId[] = []
+        for (const sessionId of workspace.sessionIds) {
+          if (this.headers.has(sessionId)) await this.deleteSessionKnown(sessionId, options, workspace)
+          else references.push(sessionId)
+        }
+        await this.clearSessionFlags(references)
+        const removed = await this.deleteKnown(id)
+        if (removed) {
+          const sshHost = this.sshHosts.get(workspace.path)
+          this.sshHosts.delete(workspace.path)
+          if (sshHost !== undefined) void sshHost.close()
+          for (const sessionId of references) this.ctx.emit('workspace/ssh-session-hidden', sessionId)
+        }
+        return removed
+      }
+      const deleteDirectory = options.deleteDirectory !== false
+      if (deleteDirectory) {
+        await this.assertDeletableWorkspaceDirectory(workspace.path)
+      }
       for (const sessionId of [...workspace.sessionIds]) {
         await this.deleteSessionKnown(sessionId, options, workspace)
       }
-      await this.removeWorkspaceDirectory(workspace.path)
+      if (deleteDirectory) {
+        await this.removeWorkspaceDirectory(workspace.path)
+      }
       return await this.deleteKnown(id)
     })
   }
@@ -383,9 +724,27 @@ export class WorkspaceRegistry extends Service {
    */
   deleteSession(sessionId: SessionId, options: ArchiveSessionOptions = {}): Promise<boolean> {
     return this.enqueueOperation(async () => {
+      if (this.sshProjectHost) throw new Error('Session history is preserved in SSH project mode')
+      const remote = this.sshWorkspaceForSession(sessionId)
+      if (remote !== undefined) {
+        await this.clearSessionFlags([sessionId])
+        await this.entities.get(remote.id)?.hideSshSession(sessionId)
+        this.ctx.emit('workspace/ssh-session-hidden', sessionId)
+        return true
+      }
       if (!(await this.sessionKnown(sessionId))) return false
       return await this.deleteSessionKnown(sessionId, options)
     })
+  }
+
+  private async clearSessionFlags(ids: readonly SessionId[]): Promise<void> {
+    const state = this.requireState()
+    const removed = new Set(ids)
+    const archivedSessionIds = state.archivedSessionIds.filter(id => !removed.has(id))
+    const pinnedSessionIds = state.pinnedSessionIds.filter(id => !removed.has(id))
+    if (archivedSessionIds.length !== state.archivedSessionIds.length || pinnedSessionIds.length !== state.pinnedSessionIds.length) {
+      await this.setState({ ...state, archivedSessionIds, pinnedSessionIds })
+    }
   }
 
   /** Validate exactly one registered non-root, non-home canonical Workspace directory. */
@@ -980,6 +1339,7 @@ export class WorkspaceRegistry extends Service {
 
   private reportFilteredCandidates(): void {
     for (const entity of this.entities.values()) {
+      if (parseSshWorkspacePath(entity.path) !== undefined) continue
       const record = this.requireTable().get(entity.id) as WorkspaceRecord
       for (const sessionId of record.sessionIds) {
         if (this.host.candidateMatches(sessionId, record.path)) continue

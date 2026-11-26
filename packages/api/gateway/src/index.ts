@@ -36,6 +36,7 @@ import {
 } from '@deepseek-ai/dsh-typert-protocol'
 import type {
   InvokeRemoteRequest,
+  OwnerRemoteRoute,
   PendingRemoteEventInfo,
   TypertGateway,
   TypertGatewayErrorCode,
@@ -81,6 +82,7 @@ export type {
   TypertRemoteEventOutcome,
   TypertRemoteEventSource,
 } from './types.ts'
+export { connectLoopbackRemote, type LoopbackRemote } from './loopback-remote.ts'
 export type { RemoteEventHostInfo } from './stream-protocol.ts'
 
 interface GatewayErrorOptions {
@@ -235,6 +237,13 @@ export class TypertGatewayService extends Service implements TypertGateway {
   }
 
   private srcClaims: ReadonlySet<string> | undefined
+  private ownerRoute: OwnerRemoteRoute | undefined
+
+  registerOwnerRoute(route: OwnerRemoteRoute): () => void {
+    if (this.ownerRoute !== undefined) throw new Error('typert gateway: an owner route is already registered')
+    this.ownerRoute = route
+    return () => { if (this.ownerRoute === route) this.ownerRoute = undefined }
+  }
   private remoteEvents: RegisteredRemoteEventSource | undefined
   private readonly remoteEventClients = new Map<RemoteEventClientId, RemoteEventClient>()
   private readonly pendingRemoteEvents = new Map<RemoteEventId, PendingRemoteEvent>()
@@ -515,7 +524,9 @@ export class TypertGatewayService extends Service implements TypertGateway {
       requireInteractions(peer, endpoint)
       return this.openRemoteEvents(payload, signal, peer)
     }
-    return this.openStream({ ...remoteRequest(endpoint, payload, signal, peer), uplink, uplinkWindow }, control)
+    const request = { ...remoteRequest(endpoint, payload, signal, peer), uplink, uplinkWindow }
+    const routed = peer.principal.kind === 'owner' ? this.ownerRoute?.stream(request) : undefined
+    return routed ?? this.openStream(request, control)
   }
 
   private async *openRemoteEvents(
@@ -752,8 +763,11 @@ export class TypertGatewayService extends Service implements TypertGateway {
     peer: PeerScope,
   ): Promise<ConnectionRpcResult> {
     try {
+      const request = remoteRequest(endpoint, payload, signal, peer)
+      const routed = peer.principal.kind === 'owner' ? await this.ownerRoute?.call(request) : undefined
+      if (routed !== undefined) return routed.ok ? encodeRpcResult(routed.value, SRC_JSON_CODEC) : routed
       const prepared = await this.prepareInvocation(
-        remoteRequest(endpoint, payload, signal, peer),
+        request,
         new AbortController(),
       )
       const value = await this.invokePrepared(prepared)

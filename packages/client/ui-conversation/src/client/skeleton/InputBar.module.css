@@ -65,14 +65,16 @@
   /* Input stroke: the light neutral (l2, one step above the menus' l1),
      drawn as the elevation hairline so it costs no layout; the shadow is the
      soft elevation tier. Fill: the input surface token (elevated in dark). */
-  border: 0;
-  --dsw-elevation-stroke-color: var(--dsw-alias-border-l2);
+  border: 1px solid var(--dsh-glass-border-strong);
+  --dsw-elevation-stroke-color: transparent;
   border-radius: var(--dsw-radius-panel);
-  background: var(--dsw-specific-input-major);
+  background: var(--dsh-glass-card-bg);
+  backdrop-filter: var(--dsh-glass-blur);
+  -webkit-backdrop-filter: var(--dsh-glass-blur);
   box-shadow:
-    var(--dsw-elevation-soft),
-    0 18px 40px -28px rgb(15 23 42 / 22%),
-    0 8px 18px -12px rgb(15 23 42 / 8%);
+    inset 0 1px 0 var(--dsh-glass-highlight),
+    var(--dsh-glass-shadow);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
   /* The draft text follows the Settings font-size preference (the textarea,
      mirror, and backdrop all inherit from here, so the three layers stay in
      step); the line height keeps the default 10px leading via the shared px
@@ -89,25 +91,18 @@
 }
 
 .card:focus-within {
-  --dsw-elevation-stroke-color: var(--dsw-alias-state-business-primary);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--dsw-alias-brand-primary) 42%, transparent),
-    0 0 0 5px color-mix(in srgb, var(--dsw-alias-brand-primary) 14%, transparent),
-    0 18px 40px -24px rgb(15 23 42 / 28%),
-    0 8px 18px -12px rgb(15 23 42 / 12%);
+  border-color: color-mix(in srgb, var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)) 58%, var(--dsh-glass-border-strong));
 }
 
 :global(body[data-ds-dark-theme]) .card {
   box-shadow:
-    var(--dsw-elevation-soft),
-    0 18px 40px -24px rgb(0 0 0 / 55%);
+    inset 0 1px 0 var(--dsh-glass-highlight),
+    0 22px 48px -20px rgb(0 0 0 / 72%),
+    0 0 1px rgb(255 255 255 / 8%);
 }
 
 :global(body[data-ds-dark-theme]) .card:focus-within {
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--dsw-alias-brand-primary) 55%, transparent),
-    0 0 0 5px color-mix(in srgb, var(--dsw-alias-brand-primary) 22%, transparent),
-    0 18px 40px -24px rgb(0 0 0 / 62%);
+  border-color: color-mix(in srgb, var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)) 68%, transparent);
 }
 
 @media (pointer: coarse) {
@@ -361,17 +356,24 @@
   flex: none;
   width: 32px;
   height: 32px;
-  border: none;
+  border: 1px solid var(--dsh-glass-border-strong);
   border-radius: 999px;
   corner-shape: round;
-  background: var(--dsw-specific-selector);
+  background: var(--dsh-glass-bg-subtle);
+  box-shadow: inset 0 1px 0 var(--dsh-glass-highlight);
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 100ms ease;
+}
+
+.add:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
 @media (hover: hover) {
   .add:hover:not(:disabled) {
-    background: var(--dsw-alias-interactive-bg-hover-solid);
+    background: var(--dsw-alias-interactive-bg-hover);
+    border-color: var(--dsw-alias-border-l4);
   }
 }
 
@@ -424,12 +426,19 @@
   border: none;
   border-radius: 999px;
   corner-shape: round;
-  background: var(--dsw-alias-button-info-fill);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--dsw-alias-label-on-color) 18%, var(--dsw-alias-button-info-fill)), var(--dsw-alias-button-info-fill));
   /* On-color ink, not the foreground token: the arrow stays white on the blue
      fill in both themes (design 34:10465). */
   color: var(--dsw-alias-label-on-color);
   cursor: pointer;
-  transition: background-color 100ms ease;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 32%),
+    0 6px 16px -4px color-mix(in srgb, var(--dsw-alias-button-info-fill) 62%, transparent);
+  transition: background-color 140ms ease, transform 100ms ease, box-shadow 140ms ease;
+}
+
+.primary:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
 /* Solid artwork uses a smaller footprint than the thin send arrow. */
@@ -443,8 +452,20 @@
   }
 }
 
+.primary[data-stopping] {
+  background: var(--dsw-alias-state-error-primary);
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--dsw-alias-state-error-primary) 55%, transparent);
+}
+
+@media (hover: hover) {
+  .primary[data-stopping]:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 86%, var(--dsw-alias-label-primary));
+  }
+}
+
 .primary:disabled {
   opacity: 0.4;
+  box-shadow: none;
   cursor: default;
 }
 

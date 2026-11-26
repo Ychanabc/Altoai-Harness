@@ -120,8 +120,11 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'commands/execute': 'owner-only', // owner executes a slash command
   'job/kill': 'owner-only', // owner background jobs
   'session/create': 'owner-only', // owner creates a Session
+  'session/disconnectSsh': 'owner-only', // owner pauses its desktop SSH relay and may stop the remote turn
   'session/initializeDefaultModel': 'owner-only', // owner initializes a Session default model
   'session/openWorkspacePath': 'owner-only', // owner opens a Workspace path
+  'session/reconnectSsh': 'owner-only', // owner restores its desktop SSH relay for an existing remote Session
+  'session/rewind': 'owner-only', // owner rewinds a Session in-place before a sent user message
   'session/search': 'owner-only', // owner searches across Sessions
   'session/selectModel': 'owner-only', // owner selects a Session model
   'session/updateQueue': 'owner-only', // owner edits queued input
@@ -150,6 +153,7 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'directoryPicker/pick': 'owner-only', // owner filesystem picker
   'workspace/archiveSession': 'owner-only', // owner archives a Session
   'workspace/create': 'owner-only', // owner creates a Workspace
+  'workspace/sshFiles': 'owner-only', // requires the owner's saved SSH credentials
   'workspace/delete': 'owner-only', // owner deletes a Workspace
   'workspace/deleteSession': 'owner-only', // owner permanently deletes a Session
   'workspace/initializeDefault': 'owner-only', // owner initializes the default Workspace
@@ -157,6 +161,7 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'workspace/insertSessionBefore': 'owner-only', // owner reorders Sessions
   'workspace/pinSession': 'owner-only', // owner pins a Session
   'workspace/rename': 'owner-only', // owner renames a Workspace
+  'workspace/updateSsh': 'owner-only', // owner edits a saved SSH Workspace connection
   'workspace/unarchiveSession': 'owner-only', // owner unarchives a Session
   'workspace/unpinSession': 'owner-only', // owner unpins a Session
   'workspaceFiles/changes': 'owner-only', // owner Workspace file access

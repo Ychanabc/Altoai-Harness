@@ -1,7 +1,42 @@
 /** Shell chrome and General-nav dictionaries; feature rows own their copy. */
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
+const sshFieldsEn = {
+  'ssh.created': 'SSH workspace added',
+  'ssh.updated': 'SSH connection updated',
+  'ssh.connectionHint': 'Enter the server details and an absolute remote directory. The workspace is added after the connection succeeds.',
+  'ssh.editHint': 'Update the server details or absolute remote directory. Leave password blank to keep the saved password.',
+  'ssh.savedTitle': 'Saved SSH connections',
+  'ssh.editingLabel': 'Editing “{name}”',
+  'ssh.edit': 'Edit',
+  'ssh.cancelEdit': 'Cancel',
+  'ssh.save': 'Save changes',
+  'ssh.saving': 'Verifying and saving…',
+  'ssh.passwordPlaceholder': 'Leave blank to keep saved password',
+  'ssh.ip': 'IP address',
+  'ssh.port': 'Port',
+  'ssh.username': 'Username',
+  'ssh.password': 'Password',
+  'ssh.connecting': 'Connecting…',
+}
+
 export const zh = {
+  'ssh.created': '已添加 SSH 工作区',
+  'ssh.updated': 'SSH 连接已更新',
+  'ssh.connectionHint': '填写服务器连接信息和远端绝对目录。连接成功后会登记为工作区。',
+  'ssh.editHint': '修改服务器连接信息或远端绝对目录。留空密码将保留当前已保存的密码。',
+  'ssh.savedTitle': '已保存的 SSH 连接',
+  'ssh.editingLabel': '正在编辑“{name}”',
+  'ssh.edit': '编辑',
+  'ssh.cancelEdit': '取消',
+  'ssh.save': '保存修改',
+  'ssh.saving': '正在验证并保存…',
+  'ssh.passwordPlaceholder': '留空则保留原密码',
+  'ssh.ip': 'IP 地址',
+  'ssh.port': '端口',
+  'ssh.username': '账号',
+  'ssh.password': '密码',
+  'ssh.connecting': '正在连接…',
   'desktop.channel.title': '更新渠道',
   'desktop.channel.description': '正式版适合日常使用；开发版可提前体验新功能，但可能不稳定。',
   'desktop.channel.stable': '正式版',
@@ -81,6 +116,7 @@ export type SettingsKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
+  ...sshFieldsEn,
   'desktop.channel.title': 'Update channel',
   'desktop.channel.description': 'Stable is suitable for everyday use. Development offers early access to new features but may be unstable.',
   'desktop.channel.stable': 'Stable',
@@ -157,6 +193,7 @@ export const en = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  ...sshFieldsEn,
   'desktop.channel.title': '更新チャンネル',
   'desktop.channel.description': '安定版は日常的な使用に適しています。開発版では新機能をいち早く試せますが、不安定な場合があります。',
   'desktop.channel.stable': '安定版',
@@ -233,6 +270,7 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  ...sshFieldsEn,
   'desktop.channel.title': 'Canal de actualizaciones',
   'desktop.channel.description': 'Estable es adecuado para el uso diario. Desarrollo permite probar nuevas funciones antes, pero puede ser inestable.',
   'desktop.channel.stable': 'Estable',
@@ -309,6 +347,7 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  ...sshFieldsEn,
   'desktop.channel.title': 'Canal de mise à jour',
   'desktop.channel.description': 'Stable convient à un usage quotidien. Développement permet de découvrir les nouveautés en avance, mais peut être instable.',
   'desktop.channel.stable': 'Stable',
@@ -385,6 +424,7 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  ...sshFieldsEn,
   'desktop.channel.title': 'Update-Kanal',
   'desktop.channel.description': 'Stabil eignet sich für den Alltag. Entwicklung bietet frühzeitigen Zugang zu neuen Funktionen, kann aber instabil sein.',
   'desktop.channel.stable': 'Stabil',
@@ -461,6 +501,7 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  ...sshFieldsEn,
   'desktop.channel.title': 'Канал обновлений',
   'desktop.channel.description': 'Стабильный канал подходит для повседневного использования. Канал разработки позволяет раньше попробовать новые функции, но может быть нестабильным.',
   'desktop.channel.stable': 'Стабильный',
@@ -537,6 +578,7 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  ...sshFieldsEn,
   'desktop.channel.title': 'Canal de atualização',
   'desktop.channel.description': 'Estável é adequado para o uso diário. Desenvolvimento oferece acesso antecipado a novos recursos, mas pode ser instável.',
   'desktop.channel.stable': 'Estável',

@@ -106,6 +106,22 @@ it('validates before building and passes the same mode and version to checks and
   expect(job.steps.some(step => step.run?.includes('.env.windows'))).toBe(false)
 })
 
+it('stages Linux SSH archives from the selected source before packaging Windows', () => {
+  expect(workflow.jobs['ssh-runtime']).toMatchObject({
+    uses: './.github/workflows/build-ssh-web-runtime.yml',
+    with: { source_ref: '${{ inputs.source_ref }}' },
+  })
+  expect(job).toHaveProperty('needs', 'ssh-runtime')
+  const retrieve = job.steps.find(step => step.name === 'Retrieve the SSH runtime archives')!
+  const verify = job.steps.find(step => step.name === 'Check the SSH archives match the selected source')!
+  expect(retrieve.with).toEqual({ pattern: 'altoaih-ssh-linux-*', path: 'dist-exe/ssh-web', 'merge-multiple': true })
+  expect(retrieve.if).toBe(verify.if)
+  expect(verify.run).toContain('git rev-parse HEAD')
+  expect(verify.run).toContain('Get-FileHash')
+  expect(job.steps.indexOf(retrieve)).toBeLessThan(job.steps.indexOf(verify))
+  expect(job.steps.indexOf(verify)).toBeLessThan(job.steps.findIndex(step => step.id === 'settings'))
+})
+
 it('retains failure diagnostics and uploads only the selected successful installer', () => {
   const uploads = job.steps.filter(step => step.uses?.startsWith('actions/upload-artifact@'))
   expect(uploads).toHaveLength(1)

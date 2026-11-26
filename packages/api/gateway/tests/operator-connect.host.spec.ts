@@ -19,12 +19,18 @@ import * as FrontendStatic from '@deepseek-ai/dsh-host-frontend-static'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import TypertGateway from '@deepseek-ai/dsh-api-gateway'
 import RemoteAccess from '@deepseek-ai/dsh-api-remote-access'
+import { brandString } from '@deepseek-ai/dsh-brand'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import type { Workspace, WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import WebSocket, { WebSocketServer } from 'ws'
 import { z } from 'zod'
 import { parseRemoteStreamServerMessage, type RemoteStreamServerMessage } from '../src/stream-protocol.ts'
 import { RemoteStreamMuxServer } from '../src/stream-server.ts'
+import { connectLoopbackRemote } from '../src/loopback-remote.ts'
 import OperatorConnectFixture from './operator-connect-fixture.ts'
+import { SshSessions } from '../../session-controller/src/ssh-sessions.ts'
 
 interface SocketClient {
   readonly socket: WebSocket
@@ -64,6 +70,123 @@ afterEach(async () => {
 })
 
 describe('operator connect through Loader composition', () => {
+  it('lets the desktop exchange a launch token and follow a stream without opening a web page', async () => {
+    const host = await boot()
+    const auth = await BrowserAuth.create(host.ctx[Context.root], host.ctx.credentials, 30)
+    const signal = AbortSignal.timeout(5000)
+    const remote = await connectLoopbackRemote(auth.authenticatedUrl(host.origin + '/'), signal)
+    try {
+      await expect(remote.call('fixture/identity', { label: 'desktop' }, signal)).resolves.toMatchObject({
+        ok: true, value: { interactions: 'answer' },
+      })
+      const stream = remote.stream('fixture/follow', { label: 'desktop' }, signal)[Symbol.asyncIterator]()
+      await expect(stream.next()).resolves.toEqual({ done: false, value: 'desktop:ready' })
+      await stream.return?.()
+    } finally {
+      await remote.close()
+    }
+  })
+
+  it('routes SSH history, creation, and new messages through the desktop Host', async () => {
+    const desktop = await boot()
+    const server = await boot()
+    const local = new SshSessionFixture(desktop.ctx, 'desktop')
+    const remote = new SshSessionFixture(server.ctx, 'server')
+    new SshWorkspaceFixture(server.ctx)
+    const id = brandString<WorkspaceId>('desktop-workspace')
+    let sessionIds: readonly SessionId[] = []
+    const workspace = {
+      id, path: 'ssh://project@192.0.2.2:22/srv/project',
+      get sessionIds() { return sessionIds },
+    } as Workspace
+    const launch = await launchUrl(server)
+    desktop.ctx.provide('sessions', { get: () => undefined } as never)
+    desktop.ctx.provide('workspaceRegistry', {
+      get: (candidate: WorkspaceId) => candidate === id ? workspace : undefined,
+      list: () => [workspace],
+      openSsh: async () => launch,
+      syncSshSessions: async (_id: WorkspaceId, sessions: readonly SessionId[]) => {
+        sessionIds = sessions
+        return sessions
+      },
+      sshWorkspaceForSession: (candidate: SessionId) => sessionIds.includes(candidate) ? workspace : undefined,
+    } as never)
+    const router = new SshSessions(desktop.ctx)
+    const detach = desktop.ctx.typertGateway.registerOwnerRoute(router)
+    const signal = AbortSignal.timeout(10_000)
+    const client = await connectLoopbackRemote(await launchUrl(desktop), signal)
+    try {
+      await expect(client.call('session/create', { request: { workspaceId: id } }, signal))
+        .resolves.toEqual({ ok: true, value: { sessionId: 'server-new' } })
+      expect(sessionIds).toEqual(['server-existing', 'server-new'])
+      expect(local.created).toEqual([])
+      expect(remote.created).toEqual(['server-workspace'])
+      const history = client.stream('session/follow', {
+        request: { address: { kind: 'session', sessionId: 'server-existing' } },
+      }, signal)[Symbol.asyncIterator]()
+      await expect(history.next()).resolves.toEqual({ done: false, value: 'server history: server-existing' })
+      await history.return?.()
+      await expect(client.call('session/prompt', { request: { sessionId: 'server-existing', text: 'Continue' } }, signal))
+        .resolves.toEqual({ ok: true, value: 'server received: Continue' })
+      await expect(client.call('session/prompt', { request: { sessionId: 'desktop-existing', text: 'Hello' } }, signal))
+        .resolves.toEqual({ ok: true, value: 'desktop received: Hello' })
+    } finally {
+      detach()
+      await client.close()
+      await router.dispose()
+    }
+  })
+
+  it('retires a paused SSH relay without a selected Session and reconnects existing history', async () => {
+    const desktop = await boot()
+    const server = await boot()
+    const remote = new SshSessionFixture(server.ctx, 'server')
+    new SshWorkspaceFixture(server.ctx)
+    const id = brandString<WorkspaceId>('desktop-workspace')
+    const existing = brandString<SessionId>('server-existing')
+    let sessionIds: readonly SessionId[] = [existing]
+    let opened = 0
+    let closed = 0
+    const workspace = {
+      id, path: 'ssh://project@192.0.2.2:22/srv/project',
+      get sessionIds() { return sessionIds },
+    } as Workspace
+    const launch = await launchUrl(server)
+    desktop.ctx.provide('sessions', { get: () => undefined } as never)
+    desktop.ctx.provide('workspaceRegistry', {
+      get: (candidate: WorkspaceId) => candidate === id ? workspace : undefined,
+      list: () => [workspace],
+      openSsh: async () => { opened += 1; return launch },
+      closeSsh: async () => { closed += 1 },
+      syncSshSessions: async (_id: WorkspaceId, sessions: readonly SessionId[]) => {
+        sessionIds = sessions
+        return sessions
+      },
+      sshWorkspaceForSession: (candidate: SessionId) => sessionIds.includes(candidate) ? workspace : undefined,
+      reportSshStatus: () => {},
+    } as never)
+    const router = new SshSessions(desktop.ctx)
+    const signal = AbortSignal.timeout(10_000)
+    try {
+      await router.reconnect(id, existing)
+      await router.disconnect(id)
+      await router.reconnect(id, existing)
+
+      expect(opened).toBe(2)
+      expect(closed).toBe(1)
+      expect(sessionIds).toEqual([existing])
+      expect(remote.created).toEqual([])
+      await expect(router.call({
+        namespace: 'session', method: 'prompt',
+        args: { request: { sessionId: existing, text: 'Continue' } },
+        peer: desktop.ctx.connection.browserPeer,
+        signal,
+      })).resolves.toEqual({ ok: true, value: 'server received: Continue' })
+    } finally {
+      await router.dispose()
+    }
+  })
+
   it('admits HTTP before attachment and releases the Operator before slow stream cleanup', async () => {
     const host = await boot()
     const cookie = await exchange(host, 'none')
@@ -488,6 +611,55 @@ async function exchange(host: Host, mode: 'html' | 'none' | 'answer'): Promise<s
   await response.text()
   if (cookie === null) throw new Error('connect omitted its signed cookie')
   return cookie.split(';', 1)[0]!
+}
+
+async function launchUrl(host: Host): Promise<string> {
+  const auth = await BrowserAuth.create(host.ctx[Context.root], host.ctx.credentials, 30)
+  return auth.authenticatedUrl(host.origin + '/')
+}
+
+class SshWorkspaceFixture extends TypertRemoteService {
+  constructor(ctx: Context) { super(ctx, 'fixtureWorkspace', { namespace: 'workspace' }) }
+
+  @Remote
+  create(request: { path: string }) {
+    return { workspace: { workspaceId: 'server-workspace', path: request.path } }
+  }
+}
+
+class SshSessionFixture extends TypertRemoteService {
+  readonly created: string[] = []
+  private readonly histories: string[]
+
+  constructor(ctx: Context, private readonly side: string) {
+    super(ctx, 'fixtureSession', { namespace: 'session' })
+    this.histories = [side + '-existing']
+  }
+
+  @Remote
+  list(_request: object) {
+    return { items: this.histories.map(sessionId => ({
+      sessionId, cwd: '/srv/project', updatedAt: 1, running: false, agentAvailable: true, blank: false,
+    })) }
+  }
+
+  @Remote
+  create(request: { workspaceId: string }) {
+    this.created.push(request.workspaceId)
+    const sessionId = this.side + '-new'
+    this.histories.push(sessionId)
+    return { sessionId }
+  }
+
+  @Remote({ mode: 'stream' })
+  *follow(request: { address: { sessionId: string } }) {
+    yield this.side + ' history: ' + request.address.sessionId
+  }
+
+  @Remote
+  prompt(request: { sessionId: string; text: string }) {
+    return this.side + ' received: ' + request.text
+  }
 }
 
 function socketClient(host: Host, cookie: string, path = '/api/remote.mux'): SocketClient {

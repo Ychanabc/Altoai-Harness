@@ -127,8 +127,14 @@ export class SessionManager {
     this.listSnapshotCache = this.buildListSnapshot()
   })
 
-  /** @param remote - generated Remote namespaces used by catalog and history readers. */
-  constructor(private readonly remote: SessionRemotes) {
+  /**
+   * @param remote - generated Remote namespaces used by catalog and history readers.
+   * @param options - optional transport connection observer for local stop fallback.
+   */
+  constructor(
+    private readonly remote: SessionRemotes,
+    private readonly options: { readonly isDisconnected?: () => boolean } = {},
+  ) {
     this.listSnapshotCache = this.buildListSnapshot()
   }
 
@@ -285,6 +291,11 @@ export class SessionManager {
         this.sessions.get(engaged.sessionId)?.handleBlank(false)
       },
       projections: this.projectionStore(sessionId),
+      ...(this.options.isDisconnected === undefined ? {} : { isDisconnected: this.options.isDisconnected }),
+      onLocalStop: (stoppedId) => {
+        if (this.disposed) return
+        this.handleSessionStatus(stoppedId, false)
+      },
     })
   }
 
@@ -552,6 +563,39 @@ export class SessionManager {
         sessionId: childId, updatedAt: Date.now(), running: false, blank: true,
         ...(source?.cwd !== undefined ? { cwd: source.cwd } : {}),
       } })
+    }
+    return result
+  }
+
+  /**
+   * Rewind an ordinary Session to immediately before a sent user message and
+   * catalogue the replacement Session synchronously before resolving.
+   * @param opts - source Session id and exact seq of the target user message.
+   * @returns the replacement Session id, or the Remote failure.
+   */
+  async rewind(
+    opts: { sessionId: SessionId; beforeSeq: SessionSeq },
+  ): Promise<RemoteResult<{ sessionId: SessionId }>> {
+    const source = this.summaries.find(s => s.sessionId === opts.sessionId)
+    const result = await this.remote.session.rewind({
+      sessionId: opts.sessionId,
+      beforeSeq: opts.beforeSeq,
+    })
+    const nextId = result.ok
+      ? result.value.sessionId
+      : workspaceAttachSessionId(result.error)
+    if (nextId !== undefined) {
+      this.recordMutation({
+        kind: 'placeholder',
+        summary: {
+          agentAvailable: true,
+          sessionId: nextId,
+          updatedAt: Date.now(),
+          running: false,
+          blank: true,
+          ...(source?.cwd !== undefined ? { cwd: source.cwd } : {}),
+        },
+      })
     }
     return result
   }

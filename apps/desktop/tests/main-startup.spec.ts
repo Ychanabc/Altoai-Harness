@@ -1185,18 +1185,22 @@ describe('desktop main startup', () => {
     expect(harness.hosts).toHaveLength(0)
   })
 
-  it.each([[false, '#f9fafb'], [true, '#1b1b1c']] as const)('paints the Windows workspace in its startup palette (dark=%s)', async (dark, color) => {
+  it.each([[false, '#00000000'], [true, '#00000000']] as const)('paints the Windows workspace in its startup palette (dark=%s)', async (dark, color) => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
     harness.nativeTheme.shouldUseDarkColors = dark
     await import('../src/main.ts')
     await harness.preparing.promise
-    expect(harness.windows[0]!.options).toMatchObject({ backgroundColor: color })
+    expect(harness.windows[0]!.options).toMatchObject({
+      backgroundColor: color,
+      backgroundMaterial: 'acrylic',
+      titleBarOverlay: { color: '#00000000', height: WINDOWS_TITLEBAR_HEIGHT },
+    })
   })
 
   describe.each(['win32', 'darwin'] as const)('Host theme on %s', (platform) => {
     it.each([
-      ['light', true, '#f9fafb'], ['dark', false, '#1b1b1c'],
-      ['system', true, '#1b1b1c'], ['system', false, '#f9fafb'],
+      ['light', true, '#00000000'], ['dark', false, '#00000000'],
+      ['system', true, '#00000000'], ['system', false, '#00000000'],
     ] as const)('applies %s with system dark=%s before revealing the workspace', async (source, systemDark, color) => {
       vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
       harness.nativeTheme.systemDark = systemDark
@@ -1227,7 +1231,11 @@ describe('desktop main startup', () => {
     for (const dark of [true, false]) {
       harness.nativeTheme.systemDark = dark
       harness.nativeTheme.emit('updated')
-      expect(window.setBackgroundColor).toHaveBeenLastCalledWith(dark ? '#1b1b1c' : '#f9fafb')
+      expect(window.setBackgroundColor).toHaveBeenLastCalledWith('#00000000')
+      expect(window.setTitleBarOverlay).toHaveBeenLastCalledWith({
+        color: '#00000000',
+        symbolColor: dark ? '#f1f5f9' : '#0f172a',
+      })
     }
     window.emit('closed')
     expect(harness.nativeTheme.listenerCount('updated')).toBe(0)

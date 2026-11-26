@@ -20,6 +20,7 @@ import type {
   WorkspaceRenameRequest,
   WorkspaceUnarchiveSessionRequest,
   WorkspaceUnpinSessionRequest,
+  WorkspaceUpdateSshRequest,
   WorkspaceValue,
   WorkspaceId,
   WorkspaceView,
@@ -72,11 +73,19 @@ function deferred<T>(): Deferred<T> {
 
 class FakeWorkspaceRemote implements WorkspaceRemote {
   readonly initializeDefault = vi.fn<WorkspaceRemote['initializeDefault']>(async () => remoteOk({ workspace: workspace('default') }))
+  readonly sshFiles = vi.fn<WorkspaceRemote['sshFiles']>(async () => remoteOk({ kind: 'list', entries: [] }))
   readonly calls: Array<{ readonly method: string; readonly request: unknown }> = []
   onCreate: (request: WorkspaceCreateRequest) => Promise<RemoteResult<WorkspaceCreateValue>> = request =>
     Promise.resolve(remoteOk({ workspace: workspace(request.path.split('/').pop() ?? 'workspace'), created: true }))
   onRename: (request: WorkspaceRenameRequest) => Promise<RemoteResult<WorkspaceValue>> = request =>
     Promise.resolve(remoteOk({ workspace: { ...workspace(String(request.workspaceId)), title: request.title } }))
+  onUpdateSsh: (request: WorkspaceUpdateSshRequest) => Promise<RemoteResult<WorkspaceValue>> = request =>
+    Promise.resolve(remoteOk({
+      workspace: {
+        ...workspace(String(request.workspaceId)),
+        path: `ssh://${encodeURIComponent(request.ssh.username)}@${request.ssh.host}:${request.ssh.port}${request.path}`,
+      },
+    }))
   onDelete: (_request: WorkspaceDeleteRequest) => Promise<RemoteResult<WorkspaceDeleteValue>> = () =>
     Promise.resolve(remoteOk({ deleted: true }))
   onDeleteSession: (_request: WorkspaceDeleteSessionRequest) => Promise<RemoteResult<WorkspaceDeleteSessionValue>> = () =>
@@ -115,6 +124,11 @@ class FakeWorkspaceRemote implements WorkspaceRemote {
   rename(request: WorkspaceRenameRequest): Promise<RemoteResult<WorkspaceValue>> {
     this.record('rename', request)
     return this.onRename(request)
+  }
+
+  updateSsh(request: WorkspaceUpdateSshRequest): Promise<RemoteResult<WorkspaceValue>> {
+    this.record('updateSsh', request)
+    return this.onUpdateSsh(request)
   }
 
   delete(request: WorkspaceDeleteRequest): Promise<RemoteResult<WorkspaceDeleteValue>> {
@@ -568,6 +582,30 @@ describe('ClientWorkspaceModel', () => {
     model.handleCarrierFailure()
     await Promise.resolve()
     expect(listener).toHaveBeenCalledOnce()
+  })
+
+  it('updates an SSH workspace path from the unary updateSsh response', async () => {
+    const remote = new FakeWorkspaceRemote()
+    const model = modelFor(remote)
+    baseline(model, [workspace('ssh-1')])
+
+    const result = await model.updateSsh({
+      workspaceId: wid('ssh-1'),
+      path: '/srv/app',
+      ssh: { host: '192.0.2.20', port: 2222, username: 'deploy' },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(remote.calls.at(-1)).toEqual({
+      method: 'updateSsh',
+      request: {
+        workspaceId: wid('ssh-1'),
+        path: '/srv/app',
+        ssh: { host: '192.0.2.20', port: 2222, username: 'deploy' },
+      },
+    })
+    expect(model.getSnapshot().items.find(item => item.workspaceId === wid('ssh-1'))?.path)
+      .toBe('ssh://deploy@192.0.2.20:2222/srv/app')
   })
 
   it('removes from a unary delete echo before the operation resolves', async () => {

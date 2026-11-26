@@ -33,6 +33,8 @@ import { buildModelCatalog, hasProviderApiKey } from './catalog.ts'
 import { SessionSkillCatalog } from './skill-catalog.ts'
 import { SessionMediaReferences } from './media-references.ts'
 import { ArchivedSessionGate } from './archived-session-gate.ts'
+import { SshSessions } from './ssh-sessions.ts'
+import { sshProjectModels, type SshProjectModels } from './ssh-models.ts'
 import type {
   ModelCatalog,
   SessionWorkspacePathApplication,
@@ -43,10 +45,16 @@ import type {
   SessionControlFrame,
   SessionCreateRequest,
   SessionCreateValue,
+  SessionDisconnectSshRequest,
+  SessionDisconnectSshValue,
+  SessionReconnectSshRequest,
+  SessionReconnectSshValue,
   SessionFollowFrame,
   SessionFollowRequest,
   SessionForkRequest,
   SessionForkValue,
+  SessionRewindRequest,
+  SessionRewindValue,
   SessionListRequest,
   SessionListValue,
   SessionOpenWorkspacePathRequest,
@@ -135,6 +143,8 @@ export class SessionController extends TypertRemoteService {
   private commands!: SessionCommandController
   private controlState!: SessionControlController
   private listState!: ApiSessionList
+  private sshSessions?: SshSessions
+  private projectModels?: SshProjectModels
   private readonly openPath: (path: string, signal: AbortSignal) => Promise<void>
   private readonly fileApplications: typeof nativeFileApplications
   private readonly openFileApplication: typeof openNativeFileApplication
@@ -161,10 +171,15 @@ export class SessionController extends TypertRemoteService {
 
   protected async [Service.init](): Promise<void> {
     const ctx = this.ctx
+    const projectModels = ctx.get('workspaceRegistry')?.sshProjectHost === true ? sshProjectModels(ctx) : undefined
+    if (projectModels !== undefined) {
+      this.projectModels = projectModels
+      ctx.effect(() => () => projectModels.dispose(), 'session-controller.ssh-project-models')
+    }
     ctx.typert.resources.register('session', { resolve: resolveSessionResource })
-    this.agents = new ApiSessionAgentController(ctx)
+    this.agents = new ApiSessionAgentController(ctx, projectModels)
     this.agents.initialize()
-    this.commands = new SessionCommandController(ctx, this.agents, process.cwd())
+    this.commands = new SessionCommandController(ctx, this.agents, process.cwd(), projectModels)
     ctx.effect(() => ctx.fileUploads.registerAgentResolver(async (sessionId) => {
       const result = await this.agents.resolveAgent(sessionId)
       if ('error' in result) throw result.error
@@ -186,6 +201,18 @@ export class SessionController extends TypertRemoteService {
     ctx.fiber.assertActive()
     await this.listState.initialize()
     ctx.fiber.assertActive()
+    if (ctx.get('typertGateway') !== undefined && ctx.get('workspaceRegistry')?.sshProjectHost === false) {
+      const sshSessions = new SshSessions(ctx)
+      this.sshSessions = sshSessions
+      ctx.effect(() => {
+        const unregister = ctx.typertGateway.registerOwnerRoute(sshSessions)
+        return async () => {
+          unregister()
+          await sshSessions.dispose()
+        }
+      }, 'session-controller.ssh-workspaces')
+    }
+    ctx.on('workspace/ssh-session-hidden', (sessionId) => { ctx.emit('api-session/deleted', sessionId) })
     ctx.plugin(SessionFileReferences)
     ctx.plugin(SessionMediaReferences)
     ctx.plugin(SessionSkillCatalog)
@@ -254,7 +281,8 @@ export class SessionController extends TypertRemoteService {
   @Remote('list')
   async list(_request: SessionListRequest, signal: AbortSignal): Promise<SessionListValue> {
     const items = await this.listState.list(signal)
-    return { items: items.filter(item => this.ctx.remoteAccess.allows({ kind: 'session', id: item.sessionId })) }
+    const visible = items.filter(item => this.ctx.remoteAccess.allows({ kind: 'session', id: item.sessionId }))
+    return { items: principalOf(this.ctx.invocation) === undefined ? this.sshSessions?.list(visible) ?? visible : visible }
   }
 
   /**
@@ -317,8 +345,9 @@ export class SessionController extends TypertRemoteService {
    * @returns provider-grouped models, the deployment default, and isolated provider failures.
    */
   @Remote('modelCatalog')
-  modelCatalog(): Promise<ModelCatalog> {
-    return buildModelCatalog(this.ctx)
+  async modelCatalog(): Promise<ModelCatalog> {
+    const desktopDefault = await this.projectModels?.reload()
+    return await buildModelCatalog(this.ctx, desktopDefault)
   }
 
   /**
@@ -435,6 +464,17 @@ export class SessionController extends TypertRemoteService {
   }
 
   /**
+   * Replace an ordinary Session in-place with a standalone copy cut immediately
+   * before one sent user message.
+   * @param request - source Session and exact event seq of the user message to rewind before.
+   * @returns the replacement Session identity.
+   */
+  @Remote('rewind')
+  rewind(request: SessionRewindRequest): Promise<SessionRewindValue> {
+    return this.commands.rewind(request)
+  }
+
+  /**
    * Admit one prompt after explicitly resuming its Session.
    * @param request - Session identity, prompt content, source metadata, and delivery mode.
    * @param signal - caller cancellation before prompt admission begins.
@@ -495,6 +535,44 @@ export class SessionController extends TypertRemoteService {
   @Remote('cancel')
   cancel(request: SessionCancelRequest): SessionCancelValue {
     return this.commands.cancel(request)
+  }
+
+  /**
+   * Best-effort cancel the selected remote turn, then end the desktop's SSH
+   * relay. The response never claims the server accepted that cancellation;
+   * reconnecting reconciles the remote task state.
+   * @param request - SSH Workspace to pause locally and its current remote Session when selected.
+   * @returns confirmation that the local SSH relay closed.
+   */
+  @Remote('disconnectSsh')
+  async disconnectSsh(request: SessionDisconnectSshRequest): Promise<SessionDisconnectSshValue> {
+    const sshSessions = this.sshSessions
+    if (sshSessions === undefined) {
+      throw new RemoteError('workspace/ssh-unavailable', 'Select a saved SSH workspace on the desktop', {
+        workspaceId: request.workspaceId,
+      })
+    }
+    await sshSessions.disconnect(request.workspaceId, request.sessionId)
+    return { disconnected: true }
+  }
+
+  /**
+   * Re-establish the local relay for an existing SSH Workspace. This does not
+   * create a Session, so the caller can continue the remote conversation in
+   * the desktop's current main window after the summary refresh completes.
+   * @param request - SSH Workspace to reconnect and its current Session when selected.
+   * @returns confirmation that the existing remote Session list was refreshed.
+   */
+  @Remote('reconnectSsh')
+  async reconnectSsh(request: SessionReconnectSshRequest): Promise<SessionReconnectSshValue> {
+    const sshSessions = this.sshSessions
+    if (sshSessions === undefined) {
+      throw new RemoteError('workspace/ssh-unavailable', 'Select a saved SSH workspace on the desktop', {
+        workspaceId: request.workspaceId,
+      })
+    }
+    await sshSessions.reconnect(request.workspaceId, request.sessionId, request.password)
+    return { reconnected: true }
   }
 
   /**

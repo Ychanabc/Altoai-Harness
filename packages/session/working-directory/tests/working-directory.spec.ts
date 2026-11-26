@@ -36,6 +36,17 @@ async function fixture(config?: (root: string) => WorkingDirectoryConfig) {
 }
 
 describe('Session working directories', () => {
+  it('replays an SSH location without resolving it or changing it through the local filesystem', async () => {
+    await using f = await fixture()
+    const cwd = 'ssh://account@192.0.2.7:2222/srv/project'
+    const agent = await f.harness.create(brandString<SessionId>('ssh-session'), {}, { cwd })
+    const resolve = vi.spyOn(f.ctx.fs, 'resolve')
+    expect(f.ctx.sessionProjections.snapshot(agent.session).values.workingDirectory).toBe(cwd)
+    await expect(f.ctx.workingDirectory.ensure(agent)).rejects.toMatchObject({ code: 'WORKING_DIRECTORY_UNAVAILABLE' })
+    await expect(f.ctx.workingDirectory.set(agent, f.root)).rejects.toMatchObject({ code: 'WORKING_DIRECTORY_UNAVAILABLE' })
+    expect(resolve).not.toHaveBeenCalled()
+  })
+
   it('keeps origin metadata and other Sessions independent while logging the changed directory', async () => {
     await using f = await fixture()
     const child = join(f.root, 'child')

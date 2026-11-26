@@ -86,6 +86,9 @@
 
     - id: workspace
       name: '@deepseek-ai/dsh-workspace'
+      inject: [webStartup]
+      config:
+        sshWorkspace: !!js ctx.webStartup.sshWorkspace
 
     - id: session-reference
       name: '@deepseek-ai/dsh-session-reference'
@@ -505,6 +508,17 @@
 
     - id: ui-trajectory
       name: '@deepseek-ai/dsh-client-ui-trajectory'
+
+# The Loader checks disabled before injecting services. Read the launcher's
+# argument snapshot here so only managed SSH projects skip native adapters.
+- id: llm-deepseek
+  disabled: !!js "ctx.get('cmdlineArgs')?.get().includes('--ssh-model-relay') === true"
+
+- id: llm-deepseek-account
+  disabled: !!js "ctx.get('cmdlineArgs')?.get().includes('--ssh-model-relay') === true"
+
+- id: llm-pi-ai
+  disabled: !!js "ctx.get('cmdlineArgs')?.get().includes('--ssh-model-relay') === true"
 
 # ── the agent plane moves behind agent presets ─────────────────────────────
 #

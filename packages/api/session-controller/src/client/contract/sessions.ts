@@ -160,6 +160,18 @@ export interface ISessions {
     allowMigration?: boolean
   }): Promise<SessionId>
   /**
+   * Replace an ordinary session in-place with a standalone copy cut immediately
+   * before one sent user message. On resolution the replacement session is
+   * catalogued and can be explicitly retained.
+   * @param opts - source session id and the exact event seq of the user message to rewind before.
+   * @returns the replacement session id.
+   * @throws when the rewind fails.
+   */
+  rewind(opts: {
+    sessionId: SessionId
+    beforeSeq: number
+  }): Promise<SessionId>
+  /**
    * Borrow an already-retained Agent-scoped Context without extending its lifetime.
    * @param id - session id.
    * @returns the live scoped Context, or undefined without a retained generation.

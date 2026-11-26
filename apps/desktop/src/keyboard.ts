@@ -44,6 +44,7 @@ export function installDesktopShortcuts(
   let editingInput: BrowserWindow['webContents'] | undefined
   const scopedDesktop = platform === 'windows' || platform === 'macos'
   const disposers = new Set<() => void>()
+  const attached = new Set<BrowserWindow>()
   const guestInputs = new Map<WebContents, { window: BrowserWindow; reset(): void }>()
   const closeAccelerator = (): string | undefined => presentBinding(closeBinding, platform).aria
     ?.replace('Meta+', 'Command+').replace(/Arrow(Up|Down|Left|Right)$/u, '$1')
@@ -64,14 +65,15 @@ export function installDesktopShortcuts(
     const close = rows.find(row => row.id === 'page.close')
     closeBinding = close?.issue === null && close.conflicts.length === 0 ? close.binding : null
     if (wasEnabled !== (revision !== undefined) || previousAccelerator !== closeAccelerator()) updateMenu()
-    const window = getWindow()
-    if (window !== undefined && !window.isDestroyed() && window.webContents.mainFrame.url.startsWith('altoaih-app://app/')) {
-      window.webContents.send(DESKTOP_IPC.shortcutsChanged, snapshot)
+    for (const window of attached) {
+      if (!window.isDestroyed() && window.webContents.mainFrame.url.startsWith('altoaih-app://app/')) {
+        window.webContents.send(DESKTOP_IPC.shortcutsChanged, snapshot)
+      }
     }
   }
   const persistence = desktopKeybindings(userData, platform, publish)
   const assertSender = (event: IpcMainInvokeEvent): BrowserWindow => {
-    const window = getWindow()
+    const window = [...attached].find(item => !item.isDestroyed() && event.sender === item.webContents)
     if (window === undefined || window.isDestroyed() || event.sender !== window.webContents
       || event.senderFrame !== window.webContents.mainFrame) throw new Error('desktop shortcuts: rejected sender')
     assertDesktopSender(event, ['app'])
@@ -118,7 +120,7 @@ export function installDesktopShortcuts(
     }
     const clear = (): void => {
       resetInput()
-      if (guestName !== undefined) return
+      if (guestName !== undefined || attached.size > 1) return
       definitions = []; keys.clear(); recording = false
       persistence.setDefinitions(null)
     }
@@ -211,7 +213,7 @@ export function installDesktopShortcuts(
       guestInputs.delete(contents)
       if (!contents.isDestroyed()) contents.setIgnoreMenuShortcuts(false)
     }
-    const closed = (): void => { clear(); dispose() }
+    const closed = (): void => { clear(); attached.delete(window); dispose() }
     contents.on('did-start-navigation', navigation)
     contents.on('before-input-event', beforeInput)
     contents.on('blur', resetInput)
@@ -247,7 +249,7 @@ export function installDesktopShortcuts(
         click: sendMenuClose,
       }] }
     },
-    attach(window) { attachInput(window, window.webContents) },
+    attach(window) { attached.add(window); attachInput(window, window.webContents) },
     attachGuest: attachInput,
     dispose() {
       for (const dispose of disposers) dispose()

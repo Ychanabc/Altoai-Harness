@@ -1,5 +1,6 @@
 import { IconEditOutlineRegular, IconTrashOutlineRegular, IconPinFillRegular, IconPinOutlineRegular, IconUnarchiveOutlineRegular, IconArchiveOutlineRegular, IconBranchOutlineRegular, IconCopyOutlineRegular, IconMailReadOutlineRegular, IconMailUnreadOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import { SessionMenu } from './session-actions/SessionMenu.tsx'
+import { parseSshWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 import type {} from '@deepseek-ai/dsh-client-ui-context-menu/client'
 /**
  * Workspace plugin, browser half. Two registrations: WorkspaceBrowser fills
@@ -32,6 +33,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SshWorkspaceConnectionState } from '@deepseek-ai/dsh-workspace/types'
 // Type-only: pulls the Controller service merges.
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
@@ -141,7 +143,7 @@ const NS = 'workspace'
  * and reloads with it.
  */
 export const inject = ['contextMenus',
-  'slots', 'sessions', 'workspaces', 'locale', 'remote', 'remote.directoryPicker', 'layout', 'shortcuts', 'remoteAccess',
+  'slots', 'sessions', 'workspaces', 'locale', 'remote', 'remote.directoryPicker', 'remote.session', 'layout', 'shortcuts', 'remoteAccess',
   'uiSession', 'uiSession.sessionStatus',
 ]
 
@@ -162,12 +164,20 @@ export function apply(ctx: Context, config: SyncedConfig<WorkspaceNavigationConf
   const viewInstance = viewHandle.create()
   const viewStore: typeof viewHandle = { ...viewHandle, create: () => viewInstance }
   const rowToast = createSnapshotStore<RowToastState | null>(null)
+  const sshStatus = createSnapshotStore<ReadonlyMap<WorkspaceId, SshWorkspaceConnectionState>>(new Map())
   let toastSeq = 0
   const notify = (toast: RowToast): void => { rowToast.set({ ...toast, seq: ++toastSeq }) }
   const uiWorkspace = new UiWorkspaceService(
     ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify, config.recentViewLimit,
   )
   ctx.remote.$on('api-session/deleted', (sessionId) => { uiWorkspace.clearDeletedSession(sessionId) })
+  ctx.effect(() => ctx.remote.$on('workspace/ssh-status', (workspaceId, state) => {
+    const current = sshStatus.getSnapshot()
+    if (current.get(workspaceId) === state) return
+    const next = new Map(current)
+    next.set(workspaceId, state)
+    sshStatus.set(next)
+  }), 'ui-workspace: SSH connection status')
   ctx.slots.provideRoot({
     hooks: { workspaces: workspaces.list },
     keyedHooks: {
@@ -328,6 +338,50 @@ export function apply(ctx: Context, config: SyncedConfig<WorkspaceNavigationConf
     if (workspace === undefined || !ctx.remoteAccess.source('workspace', workspaceId, `workspace/${action}`).getSnapshot()) return
     workspaceActionRequest.set({ action, workspaceId, displayTitle, storedTitle: workspace.title })
   }
+  const requestWorkspaceSshEdit = (workspaceId: WorkspaceId, path: string, displayTitle: string): void => {
+    if (parseSshWorkspacePath(path) === undefined
+      || !ctx.remoteAccess.source('workspace', workspaceId, 'workspace/updateSsh').getSnapshot()) return
+    workspaceActionRequest.set({ action: 'editSsh', workspaceId, path, displayTitle })
+  }
+  const requestWorkspaceSshConnect = (
+    workspaceId: WorkspaceId,
+    path: string,
+    displayTitle: string,
+    sessionId?: SessionId,
+  ): void => {
+    if (parseSshWorkspacePath(path) === undefined) return
+    workspaceActionRequest.set({
+      action: 'connectSsh',
+      workspaceId,
+      path,
+      displayTitle,
+      ...(sessionId === undefined ? {} : { sessionId }),
+    })
+  }
+  ctx.on('workspace/ssh-password-required', (workspaceId, sessionId) => {
+    const workspace = workspaces.list.getSnapshot().items.find(row => row.workspaceId === workspaceId)
+    if (workspace === undefined) return
+    requestWorkspaceSshConnect(workspace.workspaceId, workspace.path, workspace.title, sessionId)
+  })
+  const reconnectSshWorkspace: WorkspaceBrowserInjected['reconnectSshWorkspace'] = async (
+    workspaceId,
+    password,
+    sessionId,
+  ) => {
+    const result = await ctx.remote.session.reconnectSsh({
+      workspaceId,
+      password,
+      ...(sessionId === undefined ? {} : { sessionId }),
+    })
+    if (!result.ok) throw new Error(result.error.message)
+    const current = sshStatus.getSnapshot()
+    if (current.get(workspaceId) !== 'connected') {
+      const next = new Map(current)
+      next.set(workspaceId, 'connected')
+      sshStatus.set(next)
+    }
+    if (sessionId !== undefined) openSession(sessionId)
+  }
   const requestSessionDelete = (sessionId: SessionId, displayTitle: string): void => {
     if (!ctx.remoteAccess.source('session', sessionId, 'workspace/deleteSession').getSnapshot()) return
     workspaceActionRequest.set({ action: 'deleteSession', sessionId, displayTitle })
@@ -347,10 +401,78 @@ export function apply(ctx: Context, config: SyncedConfig<WorkspaceNavigationConf
       ? [{ id: 'rename', label: ctx.locale.bind(NS)('rename'), icon: { key: 'workspace.rename' }, run: () => { requestWorkspaceAction(workspaceId, displayTitle, 'rename') } }] : [],
   }), 'workspace: rename menu action')
   ctx.effect(() => ctx.contextMenus.register({
+    id: 'workspace.ssh-edit', target: 'workspace', order: 200,
+    resolve: ({ workspaceId, path, displayTitle }) => parseSshWorkspacePath(path) !== undefined
+      && ctx.remoteAccess.source('workspace', workspaceId, 'workspace/updateSsh').getSnapshot()
+      ? [{ id: 'edit-ssh', label: ctx.locale.bind(NS)('ssh.action.edit'), icon: { key: 'workspace.rename' }, run: () => { requestWorkspaceSshEdit(workspaceId, path, displayTitle) } }]
+      : [],
+  }), 'workspace: edit SSH menu action')
+  ctx.effect(() => ctx.contextMenus.register({
+    id: 'workspace.ssh-connection', target: 'workspace', order: 225,
+    observe: () => [sshStatus, workspaces.list, sessions.list],
+    resolve: ({ workspaceId, path, displayTitle }) => {
+      if (parseSshWorkspacePath(path) === undefined) return []
+      const state = sshStatus.getSnapshot().get(workspaceId)
+      const current = Object.values(sessions.list.getSnapshot().byId)
+        .find(session => (session.retainedBy.mainView ?? 0) > 0)
+      const activeSessionId = current?.cwd === path ? current.id : undefined
+      if (state === 'connected' || state === 'connecting') {
+        return [{
+          id: 'disconnect-ssh', label: ctx.locale.bind(NS)('ssh.action.disconnect'),
+          failureLabel: ctx.locale.bind(NS)('ssh.action.disconnectFailed'),
+          run: async () => {
+            const result = await ctx.remote.session.disconnectSsh({
+              workspaceId,
+              ...(activeSessionId === undefined ? {} : { sessionId: activeSessionId }),
+            })
+            if (!result.ok) throw new Error(result.error.message)
+            const currentStatus = sshStatus.getSnapshot()
+            if (currentStatus.get(workspaceId) !== 'paused') {
+              const next = new Map(currentStatus)
+              next.set(workspaceId, 'paused')
+              sshStatus.set(next)
+            }
+          },
+        }]
+      }
+      return [{
+        id: 'reconnect-ssh', label: ctx.locale.bind(NS)('ssh.action.reconnect'),
+        failureLabel: ctx.locale.bind(NS)('ssh.action.reconnectFailed'),
+        run: async () => {
+          const result = await ctx.remote.session.reconnectSsh({
+            workspaceId,
+            ...(activeSessionId === undefined ? {} : { sessionId: activeSessionId }),
+          })
+          if (!result.ok) {
+            if (result.error.code === 'workspace/ssh-password-required') {
+              requestWorkspaceSshConnect(workspaceId, path, displayTitle, activeSessionId)
+              return
+            }
+            throw new Error(result.error.message)
+          }
+          const currentStatus = sshStatus.getSnapshot()
+          if (currentStatus.get(workspaceId) !== 'connected') {
+            const next = new Map(currentStatus)
+            next.set(workspaceId, 'connected')
+            sshStatus.set(next)
+          }
+          if (activeSessionId !== undefined) openSession(activeSessionId)
+        },
+      }]
+    },
+  }), 'workspace: SSH connection menu action')
+  ctx.effect(() => ctx.contextMenus.register({
     id: 'workspace.delete', target: 'workspace', order: 300,
-    resolve: ({ workspaceId, displayTitle }) => ctx.remoteAccess.source('workspace', workspaceId, 'workspace/delete').getSnapshot()
-      ? [{ id: 'delete', label: ctx.locale.bind(NS)('delete.workspace'), icon: { key: 'workspace.delete' }, danger: true, separatorBefore: true,
-        run: () => { requestWorkspaceAction(workspaceId, displayTitle, 'delete') } }] : [],
+    resolve: ({ workspaceId, displayTitle }) => {
+      if (!ctx.remoteAccess.source('workspace', workspaceId, 'workspace/delete').getSnapshot()) return []
+      const path = workspaces.list.getSnapshot().items.find(row => row.workspaceId === workspaceId)?.path
+      const remote = path !== undefined && parseSshWorkspacePath(path) !== undefined
+      return [{
+        id: 'delete', label: ctx.locale.bind(NS)(remote ? 'delete.remote' : 'delete.workspace'),
+        icon: { key: 'workspace.delete' }, danger: true, separatorBefore: true,
+        run: () => { requestWorkspaceAction(workspaceId, displayTitle, 'delete') },
+      }]
+    },
   }), 'workspace: delete menu action')
   const browserInjected = (): WorkspaceBrowserInjected => ({
     settleWorkspaceAction: () => { workspaceActionRequest.set(null) },
@@ -363,18 +485,20 @@ export function apply(ctx: Context, config: SyncedConfig<WorkspaceNavigationConf
     requestSessionRename,
     notifyArchivedNotOpenable: () => { notify({ kind: 'archivedNotOpenable' }) },
     renameWorkspace: async (workspaceId, title) => { await workspaces.rename(workspaceId, title) },
-    deleteWorkspace: async (workspaceId) => { await workspaces.delete(workspaceId) },
+    deleteWorkspace: async (workspaceId, options) => { await workspaces.delete(workspaceId, options) },
     deleteSession: sessionId => uiWorkspace.deleteSession(sessionId),
     insertWorkspaceBefore: async (workspaceId, beforeWorkspaceId) => {
       await workspaces.insertBefore(workspaceId, beforeWorkspaceId)
     },
     unarchiveSession: async (sessionId) => { await uiWorkspace.unarchiveSession(sessionId) },
     createWorkspace: input => workspaces.create(input),
+    updateSshWorkspace: input => workspaces.updateSsh(input),
+    reconnectSshWorkspace,
     requestSearch: shortcutControls.search,
     requestAddWorkspace: shortcutControls.add,
     closeAddWorkspace: shortcutControls.closeAdd,
     setDirectoryBusy: shortcutControls.directoryBusy,
-    hooks: { workspaceActionRequest, contextMenuTarget: ctx.contextMenus.active, directoryFlow: browserFlowSource, hostInfo,
+    hooks: { workspaceActionRequest, contextMenuTarget: ctx.contextMenus.active, directoryFlow: browserFlowSource, hostInfo, sshStatus,
       workspaceShortcuts: shortcutControls.state, shortcuts: ctx.shortcuts.catalog },
   })
   const pickerInjected = (directoryFlow: HostObservable<boolean>) => (): WorkspacePickerInjected => ({

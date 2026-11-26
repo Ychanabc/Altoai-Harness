@@ -12,9 +12,11 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  border: 0;
-  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
-  box-shadow: var(--dsw-elevation-prominent);
+  border: 1px solid var(--dsh-glass-border-strong);
+  --dsw-elevation-stroke-color: transparent;
+  box-shadow:
+    inset 0 1px 0 var(--dsh-glass-highlight),
+    var(--dsw-elevation-prominent);
   /* Elevated surface: the scrollbar thumb takes the l2 elevation tokens. The
      declaration sits on the card rather than on `.scrollable .viewport`
      because the elevation is a property of this surface, and the custom

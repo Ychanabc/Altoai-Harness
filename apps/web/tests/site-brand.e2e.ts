@@ -124,8 +124,8 @@ async function palette(page: Page, scheme: 'light' | 'dark') {
     probe.remove()
     return result
   })
-  expect(semantic.background).toBe(scheme === 'dark' ? 'rgb(17, 18, 20)' : 'rgb(255, 255, 255)')
-  expect(semantic.foreground).toBe(scheme === 'dark' ? 'rgb(245, 245, 247)' : 'rgb(28, 28, 30)')
+  expect(semantic.background).toBe(scheme === 'dark' ? 'rgb(8, 12, 22)' : 'rgb(244, 246, 251)')
+  expect(semantic.foreground).toBe(scheme === 'dark' ? 'rgb(241, 245, 249)' : 'rgb(15, 23, 42)')
 }
 
 it('renders website branding, both palettes, narrow focus and account sign-in/out through the shipped Web composition', async () => {
@@ -162,7 +162,7 @@ it('renders website branding, both palettes, narrow focus and account sign-in/ou
     const retry = failure.getByRole('button', { name: '重新登录', exact: true })
     const pair = await colors(retry)
     expect(pair.foreground).toBe('rgb(255, 255, 255)')
-    expect(pair.background).toBe(scheme === 'dark' ? 'rgb(38, 124, 175)' : 'rgb(22, 119, 184)')
+    expect(pair.background).toBe(scheme === 'dark' ? 'rgb(59, 130, 246)' : 'rgb(37, 99, 235)')
     await shot(page, `web-login-error-${scheme}`)
     await page.setViewportSize({ width: 390, height: 844 })
     await retry.focus()

@@ -268,6 +268,50 @@ describe('ModelSelect catalog badges', () => {
 })
 
 describe('ModelSelect reasoning effort', () => {
+  it.each(['click', 'keyboard'] as const)('uses the selected model\'s declared reasoning default on %s route selection', async (interaction) => {
+    const directory = createSnapshotStore<ModelDirectoryState>(state({ groups: [{
+      ...state().groups[0]!,
+      models: [
+        state().groups[0]!.models[0]!,
+        {
+          id: 'deepseek-v4-pro',
+          name: 'DeepSeek-V4-Pro',
+          reasoning: { efforts: reasoning.efforts, defaultEffort: 'max' },
+        },
+      ],
+    }] }))
+    const select = vi.fn(async (selection: ModelSelection) => {
+      directory.set({ ...directory.getSnapshot(), current: selection })
+      return { ok: true as const, value: undefined }
+    })
+    render(<ModelSelect renderSlot={renderLabel}
+      locked={false}
+      available
+      directory={directory}
+      load={vi.fn()}
+      resolveText={resolveText}
+      select={select}
+      t={t}
+    />)
+
+    fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /^模型/ }))
+    const target = screen.getByRole('menuitemradio', { name: 'DeepSeek-V4-Pro' })
+    if (interaction === 'click') fireEvent.click(target)
+    else {
+      target.focus()
+      fireEvent.keyDown(target, { key: 'Tab' })
+    }
+
+    await waitFor(() => {
+      expect(select).toHaveBeenCalledWith({
+        provider: 'deepseek-official',
+        model: 'deepseek-v4-pro',
+        reasoningEffort: 'max',
+      })
+    })
+  })
+
   it('localizes all declared effort levels and submits Ultra as part of the session selection', async () => {
     const directory = createSnapshotStore<ModelDirectoryState>(state({ groups: [{
       ...state().groups[0]!,

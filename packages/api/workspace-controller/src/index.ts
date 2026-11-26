@@ -2,7 +2,7 @@
 
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import { Remote, RemoteError, TypertRemoteService, principalOf } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-api-remote-access'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { WorkspaceCommands } from './commands.ts'
@@ -10,6 +10,8 @@ import { DirectoryPickerController } from './directory-picker.ts'
 import { WorkspaceFeed, workspaceView } from './feed.ts'
 import { defaultWorkspaceDirectory, validateDocumentsDirectory } from './default-directory.ts'
 import type {
+  SshWorkspaceFilesRequest,
+  SshWorkspaceFilesValue,
   WorkspaceArchiveSessionRequest,
   WorkspaceArchiveValue,
   WorkspaceBaseline,
@@ -29,6 +31,7 @@ import type {
   WorkspaceRenameRequest,
   WorkspaceUnarchiveSessionRequest,
   WorkspaceUnpinSessionRequest,
+  WorkspaceUpdateSshRequest,
   WorkspaceValue,
 } from './types.ts'
 
@@ -95,6 +98,24 @@ export class WorkspaceController extends TypertRemoteService {
   }
 
   /**
+   * @param request - registered SSH project and relative file or directory.
+   * @param signal - lifetime of the request.
+   * @returns a directory listing or a bounded UTF-8 preview.
+   */
+  @Remote('sshFiles')
+  async sshFiles(request: SshWorkspaceFilesRequest, signal: AbortSignal): Promise<SshWorkspaceFilesValue> {
+    const { workspaceId } = request
+    try {
+      if (principalOf(this.ctx.invocation) !== undefined) throw new Error('SSH browsing requires the workspace owner')
+      return await this.ctx.workspaceRegistry.browseSsh(workspaceId, request.path, request.kind, signal)
+    } catch (cause) {
+      if (signal.aborted) throw new RemoteError('gateway/cancelled', 'SSH file request was cancelled', {})
+      throw new RemoteError('workspace/ssh-files-failed',
+        cause instanceof Error ? cause.message : 'Could not read the SSH workspace', { workspaceId }, { cause })
+    }
+  }
+
+  /**
    * Initialize or reuse the default Workspace during first-use startup. The
    * directory name is fixed, so the Host never renames or relocates an
    * existing default; its initial title is that same name, which browser
@@ -121,6 +142,16 @@ export class WorkspaceController extends TypertRemoteService {
   @Remote('rename')
   rename(request: WorkspaceRenameRequest): Promise<WorkspaceValue> {
     return this.commands.rename(request)
+  }
+
+  /**
+   * Update one SSH Workspace's endpoint, credentials, and remote directory.
+   * @param request - Workspace identity, remote directory, and SSH endpoint details.
+   * @returns the updated Workspace projection.
+   */
+  @Remote('updateSsh')
+  updateSsh(request: WorkspaceUpdateSshRequest): Promise<WorkspaceValue> {
+    return this.commands.updateSsh(request)
   }
 
   /**

@@ -8,6 +8,7 @@
 
 import type {} from '@deepseek-ai/dsh-api-session-controller/remote-events'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SshWorkspaceConnectionState, WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import type {} from '@deepseek-ai/dsh-deepseek-account/types'
 import type {} from '@deepseek-ai/dsh-permission-presets/types'
 import type {} from '@deepseek-ai/dsh-plugin-manager/types'
@@ -57,4 +58,7 @@ export const API_REMOTE_FORWARDED_EVENTS = [
   { event: 'schedule/changed', mode: 'emit' },
   { event: 'user-questions/request', mode: 'waterfall' },
   { event: 'web/providers-changed', mode: 'emit' },
+  { event: 'workspace/ssh-status', mode: 'emit', resources: {
+    workspace: (workspaceId: WorkspaceId, _state: SshWorkspaceConnectionState): WorkspaceId => workspaceId,
+  } },
 ] as const satisfies readonly TypertForwardableEventEntry[]

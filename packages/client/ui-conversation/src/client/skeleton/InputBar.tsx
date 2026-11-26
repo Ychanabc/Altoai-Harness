@@ -77,6 +77,8 @@ export const InputBar = memo(function InputBar({
       && typeof message.source === 'object' && message.source !== null && 'kind' in message.source
       && message.source.kind === 'user') ?? false)
   const historyOpen = useSession(s => s.openState === 'open') ?? false
+  const openError = useSession(s => s.openState === 'error') ?? false
+  const lastAgentError = useSession(s => s.lastAgentError) ?? null
   const submissionPending = useSession(s => s.pendingSubmissions.length > 0) ?? false
   const subagent = useSession(s => s.subagent) ?? null
   const removed = useSession(s => s.removed) ?? false
@@ -380,7 +382,9 @@ export const InputBar = memo(function InputBar({
   // Disabled native buttons may omit mouseleave; their tooltip must close from state.
   const primaryDisabled = primaryStops ? stopAction === undefined
     : (!primaryRetries && empty) || disabled || machineBusy || uploadsPending
-  const interruptible = running && (continuable || (sending && subagent === null))
+  const disconnected = openError || lastAgentError !== null
+  const interruptible = (running && (continuable || (sending && subagent === null) || (disconnected && subagent === null && !primaryStops)))
+    || (sending && subagent === null && disconnected)
   const primarySubmitMode = resolveSubmitMode(busyEnter, running, 'enter', steeringAvailable)
   const plainMessageDraft = !empty && input?.phase === 'plain' && !draft.trimStart().startsWith('/')
   const primaryLabel = primaryStops
@@ -549,6 +553,7 @@ export const InputBar = memo(function InputBar({
                   type="button"
                   className={css.primary}
                   aria-label={t('input.stop')}
+                  data-stopping=""
                   disabled={stopAction === undefined}
                   onMouseDown={keepFocus}
                   onClick={stopAction}
@@ -567,6 +572,7 @@ export const InputBar = memo(function InputBar({
                   aria-label={primaryLabel}
                   aria-busy={sending}
                   data-sending={sending ? '' : undefined}
+                  data-stopping={primaryStops ? '' : undefined}
                   disabled={primaryDisabled}
                   onMouseDown={keepFocus}
                   onClick={onPrimary}

@@ -73,13 +73,17 @@ describe('Workspace Files Session scope lookup', () => {
     const coldId = brandString<SessionId>('cold-subagent')
     const fallbackId = brandString<SessionId>('cold-without-cwd')
     const liveFallbackId = brandString<SessionId>('live-without-cwd')
+    const liveSshId = brandString<SessionId>('live-ssh')
+    const coldSshId = brandString<SessionId>('cold-ssh')
     const missingId = brandString<SessionId>('missing')
     const liveRoot = resolve('live-workspace')
     const coldRoot = resolve('cold-workspace')
     const fallbackRoot = resolve('fallback-workspace')
+    const sshRoot = 'ssh://project@192.0.2.2:22/srv/project'
     const stat = vi.fn(async (id: SessionId) => {
       if (id === coldId) return { header: header(coldId, coldRoot) }
       if (id === fallbackId) return { header: header(fallbackId) }
+      if (id === coldSshId) return { header: header(coldSshId, sshRoot) }
       return undefined
     })
     const ctx = new Context()
@@ -94,6 +98,7 @@ describe('Workspace Files Session scope lookup', () => {
     try {
       ctx.sessions.create(liveId, { meta: { cwd: liveRoot, origin: 'subagent' } })
       ctx.sessions.create(liveFallbackId, { meta: { origin: 'subagent' } })
+      ctx.sessions.create(liveSshId, { meta: { cwd: sshRoot, origin: 'subagent' } })
       expect(ctx.get('agents')).toBeUndefined()
       const lookup = ctx.typert.lookups.get('workspaceFileScope')
       expect(lookup).toMatchObject({
@@ -108,6 +113,7 @@ describe('Workspace Files Session scope lookup', () => {
 
       await expect(lookup.resolve(liveId)).resolves.toEqual({ sessionId: liveId, workspaceRoot: liveRoot })
       await expect(lookup.resolve(liveFallbackId)).resolves.toEqual({ sessionId: liveFallbackId, workspaceRoot: fallbackRoot })
+      await expect(lookup.resolve(liveSshId)).resolves.toBeUndefined()
       expect(stat).not.toHaveBeenCalled()
       const signal = new AbortController().signal
       await expect(ctx.workspaceFiles.scopeOf(coldId, signal)).resolves.toEqual({ sessionId: coldId, workspaceRoot: coldRoot })
@@ -115,7 +121,8 @@ describe('Workspace Files Session scope lookup', () => {
       await expect(lookup.resolve(coldId)).resolves.toEqual({ sessionId: coldId, workspaceRoot: coldRoot })
       await expect(lookup.resolve(fallbackId)).resolves.toEqual({ sessionId: fallbackId, workspaceRoot: fallbackRoot })
       await expect(lookup.resolve(missingId)).resolves.toBeUndefined()
-      expect(stat.mock.calls.map(([id]) => id)).toEqual([coldId, coldId, fallbackId, missingId])
+      await expect(lookup.resolve(coldSshId)).resolves.toBeUndefined()
+      expect(stat.mock.calls.map(([id]) => id)).toEqual([coldId, coldId, fallbackId, missingId, coldSshId])
 
       await workspaceFiles.dispose()
       expect(ctx.typert.lookups.get('workspaceFileScope')).toBeUndefined()

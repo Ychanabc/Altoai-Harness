@@ -1065,6 +1065,39 @@ describe('prompt and cancel errors', () => {
     expect(session.getSnapshot().promptError).toMatchObject({ op: 'stop', error: { code: 'gateway/internal' } })
   })
 
+  it('clears local running state immediately when cancelling while disconnected', async ({ mock, start }) => {
+    const client = await start()
+    const onLocalStop = vi.fn()
+    const session = new Session(SID, {
+      session: client.ctx.remote.session,
+      subagents: client.ctx.remote.subagents,
+      commands: mock.remote.commands,
+      $stream: client.ctx.remote.$stream.bind(client.ctx.remote),
+    }, { isDisconnected: () => true, onLocalStop })
+    onTestFinished(() => session.dispose())
+    session.handleRunning(true)
+    expect(session.getSnapshot().running).toBe(true)
+
+    const cancelled = await session.cancel()
+    expect(cancelled).toEqual({ ok: true, value: { accepted: true } })
+    expect(session.getSnapshot().running).toBe(false)
+    expect(onLocalStop).toHaveBeenCalledWith(SID)
+    expect(mock.log.requests('session/cancel')).toHaveLength(0)
+  })
+
+  it('clears running state when cancel fails because an SSH workspace is unavailable', async ({ mock, start }) => {
+    const session = await sessionBench(mock, start, SID)
+    session.handleRunning(true)
+    mock.remote.session.cancel.mockResolvedValueOnce(err(new RemoteError(
+      'workspace/ssh-unavailable',
+      'SSH workspace connection failed',
+      { workspaceId: 'ws-ssh' as never },
+    )))
+    const cancelled = await session.cancel()
+    expect(cancelled.ok).toBe(false)
+    expect(session.getSnapshot().running).toBe(false)
+  })
+
   it('sends the complete image reference and decodes the gateway response', async ({ mock, start }) => {
     const session = await sessionBench(mock, start, SID)
     const attachment = { attachmentId: brandString<AttachmentId>('attachment-1'), mediaType: 'image/png' as const,

@@ -90,6 +90,8 @@ interface BenchOptions {
   workspacePickerOpen?: boolean
   onRequestWorkspace?: () => void
   promptError?: SessionSnapshot['promptError']
+  openState?: SessionSnapshot['openState']
+  lastAgentError?: SessionSnapshot['lastAgentError']
   /** Authoritative queue rows served to the machine overlay (empty = none). */
   queue?: InboxState['next-turn']
   nextStep?: InboxState['next-step']
@@ -140,6 +142,8 @@ function bench(over?: BenchOptions) {
     subagent: over?.subagent ?? null,
     removed: over?.disabled ?? false,
     promptError: over?.promptError ?? null,
+    ...(over?.openState === undefined ? {} : { openState: over.openState }),
+    ...(over?.lastAgentError === undefined ? {} : { lastAgentError: over.lastAgentError }),
   }))
   type ShellDeps = ConstructorParameters<typeof SessionInputShell>[0]
   const shell = new SessionInputShell({
@@ -1205,6 +1209,31 @@ describe('running and lock semantics', () => {
 
     expect(view.queryByRole('button', { name: '正在发送消息' })).toBeNull()
     expect(view.getAllByRole('button', { name: '停止生成' })).toHaveLength(1)
+  })
+
+  it('exposes a clickable Stop button when disconnected with a draft or stuck sending', () => {
+    const runningDisconnected = bench({
+      running: true,
+      draft: '断连时草稿',
+      lastAgentError: 'SSH connection interrupted.',
+    })
+    const stopRunning = runningDisconnected.view.getByRole('button', { name: '停止生成' }) as HTMLButtonElement
+    expect(stopRunning.disabled).toBe(false)
+    fireEvent.click(stopRunning)
+    expect(runningDisconnected.stop).toHaveBeenCalledTimes(1)
+    runningDisconnected.view.unmount()
+
+    const stuckSending = bench({
+      running: false,
+      draft: '卡住发送',
+      openState: 'error',
+    })
+    stuckSending.sink.mockImplementationOnce(() => new Promise<SubmitOutcome>(() => {}))
+    fireEvent.keyDown(stuckSending.textarea, { key: 'Enter' })
+    const stopSending = stuckSending.view.getByRole('button', { name: '停止生成' }) as HTMLButtonElement
+    expect(stopSending.disabled).toBe(false)
+    fireEvent.click(stopSending)
+    expect(stuckSending.stop).toHaveBeenCalledTimes(1)
   })
 
   it('running Send follows the busy-state Steer preference and labels the delivery', () => {

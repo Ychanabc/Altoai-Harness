@@ -18,7 +18,7 @@
  * scrollbar indirection away while it is elsewhere, so a list the user is not
  * pointing at carries no bar.
  */
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { startTransition, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import clsx from 'clsx'
 import {
@@ -178,7 +178,10 @@ export function SidebarRoot({
   const [settled, setSettled] = useState(collapsed)
   useEffect(() => {
     if (drawer || !collapsed) { setSettled(collapsed); return }
-    const timer = window.setTimeout(() => { setSettled(true) }, COLLAPSE_SETTLE_MS)
+    // Switching the workspace tree into its rail body can release a large
+    // Session list. Let the CSS track keep painting while React performs that
+    // non-urgent unmount.
+    const timer = window.setTimeout(() => { startTransition(() => { setSettled(true) }) }, COLLAPSE_SETTLE_MS)
     return () => { window.clearTimeout(timer) }
   }, [collapsed, drawer])
   const windowsTitlebar = document.documentElement.hasAttribute('data-windows-titlebar')
@@ -223,16 +226,32 @@ export function SidebarRoot({
     if (opener != null && !isBehindModal(opener)) focusWithoutRing(opener, { preventScroll: true })
   }, [drawer, collapsed])
   const [pointerInside, setPointerInside] = useState(false)
-  // Inside is decided by the column's BOX, not by DOM containment, for every
-  // pointer move that reaches the column. ui-settings renders its
-  // full-viewport panel as a fixed-position DESCENDANT of this column, and the
-  // column's menus and tooltips are React portals, so a pointer over them
-  // fires no `pointerleave` here while their moves still bubble to it. The
-  // element's own leave stays as the one signal geometry cannot give: a
-  // pointer that leaves the window emits no further moves.
-  const trackPointer = (event: ReactPointerEvent<HTMLDivElement>): void => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    setPointerInside(event.clientX >= rect.left && event.clientX < rect.right
+  const pointerInsideRef = useRef(false)
+  const pointerBounds = useRef<DOMRectReadOnly | null>(null)
+  // ui-settings is a fixed-position DESCENDANT of this column, so a pointer
+  // over its full-viewport overlay still bubbles through the sidebar. Cache
+  // the sidebar's box instead of forcing a layout read for every pointermove.
+  useLayoutEffect(() => {
+    const el = column.current
+    if (el === null) return
+    const measure = () => { pointerBounds.current = el.getBoundingClientRect() }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => { observer.disconnect() }
+  }, [])
+  const setPointerState = (inside: boolean): void => {
+    if (pointerInsideRef.current === inside) return
+    pointerInsideRef.current = inside
+    setPointerInside(inside)
+  }
+  const trackPointer = (event: ReactPointerEvent<HTMLDivElement>, refresh = false): void => {
+    const rect = refresh || pointerBounds.current === null
+      ? event.currentTarget.getBoundingClientRect()
+      : pointerBounds.current
+    pointerBounds.current = rect
+    setPointerState(event.clientX >= rect.left && event.clientX < rect.right
       && event.clientY >= rect.top && event.clientY < rect.bottom)
   }
 
@@ -289,9 +308,9 @@ export function SidebarRoot({
         !drawer && collapsed && wide && css.fading, !pointerInside && css.quietBars,
       )}
       style={wide ? { width: !drawer && collapsed ? lastWideWidth.current : width } : undefined}
-      onPointerEnter={trackPointer}
+      onPointerEnter={(event) => { trackPointer(event, true) }}
       onPointerMove={trackPointer}
-      onPointerLeave={() => { setPointerInside(false) }}
+      onPointerLeave={() => { setPointerState(false) }}
     >
       {/* macOS hiddenInset titlebar: the strip shares the row with the
           traffic lights and keeps the toggle at the sidebar's top-right. */}

@@ -656,3 +656,9 @@ export const IconSaveOutlineRegular = productIcon('save-outline', 'regular')
 
 /** Medium floppy-disk save action. */
 export const IconSaveOutlineMedium = productIcon('save-outline', 'medium')
+
+/** Regular curved-left undo / recall action. */
+export const IconUndoOutlineRegular = productIcon('undo-outline', 'regular')
+
+/** Medium curved-left undo / recall action. */
+export const IconUndoOutlineMedium = productIcon('undo-outline', 'medium')

@@ -26,6 +26,7 @@ import type { RowToast } from './contract/slots.ts'
 import { pinOrderAccounts, pinOrderSource } from './pin-order.ts'
 import { RecentSessionViews } from './recent-views.ts'
 import type { WorkspaceViewStoreActions } from './stores.ts'
+import { parseSshWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 
 interface MainSelection {
   readonly sessionId?: SessionId
@@ -326,13 +327,22 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     try {
       sessionId = await this.connectBlank(workspaceId, reuse)
     } catch (error: unknown) {
+      if (sessionCreateErrorOf(error)?.rpcError.code === 'workspace/ssh-password-required') {
+        if (!navigation.aborted) this.ctx.emit('workspace/ssh-password-required', workspaceId)
+        throw error
+      }
       // Reported here, not in connectWorkspace: startup restoration calls that
       // directly and stays console-only.
       if (!navigation.aborted) this.notify({ kind: 'createFailed', message: creationFailureMessage(error) })
       throw error
     }
     if (navigation.aborted) return
-    this.replaceMain(sessionId, navigation, 'reveal', beforeOpen)
+    try {
+      this.replaceMain(sessionId, navigation, 'reveal', beforeOpen)
+    } catch (error: unknown) {
+      if (beforeOpen === undefined && !navigation.aborted) this.notify({ kind: 'createFailed', message: creationFailureMessage(error) })
+      throw error
+    }
   }
 
   async forkSession(
@@ -460,6 +470,13 @@ class UiWorkspaceService extends Service implements UiWorkspace {
         initial = 'done'
         return
       }
+      const saved = this.selection.getSnapshot()
+      const savedId = saved.sessionId
+      // Remote summaries arrive after the initial local list. Wait for the
+      // saved remote row to become addressable before acquiring its view.
+      if (saved.subagentAddress === undefined && savedId !== undefined && sessions.byId[savedId] === undefined
+        && !workspace.archivedSessionIds.includes(savedId)
+        && workspace.items.some(item => parseSshWorkspacePath(item.path) !== undefined && item.sessionIds.includes(savedId))) return
       initial = 'connecting'
       void this.restoreSelection(workspace, sessions).then(
         () => { initial = 'done' },
@@ -488,20 +505,30 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       return
     }
     const summary = saved.sessionId === undefined ? undefined : sessions.byId[saved.sessionId]
-    const workspace = summary === undefined ? undefined
-      : workspaces.items.find(item => item.sessionIds.includes(summary.id))
+    const savedId = saved.sessionId
+    const workspace = savedId === undefined ? undefined
+      : workspaces.items.find(item => item.sessionIds.includes(savedId))
+    if (savedId !== undefined && workspace !== undefined && parseSshWorkspacePath(workspace.path) !== undefined
+      && !workspaces.archivedSessionIds.includes(savedId)) {
+      this.replaceMain(savedId, this.lifetime.signal, 'preserve')
+      return
+    }
     if (summary !== undefined && (!summary.blank || workspace === undefined)) {
       this.replaceMain(summary.id, this.lifetime.signal, 'preserve')
       return
     }
     const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal])
     this.restorationNavigation = navigation
+    // A saved SSH selection reconnects above. Do not start a new SSH Session implicitly.
+    const localWorkspaces = workspaces.items.filter(item => parseSshWorkspacePath(item.path) === undefined)
+    const restoreWorkspace = workspace === undefined ? undefined
+      : localWorkspaces.find(item => item.workspaceId === workspace.workspaceId)
     let sessionId: SessionId | undefined
-    if (summary !== undefined && workspace !== undefined && summary.cwd === workspace.path
+    if (summary !== undefined && restoreWorkspace !== undefined && summary.cwd === restoreWorkspace.path
       && !workspaces.archivedSessionIds.includes(summary.id)) {
-      sessionId = await this.restoreBlank(workspace.workspaceId, summary.id)
+      sessionId = await this.restoreBlank(restoreWorkspace.workspaceId, summary.id)
     }
-    let target = workspace?.workspaceId ?? recentWorkspace(workspaces.items, sessions.byId)
+    let target = restoreWorkspace?.workspaceId ?? recentWorkspace(localWorkspaces, sessions.byId)
     if (target === undefined && workspaces.items.length === 0 && sessions.ids.length === 0) {
       const prepared = await this.initializeDefaultWorkspace(navigation)
       if (navigation.aborted) return

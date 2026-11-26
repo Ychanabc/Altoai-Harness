@@ -7,7 +7,9 @@
   },
   "files": [
     "src/access.ts",
+    "src/client/stream-client.ts",
     "src/index.ts",
+    "src/loopback-remote.ts",
     "src/remote-error-codes.ts",
     "src/stream-protocol.ts",
     "src/stream-server.ts",
@@ -30,6 +32,9 @@
       "path": "../../client/connection/tsconfig.host.json"
     },
     {
+      "path": "../../client/connection/tsconfig.client.json"
+    },
+    {
       "path": "../remote-access/tsconfig.host.json"
     },
     {
@@ -40,6 +45,9 @@
     },
     {
       "path": "../../util/deque"
+    },
+    {
+      "path": "../../util/crypto"
     },
     {
       "path": "../../util/timeout"

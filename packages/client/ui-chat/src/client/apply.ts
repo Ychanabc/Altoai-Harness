@@ -5,6 +5,7 @@ import type {} from '@deepseek-ai/dsh-client-product-analytics/client'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import type { PromptContentPart } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { SessionBinding } from '@deepseek-ai/dsh-api-session-controller/client'
 import { sessionDirectory } from '@deepseek-ai/dsh-api-session-controller/client/directories'
 import type { GroupKey } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -329,6 +330,59 @@ export function apply(ctx: Context): void {
               .catch(() => {
                 // Fork or child-title failure leaves the source view unchanged.
               })
+          },
+          recallMessage: async (seq, text) => {
+            if (binding.session.getSnapshot().subagent !== null) return
+            const nextId = await ctx.sessions.rewind({ sessionId, beforeSeq: seq })
+            ctx.uiWorkspace.openSession(nextId)
+            if (text.trim() !== '') {
+              const nextBinding = ctx.sessions.binding(nextId)
+              const conversation = ctx.get('conversation')
+              if (nextBinding !== undefined && conversation !== undefined) {
+                conversation.input.requestDraftInitialization(nextBinding, {
+                  prompt: text,
+                  whenDraftExists: 'replace',
+                })
+              }
+            }
+          },
+          editMessage: async (seq, text, attachments) => {
+            if (binding.session.getSnapshot().subagent !== null) return
+            const trimmed = text.trim()
+            const imageParts: PromptContentPart[] = []
+            if (attachments !== undefined) {
+              for (const item of attachments) {
+                if (item.type !== 'image' || !('attachment' in item.image)) continue
+                const loaded = await ctx.remote.session.attachment({ sessionId, attachment: item.image.attachment })
+                if (loaded.ok) {
+                  imageParts.push({
+                    type: 'image',
+                    mediaType: loaded.value.attachment.mediaType,
+                    data: loaded.value.data,
+                    ...(loaded.value.attachment.name === undefined ? {} : { name: loaded.value.attachment.name }),
+                  })
+                }
+              }
+            }
+            const parts: PromptContentPart[] = [
+              ...(trimmed === '' ? [] : [{ type: 'text' as const, text: trimmed }]),
+              ...imageParts,
+            ]
+            if (parts.length === 0) return
+            const nextId = await ctx.sessions.rewind({ sessionId, beforeSeq: seq })
+            ctx.uiWorkspace.openSession(nextId)
+            await ctx.sessions.using(nextId, { source: 'controllerOperation' }, async (ref) => {
+              const handle = ref.binding.session.beginSubmission({
+                mode: 'queue',
+                text: trimmed,
+                attachments: [],
+              })
+              const result = await ref.binding.session.prompt(parts, 'queue', undefined, handle.requestId)
+              if (!result.ok) {
+                handle.abandon()
+                throw new Error(result.error.message)
+              }
+            })
           },
         }
       },

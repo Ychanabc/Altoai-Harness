@@ -6,6 +6,7 @@
  */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
+import type {} from '@deepseek-ai/cordis'
 import type { SessionHeader, SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TypertResource } from '@deepseek-ai/dsh-typert-protocol'
 
@@ -14,6 +15,34 @@ import type { TypertResource } from '@deepseek-ai/dsh-typert-protocol'
  * normalization rewrites paths, and a reference anchor must stay stable.
  */
 export type WorkspaceId = Branded<'WorkspaceId'>
+
+/**
+ * Transient state of the desktop-to-remote SSH carrier for one Workspace.
+ * `paused` only describes the local relay: a best-effort remote cancellation
+ * may not have reached the server, so its task state must be checked after
+ * reconnecting. `interrupted` has the same unknown remote outcome without a
+ * user-requested local pause.
+ */
+export type SshWorkspaceConnectionState = 'connecting' | 'connected' | 'paused' | 'interrupted'
+
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /**
+     * One desktop SSH carrier changed its transient connection state.
+     * @mode emit
+     * @param workspaceId - Saved SSH Workspace whose carrier changed.
+     * @param state - Current local carrier state; remote task outcomes are unknown after interruption or pause.
+     */
+    'workspace/ssh-status'(workspaceId: WorkspaceId, state: SshWorkspaceConnectionState): void
+    /**
+     * An interactive SSH operation requires the user to enter a password before connecting.
+     * @mode emit
+     * @param workspaceId - Saved SSH Workspace that needs authentication.
+     * @param sessionId - Optional Session to resume after connecting.
+     */
+    'workspace/ssh-password-required'(workspaceId: WorkspaceId, sessionId?: SessionId): void
+  }
+}
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertResourceMap {
@@ -24,6 +53,10 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   interface RemoteErrorDetailsMap {
     /** No registration carries that Workspace identity. */
     'workspace/not-found': { readonly workspaceId: WorkspaceId }
+    /** The saved remote project could not reach its Altoai Host. */
+    'workspace/ssh-unavailable': { readonly workspaceId: WorkspaceId }
+    /** Connecting to this SSH Workspace requires the user to enter its password. */
+    'workspace/ssh-password-required': { readonly workspaceId: WorkspaceId }
   }
 }
 

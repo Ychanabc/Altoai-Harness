@@ -272,10 +272,11 @@ function createWindow(preload: string, show = false, primary = false, title?: st
     ...(title === undefined ? {} : { title }),
     ...(icon === undefined ? {} : { icon }),
     ...(process.platform === 'win32' && primary ? {
-      backgroundColor: chromeFallbackFill(),
+      backgroundColor: '#00000000',
+      backgroundMaterial: 'acrylic' as const,
       titleBarStyle: 'hidden' as const,
-      titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
-        symbolColor: nativeTheme.shouldUseDarkColors ? '#f9fafb' : '#0f1115' },
+      titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: '#00000000',
+        symbolColor: nativeTheme.shouldUseDarkColors ? '#f1f5f9' : '#0f172a' },
     } : {}),
     // hiddenInset places traffic lights inside the sidebar; sidebar vibrancy
     // needs a transparent window background to show through the page.
@@ -299,7 +300,10 @@ function createWindow(preload: string, show = false, primary = false, title?: st
     },
   })
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (['http:', 'https:'].includes(new URL(url).protocol)) void shell.openExternal(url)
+    const target = URL.parse(url)
+    if (target?.protocol === 'http:' || target?.protocol === 'https:') {
+      void shell.openExternal(url)
+    }
     return { action: 'deny' }
   })
   if (process.platform === 'darwin' || process.platform === 'win32') {
@@ -315,7 +319,12 @@ function createWindow(preload: string, show = false, primary = false, title?: st
   }
   if (process.platform === 'win32' && primary) {
     const updateBackground = (): void => {
-      if (!window.isDestroyed()) window.setBackgroundColor(chromeFallbackFill())
+      if (window.isDestroyed()) return
+      window.setBackgroundColor('#00000000')
+      window.setTitleBarOverlay({
+        color: '#00000000',
+        symbolColor: nativeTheme.shouldUseDarkColors ? '#f1f5f9' : '#0f172a',
+      })
     }
     nativeTheme.on('updated', updateBackground)
     window.once('closed', () => { nativeTheme.removeListener('updated', updateBackground) })
@@ -514,11 +523,12 @@ async function main(): Promise<void> {
   let previousAccountStatus: string | undefined
   const assertProductSender = (event: IpcMainInvokeEvent): BrowserWindow => {
     assertDesktopSender(event, ['app'])
-    if (mainWindow === undefined || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents
-      || event.senderFrame === null || event.senderFrame !== mainWindow.webContents.mainFrame) {
+    const window = mainWindow
+    if (window === undefined || window.isDestroyed() || event.sender !== window.webContents
+      || event.senderFrame === null || event.senderFrame !== window.webContents.mainFrame) {
       throw new Error('dsh desktop: rejected IPC from an unowned renderer')
     }
-    return mainWindow
+    return window
   }
   let navigation: { window: BrowserWindow; url: string; promise: Promise<void> } | undefined
   const navigateMain = (url: string): Promise<void> => {
@@ -541,7 +551,11 @@ async function main(): Promise<void> {
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
-      hostInspectPort, { ...hostEnvironment, ALTOAIH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
+      hostInspectPort, {
+        ...hostEnvironment,
+        ALTOAIH_CLIENT_VERSION: desktopClientVersion(),
+        ALTOAIH_SSH_RUNTIME_DIR: development ? join(app.getAppPath(), '..', '..', 'dist-exe', 'ssh-web') : join(process.resourcesPath, 'ssh-web'),
+      }, onFailure,
       primaryRuntime,
       resources, (next) => { platformView.setSession(next) }, (record) => {
         operationJournal ??= new OperationJournal(join(app.getPath('userData'), 'plugin-operations'), {
@@ -828,17 +842,14 @@ async function main(): Promise<void> {
   app.on('will-quit', () => { shortcuts.dispose() })
 
   ipcMain.handle(DESKTOP_IPC.boot, async (event) => {
-    assertDesktopSender(event, ['app'])
+    assertProductSender(event)
     await startup
     if (backend.host === undefined || hostUrl === undefined) throw new Error('Desktop Host is unavailable')
     return { injections, streamBaseUrl: new URL(hostUrl).origin }
   })
 
   ipcMain.handle(DESKTOP_IPC.bootFailed, (event, message: unknown) => {
-    assertDesktopSender(event, ['app'])
-    if (event.sender !== mainWindow?.webContents || event.senderFrame !== event.sender.mainFrame) {
-      throw new Error('dsh desktop: rejected startup failure from a non-primary frame')
-    }
+    assertProductSender(event)
     if (typeof message !== 'string') throw new Error('dsh desktop: startup failure must be text')
     reportFatal(new Error(message), 'web-boot')
   })
@@ -895,16 +906,13 @@ async function main(): Promise<void> {
     nativeTheme.themeSource = source
   })
   ipcMain.handle(DESKTOP_IPC.localeBootstrap, async (event) => {
-    if (event.sender !== mainWindow?.webContents || event.senderFrame !== mainWindow.webContents.mainFrame
-      || new URL(event.senderFrame.url).origin !== new URL(applicationUrl).origin) {
-      throw new Error('desktop welcome: rejected locale request from an unowned frame')
-    }
+    assertProductSender(event)
     if (welcomeBackend === undefined) throw new Error('desktop welcome: backend unavailable')
     return { languages: systemLanguages, preference: await welcomeBackend.readLocalePreference() }
   })
   ipcMain.on(DESKTOP_IPC.localeChanged, (event, next: unknown) => {
-    const window = mainWindow
-    if (window === undefined || event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame
+    if (mainWindow === undefined || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame
+      || !event.senderFrame.url.startsWith(applicationUrl)
       || typeof next !== 'string') return
     const current = resolveDesktopStartupLocale(next, systemLanguages, siteProductName)
     writeDesktopLocaleCache(app.getPath('userData'), current.id)
@@ -1330,13 +1338,10 @@ async function main(): Promise<void> {
 
   if (process.platform === 'win32') {
     ipcMain.handle(DESKTOP_IPC.windowsMenu, (event, name: unknown, x: unknown, y: unknown) => {
-      assertDesktopSender(event, ['app'])
-      if (mainWindow === undefined || event.sender !== mainWindow.webContents
-        || event.senderFrame !== mainWindow.webContents.mainFrame) throw new Error('desktop menu: rejected sender')
+      const window = assertProductSender(event)
       if ((name !== 'application' && name !== 'edit')
         || typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)
         || x < 0 || y < 0 || x > 100_000 || y > 100_000) throw new Error('desktop menu: invalid popup request')
-      const window = mainWindow
       // Editor-owned history listens to key events rather than Chromium's native undo stack.
       const editItem = (label: string, keyCode: string, modifiers: Array<'control'>, accelerator?: string): MenuItemConstructorOptions => ({
         label,
@@ -1356,7 +1361,7 @@ async function main(): Promise<void> {
         { type: 'separator' },
         editItem(menuLocale().messages.selectAll, 'A', ['control'], 'Ctrl+A'),
       ]
-      const zoom = mainWindow.webContents.getZoomFactor()
+      const zoom = window.webContents.getZoomFactor()
       return new Promise<void>((resolve) => {
         Menu.buildFromTemplate(items).popup({ window, x: Math.round(x * zoom), y: Math.round(y * zoom), callback: resolve })
       })
@@ -1410,7 +1415,9 @@ async function main(): Promise<void> {
       window.on('focus', () => { sessionEnding = false })
       window.on('show', () => { sessionEnding = false })
     }
-    window.on('closed', () => { if (mainWindow === window) mainWindow = undefined })
+    window.on('closed', () => {
+      if (mainWindow === window) mainWindow = undefined
+    })
     window.webContents.on('console-message', (details) => {
       if (details.level !== 'error') return
       rendererConsole.push(`${details.sourceId}:${String(details.lineNumber)} ${details.message}`)
@@ -1436,7 +1443,13 @@ async function main(): Promise<void> {
     const window = mainWindow ?? createMainWindow()
     await navigateMain(applicationUrl)
     if (isQuitting() || recovery.active || window.isDestroyed()) return
-    if (process.platform === 'win32') window.setBackgroundColor(chromeFallbackFill())
+    if (process.platform === 'win32') {
+      window.setBackgroundColor('#00000000')
+      window.setTitleBarOverlay({
+        color: '#00000000',
+        symbolColor: nativeTheme.shouldUseDarkColors ? '#f1f5f9' : '#0f172a',
+      })
+    }
     if (activate) window.show()
     else window.showInactive()
     enteredWorkspace = true

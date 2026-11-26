@@ -1,0 +1,66 @@
+name: Build desktop SSH Web runtime
+
+on:
+  push:
+    branches:
+      - 'codex/ssh-runtime-build-*'
+  workflow_call:
+    inputs:
+      source_ref:
+        type: string
+        required: true
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Linux ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-22.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.source_ref || github.sha }}
+      - uses: pnpm/action-setup@v5.0.0
+        if: hashFiles('scripts/build-ssh-web-runtime.ts') != ''
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/setup-node@v7.0.0
+        if: hashFiles('scripts/build-ssh-web-runtime.ts') != ''
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies and build product
+        if: hashFiles('scripts/build-ssh-web-runtime.ts') != ''
+        env:
+          DSH_BUILD_CLIENT_PROFILE: official
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq musl-tools
+          pnpm install --frozen-lockfile
+          pnpm exec tsx native/system/scripts/build.ts
+          pnpm run build:artifacts
+      - name: Package Linux runtime
+        if: hashFiles('scripts/build-ssh-web-runtime.ts') != ''
+        env:
+          RUNTIME_ARCH: ${{ matrix.arch }}
+        run: |
+          pnpm exec tsx scripts/build-ssh-web-runtime.ts
+          git rev-parse HEAD > "dist-exe/ssh-web/altoaih-ssh-linux-${RUNTIME_ARCH}.tar.gz.commit"
+      - uses: actions/upload-artifact@v7
+        if: hashFiles('scripts/build-ssh-web-runtime.ts') != ''
+        with:
+          name: altoaih-ssh-linux-${{ matrix.arch }}
+          path: dist-exe/ssh-web/altoaih-ssh-linux-${{ matrix.arch }}.tar.gz*
+          if-no-files-found: error

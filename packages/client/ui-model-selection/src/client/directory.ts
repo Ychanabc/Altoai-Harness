@@ -44,6 +44,12 @@ export class ModelDirectory {
 
   /** Latest selection operation wins; an older response never overwrites a newer one. */
   private generation = 0
+  /**
+   * A successful select response is authoritative before the corresponding
+   * durable projection frame crosses a remote workspace connection. Keep it
+   * visible until that frame confirms the same complete selection.
+   */
+  private optimisticSelection: ModelSelection | undefined
   private disposed = false
   private readonly unsubscribeCatalog: () => void
   private readonly unsubscribeSelection: () => void
@@ -115,6 +121,7 @@ export class ModelDirectory {
       })
       return result
     }
+    this.optimisticSelection = { ...result.value.selected }
     if (previous !== null) {
       const from = `${previous.provider}/${previous.model}`
       const to = `${selection.provider}/${selection.model}`
@@ -134,6 +141,7 @@ export class ModelDirectory {
   resetConnected(): void {
     if (this.disposed) return
     ++this.generation
+    this.optimisticSelection = undefined
     this.store.update((state) => {
       if (state.status === 'selecting') state.status = 'idle'
       state.pending = null
@@ -159,7 +167,10 @@ export class ModelDirectory {
     if (this.disposed) return
     const catalog = this.catalog.store.getSnapshot()
     const projected = modelSelectionProjection(this.projected.getSnapshot())
-    const intended = projected?.next ?? catalog.value?.default
+    if (this.optimisticSelection !== undefined && sameSelection(projected?.next, this.optimisticSelection)) {
+      this.optimisticSelection = undefined
+    }
+    const intended = this.optimisticSelection ?? projected?.next ?? catalog.value?.default
     const reasoning = intended === undefined ? undefined : this.catalog.reasoningFor(intended)
     const effort = intended?.reasoningEffort ?? reasoning?.defaultEffort
     const retainedEffort = effort === undefined ? undefined
@@ -177,7 +188,7 @@ export class ModelDirectory {
       })
       return
     }
-    const selection = projected.next ?? catalog.value.default
+    const selection = this.optimisticSelection ?? projected.next ?? catalog.value.default
     const routable = catalog.value.groups.some(group => group.id === selection.provider
       && group.models.some(model => model.id === selection.model))
     this.store.set({
@@ -197,4 +208,14 @@ export class ModelDirectory {
 
 function modelSelectionProjection(value: unknown): ModelSelectionProjection | undefined {
   return value === undefined ? undefined : value as ModelSelectionProjection
+}
+
+/** Compare complete selections without depending on projection object identity. */
+function sameSelection(
+  left: ModelSelection | null | undefined,
+  right: ModelSelection | null | undefined,
+): boolean {
+  return left === right || (left !== null && left !== undefined && right !== null && right !== undefined
+    && left.provider === right.provider && left.model === right.model
+    && left.reasoningEffort === right.reasoningEffort)
 }

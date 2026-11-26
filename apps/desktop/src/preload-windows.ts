@@ -19,7 +19,7 @@ export function syncWindowsAppearance(): void {
     const root = document.documentElement
     const menu = installWindowsMenu()
     const probe = document.createElement('span')
-    probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;background-color:var(--dsw-specific-sidebar-fill);color:var(--dsw-alias-label-primary)'
+    probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;background-color:var(--dsh-windows-titlebar-overlay, rgba(0, 0, 0, 0));color:var(--dsw-alias-label-primary)'
     document.body.append(probe)
     const canvas = document.createElement('canvas')
     canvas.width = canvas.height = 1
@@ -30,6 +30,7 @@ export function syncWindowsAppearance(): void {
       context.fillStyle = color
       context.fillRect(0, 0, 1, 1)
       const [red, green, blue, alpha] = context.getImageData(0, 0, 1, 1).data
+      if (alpha === 0) return '#00000000'
       return `rgba(${red}, ${green}, ${blue}, ${Number(alpha) / 255})`
     }
     let previous = ''

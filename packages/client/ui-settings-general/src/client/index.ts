@@ -17,7 +17,7 @@ import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 // Type-only: pulls the ctx.modules merge.
 import type {} from '@deepseek-ai/dsh-client-modules/client'
-import { resolveSlotLabel, type BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
+import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { closeTopModal } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: the settings slot declarations plus the ctx.configForms Context
 // merge. Cross-plugin collaboration goes through the service, never a value
@@ -45,8 +45,6 @@ import { SettingsSectionView } from './SettingsSectionView.tsx'
 import { CurrentVersionRow } from './CurrentVersionRow.tsx'
 import { DeveloperToolsRow, type DeveloperToolsRowInjected } from './DeveloperToolsRow.tsx'
 import { SshRemoteRow } from './SshRemoteRow.tsx'
-import { createProductChromeStore } from './product-chrome-store.ts'
-import type { ProductChromeInjected } from './product-chrome-types.ts'
 import { SettingsDocumentAction } from './SettingsDocumentAction.tsx'
 import type { SettingsDocumentActionInjected } from './SettingsDocumentAction.tsx'
 import { SettingsDocumentStore } from './settings-document-store.ts'
@@ -87,42 +85,13 @@ export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.settin
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  const chromeHost = ctx.configForms.get<{
-    sshHost?: string
-    sshWorkspace?: string
-  }>('ui-settings-general')
-  const chromeHandle = createProductChromeStore()
-  const chromeInstance = chromeHandle.create()
-  const chromeStore: typeof chromeHandle = { ...chromeHandle, create: () => chromeInstance }
-  let chromeBound: BoundActions<typeof chromeStore> | undefined
-  let chromeRevision = 0
-  const adoptChrome = (): void => {
-    const section = chromeHost.getSnapshot().value
-    chromeBound?.sync({
-      sshHost: section?.sshHost ?? '',
-      sshWorkspace: section?.sshWorkspace ?? '',
-    }, chromeRevision += 1)
-  }
-  ctx.effect(() => chromeHost.subscribe(() => { adoptChrome() }), 'ui-settings-general: chrome settings')
-  const chromeInjected = (actions: BoundActions<typeof chromeStore>): ProductChromeInjected => {
-    chromeBound = actions
-    adoptChrome()
-    return {
-      setSshHost: (host) => { void chromeHost.set('sshHost', host) },
-      setSshWorkspace: (path) => { void chromeHost.set('sshWorkspace', path) },
-      addSshWorkspace: async () => {
-        const section = chromeHost.getSnapshot().value
-        const host = (section?.sshHost ?? '').trim()
-        const remote = (section?.sshWorkspace ?? '').trim()
-        const abs = (remote.startsWith('/') ? remote : `/${remote}`).replace(/\/{2,}/g, '/')
-        const path = `ssh://${host}${abs.length > 1 ? abs.replace(/\/+$/, '') : abs}`
-        await ctx.workspaces.create({ path })
-      },
-    }
-  }
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item', id: 'ssh-remote', order: 17, locale: NS,
-    store: chromeStore, inject: chromeInjected,
+    inject: () => ({
+      hooks: { workspaces: ctx.workspaces.list },
+      addSshWorkspace: ctx.workspaces.create.bind(ctx.workspaces),
+      updateSshWorkspace: ctx.workspaces.updateSsh.bind(ctx.workspaces),
+    }),
   }, SshRemoteRow))
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item', id: 'developer-tools', order: 15, locale: NS,

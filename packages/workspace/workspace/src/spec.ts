@@ -25,6 +25,8 @@ export const workspaceRecord = z.object({
   path: z.string(),
   title: z.string(),
   sessionIds: z.array(sessionId),
+  /** Server Sessions removed from this desktop's view. */
+  hiddenSshSessionIds: z.array(sessionId).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 })

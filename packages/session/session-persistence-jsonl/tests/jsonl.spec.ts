@@ -1478,6 +1478,25 @@ describe('JsonlSessionPersistence: durability and crash semantics', () => {
     await reader.close()
   })
 
+  it('writes and reopens a session in an SSH workspace with the full directory address', async () => {
+    const cwd = 'ssh://project@192.0.2.7:22/srv/project'
+    const header = meta('ssh-workspace', cwd)
+    const events = oneTurnLog()
+    await writeLog(ctx.sessionPersistence, header, events)
+
+    const reopened = new Context()
+    try {
+      await reopened.plugin(JsonlSessionPersistence, { root, compression: 'none' })
+      await expect(reopened.sessionPersistence.stat(header.id)).resolves.toMatchObject({
+        header: { cwd },
+        formatStatus: 'current',
+      })
+      await expect(readAll(reopened.sessionPersistence, header.id)).resolves.toMatchObject({ meta: { cwd }, events })
+    } finally {
+      await reopened.fiber.dispose()
+    }
+  })
+
   it('close drains a routed event that arrives while it waits for an in-flight append', async () => {
     const m = meta('late-closer', '/work')
     const handle = await ctx.sessionPersistence.create(m) as JsonlSessionHandle

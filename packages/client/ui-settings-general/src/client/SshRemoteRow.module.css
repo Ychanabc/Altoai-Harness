@@ -1,8 +1,8 @@
 .block {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px 0;
+  gap: 14px;
+  padding: 18px 0;
   border-bottom: 0.5px solid var(--dsw-alias-border-l2);
 }
 
@@ -15,7 +15,9 @@
 
 .title {
   font-size: 14px;
+  font-weight: 500;
   line-height: 20px;
+  color: var(--dsw-alias-label-primary);
 }
 
 .description {
@@ -25,40 +27,159 @@
   line-height: 18px;
 }
 
+.savedList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.savedHeader {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.savedCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--dsh-glass-border-strong);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsh-glass-bg-subtle);
+  box-shadow: inset 0 1px 0 var(--dsh-glass-highlight);
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+@media (hover: hover) {
+  .savedCard:hover {
+    border-color: var(--dsw-alias-border-l4);
+    background: var(--dsh-glass-bg);
+  }
+}
+
+.savedCardActive {
+  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 50%, var(--dsh-glass-border-strong));
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, var(--dsh-glass-bg-subtle));
+}
+
+.savedMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.savedName {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--dsw-alias-label-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.savedEndpoint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.savedBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--dsw-radius-xs);
+  background: var(--dsw-alias-card-fill);
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--ds-font-family-code);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.savedPath {
+  font-family: var(--ds-font-family-code);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editingBanner {
+  padding: 7px 10px;
+  border-radius: var(--dsw-radius-sm);
+  border: 0.5px solid color-mix(in srgb, var(--dsw-alias-brand-primary) 30%, transparent);
+  background: var(--dsw-alias-state-business-tertiary);
+  color: var(--dsw-alias-state-business-primary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
+  min-width: 0;
   font-size: 12px;
+  font-weight: 500;
   line-height: 18px;
   color: var(--dsw-alias-label-secondary);
+}
+
+.fieldFull {
+  grid-column: 1 / -1;
 }
 
 .field input {
   box-sizing: border-box;
   height: 36px;
   padding: 0 10px;
-  border: 0.5px solid var(--dsw-alias-border-l3);
+  border: 1px solid var(--dsh-glass-border-strong);
   border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-bg-layer-1);
+  background: var(--dsh-glass-bg-subtle);
+  box-shadow: inset 0 1px 0 var(--dsh-glass-highlight);
   color: var(--dsw-alias-label-primary);
   font: inherit;
+  font-weight: 400;
   font-size: 13px;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
 }
 
 .field input:focus {
   outline: none;
-  border-color: var(--dsw-alias-state-business-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent);
+  border-color: var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)) 16%, transparent);
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
 }
 
 .error {
   color: var(--dsw-alias-state-error-primary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.status {
+  color: var(--dsw-alias-state-success-primary);
   font-size: 12px;
   line-height: 18px;
 }

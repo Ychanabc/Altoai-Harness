@@ -3,7 +3,8 @@
 
 import { useId, type ReactNode } from 'react'
 import {
-  IconBranchOutlineRegular, IconCheckOutlineRegular, IconCopyOutlineRegular, Tooltip, useClipboardCopy,
+  IconBranchOutlineRegular, IconCheckOutlineRegular, IconCopyOutlineRegular,
+  IconEditOutlineRegular, IconUndoOutlineRegular, Tooltip, useClipboardCopy,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
 import { formatMessageClock } from './message-chrome.ts'
@@ -21,6 +22,12 @@ export interface MessageIconActionsProps {
   onBranch?: (() => void) | undefined
   /** The message is not a completed transcript tail, so branch stays visible but unavailable. */
   branchUnavailable?: boolean | undefined
+  /** Edit this sent user message in-place; omission hides the edit action. */
+  onEdit?: (() => void) | undefined
+  /** Recall this sent user message back into the composer; omission hides the recall action. */
+  onRecall?: (() => void) | undefined
+  /** Disable edit and recall controls while an operation is in progress. */
+  actionsBusy?: boolean | undefined
   /** Parent layout class composed onto the actions row. */
   className?: string | undefined
   /**
@@ -43,7 +50,7 @@ export interface MessageIconActionsProps {
  * @returns The actions row element.
  */
 export function MessageIconActions({
-  text, time, clock, onBranch, branchUnavailable = false, className,
+  text, time, clock, onBranch, branchUnavailable = false, onEdit, onRecall, actionsBusy = false, className,
   extraActions, usageAction, t,
 }: MessageIconActionsProps) {
   const day = useCalendarDay()
@@ -62,6 +69,32 @@ export function MessageIconActions({
           {copied ? <IconCheckOutlineRegular /> : <IconCopyOutlineRegular />}
         </button>
       </Tooltip>
+      {onEdit !== undefined && (
+        <Tooltip label={t('message.edit')} side="bottom">
+          <button
+            type="button"
+            className={css.action}
+            aria-label={t('message.edit')}
+            disabled={actionsBusy}
+            onClick={onEdit}
+          >
+            <IconEditOutlineRegular />
+          </button>
+        </Tooltip>
+      )}
+      {onRecall !== undefined && (
+        <Tooltip label={t('message.recall')} side="bottom">
+          <button
+            type="button"
+            className={css.action}
+            aria-label={t('message.recall')}
+            disabled={actionsBusy}
+            onClick={onRecall}
+          >
+            <IconUndoOutlineRegular />
+          </button>
+        </Tooltip>
+      )}
       {extraActions}
       {onBranch !== undefined && (
         <Tooltip label={branchUnavailable ? t('message.branchUnavailable') : t('message.branch')} side="bottom" openOnClick={branchUnavailable}>

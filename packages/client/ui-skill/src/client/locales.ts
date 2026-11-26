@@ -4,7 +4,22 @@
 export const NS = 'skill'
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
+const libraryEn = {
+  'library.title': 'Skill Library',
+  'library.refresh': 'Refresh',
+  'library.search': 'Search skills',
+  'library.loading': 'Syncing skills…',
+  'library.failed': 'Could not sync skills from GitHub. Try refreshing.',
+  'library.empty': 'No skills found.',
+}
+
 export const zh = {
+  'library.title': 'Skill 技能库',
+  'library.refresh': '刷新',
+  'library.search': '搜索技能',
+  'library.loading': '正在同步技能…',
+  'library.failed': '无法从 GitHub 同步技能，请重试',
+  'library.empty': '没有找到技能',
   'row.title': '加载技能',
   'row.running': '正在加载 skill',
   'row.preparing': '准备加载技能',
@@ -20,6 +35,7 @@ export type SkillKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
+  ...libraryEn,
   'row.title': 'Skill',
   'row.running': 'Loading skill',
   'row.preparing': 'Preparing to load a skill',
@@ -32,6 +48,7 @@ export const en = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  ...libraryEn,
   'row.title': 'スキル',
   'row.running': 'スキルを読み込み中',
   'row.preparing': 'スキルの読み込みを準備中',
@@ -44,6 +61,7 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  ...libraryEn,
   'row.title': 'Habilidad',
   'row.running': 'Habilidad de carga',
   'row.preparing': 'Preparándose para cargar una habilidad',
@@ -56,6 +74,7 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  ...libraryEn,
   'row.title': 'Compétence',
   'row.running': 'Compétence de chargement',
   'row.preparing': 'Préparation du chargement d’une compétence',
@@ -68,6 +87,7 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  ...libraryEn,
   'row.title': 'Geschicklichkeit',
   'row.running': 'Ladefähigkeit',
   'row.preparing': 'Das Laden eines Skills wird vorbereitet',
@@ -80,6 +100,7 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  ...libraryEn,
   'row.title': 'Навык',
   'row.running': 'Навык загрузки',
   'row.preparing': 'Подготовка к загрузке навыка',
@@ -92,6 +113,7 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  ...libraryEn,
   'row.title': 'Habilidade',
   'row.running': 'Habilidade de carregamento',
   'row.preparing': 'Preparando-se para carregar uma habilidade',

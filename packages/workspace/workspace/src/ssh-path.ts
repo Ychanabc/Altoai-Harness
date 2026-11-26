@@ -1,38 +1,117 @@
-/** SSH workspace path spelling: `ssh://<OpenSSH-alias>/<absolute-remote-dir>`. */
+/** SSH workspace directory identity and connection checks. */
 
 import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { isIP } from 'node:net'
 import { promisify } from 'node:util'
 import { posix } from 'node:path'
+import { parseSshWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
+import ssh2 from 'ssh2'
+
+export { parseSshWorkspacePath, type SshWorkspaceLocation } from '@deepseek-ai/dsh-util-workspace-path'
 
 const run = promisify(execFile)
+const timeoutMs = 12_000
 
-/** One parsed SSH workspace location. */
-export interface SshWorkspaceLocation {
-  /** Existing OpenSSH host alias. */
-  host: string
-  /** Absolute directory on that host. */
-  remotePath: string
+/** Password authentication supplied only to the Host during Workspace creation. */
+export interface SshWorkspaceConnection {
+  readonly host: string
+  readonly port: number
+  readonly username: string
+  readonly password: string
+}
+
+/** Connection update input; omitting password reuses the stored credential for the existing SSH Workspace. */
+export interface SshWorkspaceUpdateConnection {
+  readonly host: string
+  readonly port: number
+  readonly username: string
+  readonly password?: string
 }
 
 /**
- * Parse a stored SSH workspace path.
- * @param path - Candidate workspace path.
- * @returns host and remote directory, or undefined when the spelling is not SSH.
+ * Build a stable SSH authority for the Workspace path and Host credential store.
+ * @param connection - Endpoint and password presented during creation.
+ * @returns The username, IP address and port, without the password.
  */
-export function parseSshWorkspacePath(path: string): SshWorkspaceLocation | undefined {
-  if (!path.startsWith('ssh://')) return undefined
-  const rest = path.slice('ssh://'.length)
-  const slash = rest.indexOf('/')
-  if (slash <= 0) return undefined
-  const host = rest.slice(0, slash).trim()
-  const remotePath = rest.slice(slash)
-  if (host === '' || !remotePath.startsWith('/')) return undefined
-  return { host, remotePath }
+export function sshWorkspaceAuthority(
+  connection: Pick<SshWorkspaceConnection, 'host' | 'port' | 'username'> & { readonly password?: string },
+): string {
+  const host = connection.host.trim().toLowerCase()
+  const username = connection.username.trim()
+  if (isIP(host) === 0 || !Number.isInteger(connection.port) || connection.port < 1 || connection.port > 65535
+    || !/^[a-zA-Z0-9_.@-]{1,128}$/u.test(username)
+    || (connection.password !== undefined && (connection.password.length === 0 || connection.password.length > 4096))) {
+    throw new Error('Enter a valid SSH IP address, port, account, and password')
+  }
+  const address = isIP(host) === 6 ? new URL(`http://[${host}]`).hostname : host
+  return `${encodeURIComponent(username)}@${address}:${connection.port}`
+}
+
+/**
+ * Confirm a remote directory over SFTP.
+ * @param connection - Host, account and password for the connection.
+ * @param path - Absolute directory to check.
+ * @param trustedFingerprint - Previously observed key; rejects a change when provided.
+ * @returns The fingerprint of the server that authenticated and served the directory.
+ */
+export async function probeSshDirectory(
+  connection: SshWorkspaceConnection,
+  path: string,
+  trustedFingerprint?: string,
+): Promise<string> {
+  const client = new ssh2.Client()
+  let fingerprint = ''
+  let changedKey = false
+  try {
+    return await new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('SSH connection or directory check timed out')), timeoutMs)
+      client.on('error', () => {
+        clearTimeout(timer)
+        reject(new Error(changedKey ? 'SSH server host key changed' : 'SSH connection or password authentication failed'))
+      })
+      client.once('close', () => {
+        clearTimeout(timer)
+        reject(new Error('SSH connection closed before the directory check completed'))
+      })
+      client.once('ready', () => {
+        client.sftp((error, sftp) => {
+          if (error) {
+            clearTimeout(timer)
+            reject(new Error('The SSH server did not open an SFTP session'))
+            return
+          }
+          sftp.stat(path, (statError, attributes) => {
+            clearTimeout(timer)
+            if (statError || !attributes.isDirectory()) {
+              reject(new Error('The remote directory does not exist or is inaccessible'))
+              return
+            }
+            resolve(fingerprint)
+          })
+        })
+      })
+      client.connect({
+        host: connection.host.trim(),
+        port: connection.port,
+        username: connection.username.trim(),
+        password: connection.password,
+        readyTimeout: timeoutMs,
+        hostVerifier: (key: Buffer) => {
+          fingerprint = createHash('sha256').update(key).digest('base64')
+          changedKey = trustedFingerprint !== undefined && trustedFingerprint !== fingerprint
+          return !changedKey
+        },
+      })
+    })
+  } finally {
+    client.destroy()
+  }
 }
 
 /**
  * Build the stored SSH workspace path.
- * @param host - OpenSSH host alias.
+ * @param host - OpenSSH destination or managed SSH authority.
  * @param remotePath - Remote directory; a missing leading slash is added.
  * @returns `ssh://alias/abs/path`.
  */
@@ -54,11 +133,12 @@ export async function verifySshWorkspacePath(path: string): Promise<string> {
   if (parsed === undefined) throw new TypeError(`Workspace path is not an SSH location: '${path}'`)
   const canonical = formatSshWorkspacePath(parsed.host, parsed.remotePath)
   try {
+    const quotedPath = "'" + parsed.remotePath.replaceAll("'", "'\"'\"'") + "'"
     await run('ssh', [
       '-o', 'BatchMode=yes',
       '-o', 'ConnectTimeout=8',
-      parsed.host,
-      'test', '-d', parsed.remotePath,
+      '--', parsed.host,
+      `test -d ${quotedPath}`,
     ], { timeout: 20_000 })
   } catch {
     throw new Error(`cannot read remote directory ${parsed.host}:${parsed.remotePath}`)

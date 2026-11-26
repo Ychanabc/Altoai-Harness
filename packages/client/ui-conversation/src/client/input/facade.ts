@@ -627,6 +627,20 @@ export class SessionInputShell implements SessionInput {
   // ---- wiring-layer extras (not on the frozen SessionInput face) ----
 
   /**
+   * Abort any frozen submission attempt (adjudicating/submitting/sending)
+   * without discarding the draft, returning the composer to editable state.
+   * @returns whether an in-flight attempt was aborted.
+   */
+  abortInflight(): boolean {
+    if (this.disposed || !frozen(this.snapshot.phase)) return false
+    this.dispatchRun({ type: 'release' })
+    if (this.projection.command !== undefined) {
+      this.dispatchRun({ type: 'draft-changed', command: this.projection.command })
+    }
+    return true
+  }
+
+  /**
    * Teardown the shell, abort the in-flight attempt, and return every
    * browser-owned attachment the draft still holds, including those of a
    * message the Host has not accepted yet.

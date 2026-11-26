@@ -41,6 +41,8 @@ ctx.sessions.get(sessionId)      // the live session
 ctx.sessions.list()              // every live session, in creation order
 ```
 
+桌面 SSH 会话在 `cwd` 中记录不含密码的 `ssh://` 工作区地址，用于会话分组和持久化。运行远程命令或访问文件需要单独的执行提供方。
+
 ### 追加与派生
 
 `session.append(type, data, opts?)` 提交一个类型化事件。它在读取载荷字段前拒绝只读实例，为有效 JSON 创建快照并冻结，再次检查写入权限后提交并通知观察者。`session.deriveMessages()` 把日志投影为模型看到的 `Message[]`，采用增量且有缓存的方式：

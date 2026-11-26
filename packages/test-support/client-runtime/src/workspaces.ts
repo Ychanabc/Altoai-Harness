@@ -1,7 +1,7 @@
 /** Test-owned workspaces face: the renderer standard-kit observable plus recorded actions. */
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type {
-  IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
+  IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceUpdateSshRequest, WorkspaceView,
 } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -102,6 +102,27 @@ export class TestWorkspaces implements IWorkspaces {
     const stub = this.stubs.get('rename')
     if (stub !== undefined) return await (stub(workspaceId, title) as Promise<WorkspaceView>)
     return { workspaceId, title, path: `/${title}`, sessionIds: [] } as unknown as WorkspaceView
+  }
+
+  /**
+   * Update an SSH Workspace (recorded). The default echoes an updated view.
+   * @param input - SSH connection update payload.
+   * @returns the updated view.
+   */
+  async updateSsh(input: WorkspaceUpdateSshRequest): Promise<WorkspaceView> {
+    this.calls.push({ method: 'updateSsh', args: [input] })
+    const stub = this.stubs.get('updateSsh')
+    if (stub !== undefined) return await (stub(input) as Promise<WorkspaceView>)
+    const path = `ssh://${encodeURIComponent(input.ssh.username)}@${input.ssh.host}:${input.ssh.port}${input.path}`
+    const existing = this.list.getSnapshot().items.find(item => item.workspaceId === input.workspaceId)
+    return {
+      workspaceId: input.workspaceId,
+      title: existing?.title ?? input.path,
+      path,
+      sessionIds: existing?.sessionIds ?? [],
+      createdAt: existing?.createdAt ?? '2026-01-01T00:00:00.000Z',
+      updatedAt: new Date().toISOString(),
+    }
   }
 
   /**

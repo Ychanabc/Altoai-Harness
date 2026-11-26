@@ -18,6 +18,7 @@ import type {
   WorkspacePinValue,
   WorkspaceUnarchiveSessionRequest,
   WorkspaceUnpinSessionRequest,
+  WorkspaceUpdateSshRequest,
   WorkspaceValue,
   WorkspaceId,
   WorkspaceView,
@@ -126,12 +127,30 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
   }
 
   /**
-   * Delete a Workspace and remove it from the local projection immediately.
-   * @param workspaceId - target Workspace.
+   * Update an SSH Workspace's connection settings and merge the unary result immediately.
+   * @param input - target SSH Workspace, remote directory, and connection credentials.
    * @returns generated Remote result.
    */
-  async delete(workspaceId: WorkspaceId): Promise<RemoteResult<WorkspaceDeleteValue>> {
-    const result = await this.remote.delete({ workspaceId })
+  async updateSsh(input: WorkspaceUpdateSshRequest): Promise<RemoteResult<WorkspaceValue>> {
+    const result = await this.remote.updateSsh(input)
+    if (result.ok) this.upsert(result.value.workspace)
+    return result
+  }
+
+  /**
+   * Delete a Workspace and remove it from the local projection immediately.
+   * @param workspaceId - target Workspace.
+   * @param options - optional deletion flags (`deleteDirectory: false` keeps local files on disk).
+   * @returns generated Remote result.
+   */
+  async delete(
+    workspaceId: WorkspaceId,
+    options?: { readonly deleteDirectory?: boolean },
+  ): Promise<RemoteResult<WorkspaceDeleteValue>> {
+    const result = await this.remote.delete({
+      workspaceId,
+      ...(options?.deleteDirectory === undefined ? {} : { deleteDirectory: options.deleteDirectory }),
+    })
     if (result.ok) this.remove(workspaceId, true)
     return result
   }

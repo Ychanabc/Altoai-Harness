@@ -8,6 +8,7 @@ import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import type { MessageId } from '@deepseek-ai/dsh-llm/types'
 import type { UserMessage } from '@deepseek-ai/dsh-llm/types'
 import { SessionLogOffset, SessionSeq, type SessionId } from '@deepseek-ai/dsh-session/types'
+import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import { isDurableEntry, tailPageStart } from './buffered-pages.ts'
 import { SessionEventStream } from '../transport.ts'
 import type { SessionJournalChange } from '../transport.ts'
@@ -94,6 +95,10 @@ export interface SessionOptions {
    * private store (bare object-layer construction).
    */
   projections?: ProjectionValueStore
+  /** Whether the Client transport is currently disconnected from the Host. */
+  isDisconnected?: () => boolean
+  /** Mirror a local stop into the Manager catalog when the Host cannot be reached. */
+  onLocalStop?: (sessionId: SessionId) => void
 }
 
 /**
@@ -315,6 +320,12 @@ export class Session implements SessionFace {
       // Rejection must leave a first prompt blank and eligible for workspace reuse.
       if (firstPrompt) this.firstPromptPendingTurn = false
       if (requestId !== undefined) this.retireFailedSubmission(requestId)
+      if (result.error.code === 'workspace/ssh-password-required') {
+        const details = result.error.details
+        if (typeof details === 'object' && details !== null && 'workspaceId' in details && typeof details.workspaceId === 'string') {
+          this.actx?.emit('workspace/ssh-password-required', details.workspaceId as WorkspaceId, this.sessionId)
+        }
+      }
       this.promptError = { op: 'send', error: result.error }
       this.notifier.markDirty()
       return result
@@ -376,12 +387,24 @@ export class Session implements SessionFace {
    * @returns the cancel result.
    */
   async cancel(): Promise<RemoteResult<{ accepted: true }>> {
+    if (this.options.isDisconnected?.() === true) {
+      if (this.running) {
+        this.running = false
+        this.notifier.markDirty()
+      }
+      this.options.onLocalStop?.(this.sessionId)
+      return { ok: true, value: { accepted: true } }
+    }
     const address = this.address
     const result = address !== undefined
       ? await this.remote.subagents.interruptByUser(address.childSessionId)
       : await this.remote.session.cancel({ sessionId: this.sessionId })
     if (!result.ok) {
       this.promptError = { op: 'stop', error: result.error }
+      if (this.running && isDisconnectCancelFailure(result.error.code)) {
+        this.running = false
+        this.options.onLocalStop?.(this.sessionId)
+      }
       this.notifier.markDirty()
     }
     return result
@@ -1077,6 +1100,15 @@ export class Session implements SessionFace {
       ? { kind: 'session', sessionId: this.sessionId }
       : { kind: 'subagent', ...this.address }
   }
+}
+
+/** Whether a cancel failure indicates the transport or remote session is unreachable. */
+function isDisconnectCancelFailure(code: string): boolean {
+  return code === 'workspace/ssh-unavailable'
+    || code === 'session/not-found'
+    || code === 'gateway/internal'
+    || code === 'gateway/cancelled'
+    || code === 'gateway/timeout'
 }
 
 /** Run one callback on the next animation frame, or a macrotask where no frame clock exists. */

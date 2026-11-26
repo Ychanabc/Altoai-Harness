@@ -76,17 +76,23 @@ export interface WorkspaceFileScope {
  *   and the projection cache.
  * @param sessionId - Session identity received on the wire.
  * @param signal - cancellation for the persistence read of a stored Session.
- * @returns the scope, or undefined when no live or stored Session has that identity.
+ * @returns the scope, or undefined when the Session is missing or belongs to a desktop SSH workspace.
  */
 async function workspaceFileScopeOf(
   ctx: Context, sessionId: SessionId, signal?: AbortSignal,
 ): Promise<WorkspaceFileScope | undefined> {
   const live = ctx.get('sessions')?.get(sessionId)
-  if (live !== undefined) return { sessionId, workspaceRoot: ctx.sandboxPolicy.resolve({ session: live }).workspaceRoot }
+  if (live !== undefined) {
+    const cwd = ctx.get('workingDirectory')?.get(live) ?? live.header.cwd
+    if (cwd?.startsWith('ssh://')) return undefined
+    return { sessionId, workspaceRoot: ctx.sandboxPolicy.resolve({ session: live }).workspaceRoot }
+  }
   const stored = await ctx.get('sessionPersistence')?.stat(sessionId, signal === undefined ? undefined : { signal })
   if (stored === undefined) return undefined
   const cached = ctx.get('sessionProjectionCache')?.cachedSnapshot(stored.header, ['workingDirectory'])?.values.workingDirectory
-  return { sessionId, workspaceRoot: cached ?? stored.header.cwd ?? ctx.sandboxPolicy.workspaceRoot }
+  const workspaceRoot = cached ?? stored.header.cwd ?? ctx.sandboxPolicy.workspaceRoot
+  if (workspaceRoot.startsWith('ssh://')) return undefined
+  return { sessionId, workspaceRoot }
 }
 
 declare module '@deepseek-ai/dsh-typert-protocol' {

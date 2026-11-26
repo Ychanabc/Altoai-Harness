@@ -145,7 +145,7 @@
   position: absolute;
   inset: 0 0 auto;
   height: var(--plugin-header-paint-height, var(--plugin-header-rest-height));
-  background: var(--dsw-alias-bg-base);
+  background: var(--dsh-glass-sheet-solid);
   pointer-events: none;
 }
 

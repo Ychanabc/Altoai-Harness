@@ -21,7 +21,6 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { AppearanceRowInjected } from './AppearanceRow.tsx'
 import { AppearanceRow } from './AppearanceRow.tsx'
-import { ThemeToggle } from './ThemeToggle.tsx'
 import type { FontSettingsInjected } from './FontSettingsGroup.tsx'
 import { FontSettingsGroup } from './FontSettingsGroup.tsx'
 import { createAppearanceRowStore, createFontRowStore } from './settings-store.ts'
@@ -49,14 +48,6 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** The Appearance settings row's copy. */
     'settings.theme': ThemeKey
-  }
-  /**
-   * Occupant typing for the sidebar foot toggle. The sidebar package still
-   * declares the hole at runtime; this merge only lets theme register into it
-   * without a TypeScript project cycle through ui-sidebar.
-   */
-  interface SlotMap {
-    'sidebar.footer.action': { kind: 'list'; scope: 'root'; owner: { readonly wide: boolean } }
   }
 }
 
@@ -646,15 +637,6 @@ export function apply(ctx: ClientContext): void {
     locale: SETTINGS_NS,
     inject: injected,
   }, AppearanceRow))
-
-  ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
-    name: 'sidebar.footer.action',
-    id: 'theme-toggle',
-    order: 10,
-    store,
-    locale: SETTINGS_NS,
-    inject: injected,
-  }, ThemeToggle))
 
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item',

@@ -1,5 +1,6 @@
 /** SQLite stores logical Session headers and events without JSONL row encoding. @module */
 import { isAbsolute } from 'node:path'
+import { parseSshWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 import { z } from 'zod'
 import { SESSION_FORMAT_VERSION, SessionId, KNOWN_SESSION_EVENT_TYPES, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
@@ -14,7 +15,7 @@ const header = z.object({
   id: z.string().transform(SessionId),
   createdAt: z.number().int().nonnegative(),
   isSeeded: z.boolean(),
-  cwd: z.string().refine(isAbsolute).optional(),
+  cwd: z.string().refine(path => isAbsolute(path) || parseSshWorkspacePath(path) !== undefined).optional(),
   parentSession: z.string().transform(SessionId).optional(),
   origin: z.literal('subagent').optional(),
   delegationDepth: z.number().int().nonnegative().default(0),

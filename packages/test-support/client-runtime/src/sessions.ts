@@ -315,7 +315,7 @@ export class TestSessions implements ISessions {
 
   /** Calls observed on the service-level face, newest last. */
   readonly calls: {
-    method: 'create' | 'refreshProjections' | 'refresh' | 'search' | 'fork'
+    method: 'create' | 'refreshProjections' | 'refresh' | 'search' | 'fork' | 'rewind'
     args: unknown[]
   }[] = []
 
@@ -684,6 +684,16 @@ export class TestSessions implements ISessions {
    */
   fork(opts: Parameters<ISessions['fork']>[0]): Promise<SessionId> {
     this.calls.push({ method: 'fork', args: [opts] })
+    return Promise.resolve(opts.sessionId)
+  }
+
+  /**
+   * Recorded rewind stub: returns the source id without materializing a replacement.
+   * @param opts - source session id and user-message cut seq.
+   * @returns the source id.
+   */
+  rewind(opts: Parameters<ISessions['rewind']>[0]): Promise<SessionId> {
+    this.calls.push({ method: 'rewind', args: [opts] })
     return Promise.resolve(opts.sessionId)
   }
 

@@ -44,8 +44,7 @@ body {
   gap: 8px;
   padding: 6px 16px;
   background-color: var(--welcome-tint);
-  background-image:
-    radial-gradient(ellipse 90% 55% at 50% -8%, color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent), transparent 62%);
+  background-image: var(--dsh-glass-mesh);
   color: var(--dsw-alias-label-primary);
   font-family: var(--dsw-font-family-brand);
   font-weight: 300;
@@ -148,9 +147,13 @@ body {
   justify-content: center;
   height: 44px;
   padding: 8px 16px;
-  border: 0.5px solid var(--dsw-alias-border-l2);
+  border: 1px solid var(--dsh-glass-border-strong);
   border-radius: 14px;
-  box-shadow: 0 10px 28px -18px rgb(15 23 42 / 14%);
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 var(--dsh-glass-highlight),
+    var(--dsh-glass-shadow-sm);
   font-family: var(--dsw-font-family);
   font-size: 14px;
   font-weight: 500;

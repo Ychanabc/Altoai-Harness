@@ -49,8 +49,9 @@ import type { EmptyWorkspaceOwnerProps } from '@deepseek-ai/dsh-client-ui-conver
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { RemoteHostFacts } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SessionActivity, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { SessionActivity, WorkspaceCreateRequest, WorkspaceId, WorkspaceUpdateSshRequest, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SshWorkspaceConnectionState } from '@deepseek-ai/dsh-workspace/types'
 import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
 import type { WorkspaceShortcutState } from '../shortcuts.ts'
 import type { StartSessionOptions } from '../navigation.ts'
@@ -64,12 +65,23 @@ declare module '@deepseek-ai/dsh-client-ui-context-menu/client' {
   }
 }
 
-/** One request for the existing Workspace rename or delete dialog. */
+/** One request for the existing Workspace rename, SSH edit/connect, or delete dialog. */
 export type WorkspaceActionRequest = {
   readonly action: 'rename' | 'delete'
   readonly workspaceId: WorkspaceId
   readonly displayTitle: string
   readonly storedTitle: string
+} | {
+  readonly action: 'editSsh'
+  readonly workspaceId: WorkspaceId
+  readonly path: string
+  readonly displayTitle: string
+} | {
+  readonly action: 'connectSsh'
+  readonly workspaceId: WorkspaceId
+  readonly path: string
+  readonly displayTitle: string
+  readonly sessionId?: SessionId
 } | {
   readonly action: 'deleteSession'
   readonly sessionId: SessionId
@@ -287,6 +299,8 @@ export type WorkspaceBrowserInjected = {
      * saw. Select the field the surface needs (`info => info.home`).
      */
     hostInfo: HostObservable<RemoteHostFacts>
+    /** Transient desktop-to-server connection state keyed by saved SSH Workspace. */
+    sshStatus: HostObservable<ReadonlyMap<WorkspaceId, SshWorkspaceConnectionState>>
     workspaceShortcuts: HostObservable<WorkspaceShortcutState>
     shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
   }
@@ -324,8 +338,8 @@ export type WorkspaceBrowserInjected = {
   notifyArchivedNotOpenable: () => void
   /** Rename a Host Workspace (rejects on name conflict; resolves on durability). */
   renameWorkspace: (workspaceId: WorkspaceId, title: string) => Promise<void>
-  /** Permanently delete a Host Workspace and its accounted Session logs; its project directory remains. */
-  deleteWorkspace: (workspaceId: WorkspaceId) => Promise<void>
+  /** Permanently delete a Host Workspace and its accounted Session logs; optionally delete its local project directory. */
+  deleteWorkspace: (workspaceId: WorkspaceId, options?: { readonly deleteDirectory?: boolean }) => Promise<void>
   /**
    * Reorder a Workspace in the durable registry display order.
    * Omitted anchor appends to the end.
@@ -334,7 +348,11 @@ export type WorkspaceBrowserInjected = {
   /** Remove a Session from the registry-global archived set (the search results' restore button). */
   unarchiveSession: (sessionId: SessionId) => Promise<void>
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
-  createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  createWorkspace: (input: WorkspaceCreateRequest) => Promise<WorkspaceView>
+  /** Update an existing SSH Workspace's endpoint coordinates, credentials, and remote directory. */
+  updateSshWorkspace: (input: WorkspaceUpdateSshRequest) => Promise<WorkspaceView>
+  /** Connect or reconnect a paused SSH Workspace with an interactive password. */
+  reconnectSshWorkspace: (workspaceId: WorkspaceId, password: string, sessionId?: SessionId) => Promise<void>
 }
 
 /** The browser's declared viewing store handle, shared with the row actions that write view state. */
@@ -551,7 +569,7 @@ export type WorkspaceBrowserProps =
  */
 export type WorkspacePickerInjected = DirectoryPickingInjected & {
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
-  createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  createWorkspace: (input: WorkspaceCreateRequest) => Promise<WorkspaceView>
 }
 
 /**

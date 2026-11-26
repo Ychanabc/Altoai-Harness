@@ -9,6 +9,7 @@
  */
 
 import { isAbsolute, join } from 'node:path'
+import { parseSshWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 import {
   SESSION_FORMAT_VERSION,
   KNOWN_SESSION_EVENT_TYPES,
@@ -174,7 +175,8 @@ function isHeaderLine(value: unknown): value is HeaderLine {
     && !Object.is((value as { delegationDepth: number }).delegationDepth, -0)
     && ((value as { cwd?: unknown }).cwd === undefined
       || (typeof (value as { cwd?: unknown }).cwd === 'string'
-        && isAbsolute((value as { cwd: string }).cwd)))
+        && (isAbsolute((value as { cwd: string }).cwd)
+          || parseSshWorkspacePath((value as { cwd: string }).cwd) !== undefined)))
     && ((value as { parentSession?: unknown }).parentSession === undefined
       || typeof (value as { parentSession?: unknown }).parentSession === 'string')
     && typeof (value as { isSeeded?: unknown }).isSeeded === 'boolean'

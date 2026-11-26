@@ -158,7 +158,11 @@ export function ModelSelect(
   })).filter(group => group.models.length > 0 && (officialProvider === undefined
     || (group.id === officialProvider) === (source === 'official'))), [groupIndexes, query, showSearch, officialProvider, source])
   const visibleModels = useMemo(() => filteredGroups.flatMap(group => group.models.map(model => ({
-    provider: group.id, model: model.id,
+    provider: group.id,
+    model: model.id,
+    ...model.reasoning?.defaultEffort === undefined
+      ? {}
+      : { reasoningEffort: model.reasoning.defaultEffort },
   }))), [filteredGroups])
   const currentVisibleIndex = visibleModels.findIndex(model =>
     model.provider === state.current?.provider && model.model === state.current.model)
@@ -705,7 +709,13 @@ export function ModelSelect(
                               key={model.id}
                               title={model.name}
                               disabled={busy}
-                              onClick={() => { choose({ provider: group.id, model: model.id }) }}
+                              onClick={() => { choose({
+                                provider: group.id,
+                                model: model.id,
+                                ...model.reasoning?.defaultEffort === undefined
+                                  ? {}
+                                  : { reasoningEffort: model.reasoning.defaultEffort },
+                              }) }}
                             >
                               <span className={css.optionCopy}>
                                 <span className={css.modelName}>{renderModelLabel(group.provider, model, 'option', selected)}</span>
