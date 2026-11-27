@@ -1,0 +1,136 @@
+name: Package Desktop · macOS Unsigned (Cloud)
+
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: '目标架构：both（同时打 Apple Silicon 和 Intel）、arm64（M 系列芯片）、x64（Intel 芯片）'
+        type: choice
+        options: [both, arm64, x64]
+        default: both
+        required: true
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/macos-unsigned-cloud.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-unsigned-cloud-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DSH_TELEMETRY_DISABLED: '1'
+  DSH_GATE_CONCURRENCY: '1'
+  RAYON_NUM_THREADS: '2'
+
+jobs:
+  package-mac-arm64:
+    name: macOS Apple Silicon (arm64 unsigned DMG)
+    if: github.event_name == 'push' || inputs.arch == 'both' || inputs.arch == 'arm64'
+    runs-on: macos-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          clean: true
+
+      - uses: pnpm/action-setup@v5.0.0
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check packaging configuration and toolchain
+        run: pnpm run package:desktop:mac:arm64:unsigned --check
+
+      - name: Build unsigned macOS arm64 DMG and run smoke tests
+        run: pnpm run package:desktop:mac:arm64:unsigned
+
+      - name: List built DMG artifacts
+        run: ls -lh apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/*.dmg
+
+      - name: Upload macOS arm64 DMG artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: altoaih-mac-arm64-unsigned
+          path: apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/*.dmg
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload packaging diagnostics on failure
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: altoaih-mac-arm64-logs-${{ github.run_id }}
+          include-hidden-files: true
+          path: apps/desktop/.desktop-build/packaging-runs/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  package-mac-x64:
+    name: macOS Intel (x64 unsigned DMG)
+    if: github.event_name == 'push' || inputs.arch == 'both' || inputs.arch == 'x64'
+    runs-on: macos-15-intel
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          clean: true
+
+      - uses: pnpm/action-setup@v5.0.0
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check packaging configuration and toolchain
+        run: pnpm run package:desktop:mac:x64:unsigned --check
+
+      - name: Build unsigned macOS x64 DMG and run smoke tests
+        run: pnpm run package:desktop:mac:x64:unsigned
+
+      - name: List built DMG artifacts
+        run: ls -lh apps/desktop/.desktop-build/targets/mac-x64/unsigned-artifacts/*.dmg
+
+      - name: Upload macOS x64 DMG artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: altoaih-mac-x64-unsigned
+          path: apps/desktop/.desktop-build/targets/mac-x64/unsigned-artifacts/*.dmg
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload packaging diagnostics on failure
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: altoaih-mac-x64-logs-${{ github.run_id }}
+          include-hidden-files: true
+          path: apps/desktop/.desktop-build/packaging-runs/
+          if-no-files-found: ignore
+          retention-days: 7
