@@ -338,9 +338,10 @@ export const UserMessageNodeView = memo(function UserMessageNodeView({
   renderSlotChain: PropsRenderSlots<'conversation.chat.user.before'>['renderSlotChain']
 }) {
   const data = node.data
-  const subagent = useSession(s => s.subagent)
-  const rewindAllowed = useAccess('session/rewind')
-  const promptAllowed = useAccess('session/prompt')
+  // Direct unit fixtures occasionally omit Session-scope hooks when only testing bubble chrome.
+  const subagent = typeof useSession === 'function' ? useSession(s => s.subagent) : null
+  const rewindAllowed = typeof useAccess === 'function' ? useAccess('session/rewind') : false
+  const promptAllowed = typeof useAccess === 'function' ? useAccess('session/prompt') : false
   const parts = useMemo(() => contentParts(data.content), [data.content])
   const hasDurableImages = useMemo(
     () => parts.attachments.some(item => item.type === 'image' && 'attachment' in item.image),

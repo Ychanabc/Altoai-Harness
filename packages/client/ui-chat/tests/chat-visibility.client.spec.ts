@@ -52,7 +52,7 @@ describe('Chat-only command visibility', () => {
   })
 })
 
-it('hides system prompts but shows context injections', () => {
+it('hides system prompts and context injections', () => {
   const prompt: ChatNode<'system-prompt'> = { ...placement, kind: 'system-prompt', data: { text: 'system instructions' } }
   const context: ChatNode<'context'> = {
     ...placement, kind: 'context',
@@ -62,5 +62,5 @@ it('hides system prompts but shows context injections', () => {
     },
   }
   expect(isVisibleChatNode(prompt)).toBe(false)
-  expect(isVisibleChatNode(context)).toBe(true)
+  expect(isVisibleChatNode(context)).toBe(false)
 })
