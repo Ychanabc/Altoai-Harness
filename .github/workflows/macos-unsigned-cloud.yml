@@ -53,6 +53,9 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Configure Altoai site branding for macOS packaging
+        run: cp .env.site-macos.example apps/desktop/.env.macos
+
       - name: Check packaging configuration and toolchain
         run: pnpm run package:desktop:mac:arm64:unsigned --check
 
@@ -106,6 +109,9 @@ jobs:
 
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Configure Altoai site branding for macOS packaging
+        run: cp .env.site-macos.example apps/desktop/.env.macos
 
       - name: Check packaging configuration and toolchain
         run: pnpm run package:desktop:mac:x64:unsigned --check

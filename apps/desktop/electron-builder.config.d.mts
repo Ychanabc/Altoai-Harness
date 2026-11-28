@@ -28,6 +28,8 @@ export interface DesktopElectronBuilderConfig {
     readonly extendInfo: {
       readonly CFBundleLocalizations: readonly string[]
       readonly NSMicrophoneUsageDescription: string
+      readonly CFBundleDisplayName?: string
+      readonly CFBundleName?: string
     }
     readonly entitlements: string
     readonly entitlementsInherit: string
@@ -40,6 +42,7 @@ export interface DesktopElectronBuilderConfig {
     readonly format: 'ULMO'
     readonly sign: boolean
     readonly writeUpdateInfo: boolean
+    readonly title?: string
   }
   readonly win: {
     readonly icon: string
@@ -48,6 +51,16 @@ export interface DesktopElectronBuilderConfig {
       readonly publisherName: string | undefined
       readonly sign: ((configuration: { path: string, hash: string, isNest: boolean }) => Promise<void>) | undefined
       readonly signingHashAlgorithms: readonly string[]
+    }
+  }
+  readonly linux: {
+    readonly icon: string
+    readonly category: string
+    readonly target: readonly string[]
+    readonly desktop?: {
+      readonly entry?: {
+        readonly Name?: string
+      }
     }
   }
   readonly nsis: {

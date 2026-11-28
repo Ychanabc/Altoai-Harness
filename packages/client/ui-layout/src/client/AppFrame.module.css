@@ -174,8 +174,10 @@
 }
 
 :global([data-platform='darwin']) .centerCol {
-  background: var(--dsw-alias-bg-base);
-  border-left: 0.5px solid var(--dsw-alias-border-l3);
+  background-color: var(--dsh-glass-sheet-bg);
+  background-image: var(--dsh-glass-mesh);
+  border-left: 1px solid var(--dsh-glass-border-strong);
+  box-shadow: inset 1px 0 0 var(--dsh-glass-highlight);
 }
 
 /* The right track paints the base ground on the transparent frame: while the
@@ -184,7 +186,7 @@
    diverge would otherwise show vibrancy glass between the centre's right edge
    and the incoming panel. The occupant's opaque panel covers this at rest. */
 :global([data-platform='darwin']) .rightbarCol {
-  background: var(--dsw-alias-bg-base);
+  background: var(--dsh-glass-sheet-solid);
 }
 
 /* The darwin closed sidebar has no rail: the centre reaches the window edge,

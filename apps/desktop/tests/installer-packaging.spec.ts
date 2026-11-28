@@ -132,7 +132,7 @@ describe('installer preparation preserves application dependencies', () => {
     expect(generated).not.toContain('AltoaiH')
   })
 
-  it('keeps the legacy macOS bundle and executable names while branding the display name and icon', async () => {
+  it('keeps the legacy macOS bundle and executable names while branding the display name, DMG title, and icon', async () => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     const config = createElectronBuilderConfig({ ALTOAIH_DESKTOP_APP_ID: 'com.example.installer',
       ALTOAIH_DESKTOP_AUTH_PROTOCOL: 'site-device', ALTOAIH_DESKTOP_SITE_ORIGIN: 'https://site.example.com',
@@ -140,8 +140,11 @@ describe('installer preparation preserves application dependencies', () => {
     }, 'darwin', 'arm64')
     expect(config.productName).toBe('AltoaiH')
     expect(config.executableName).toBe('AltoaiH')
-    expect(config.mac.extendInfo).toMatchObject({ CFBundleDisplayName: 'Altoai Harness' })
+    expect(config.mac.extendInfo).toMatchObject({ CFBundleDisplayName: 'Altoai Harness', CFBundleName: 'Altoai Harness' })
     expect(config.mac.icon).toMatch(/resources[\\/]site[\\/]app\.png$/u)
+    expect(config.dmg.title).toMatch(/^Altoai Harness /u)
+    expect(config.linux.icon).toMatch(/resources[\\/]site[\\/]app\.png$/u)
+    expect(config.linux.desktop).toMatchObject({ entry: { Name: 'Altoai Harness' } })
   })
 
   it('names unsigned Windows artifacts so they cannot pass for release builds', async () => {

@@ -189,7 +189,7 @@ export function createElectronBuilderConfig(
       extendInfo: {
         CFBundleLocalizations: ['en', 'zh_CN', 'ja', 'es', 'fr', 'de', 'ru', 'pt'],
         NSMicrophoneUsageDescription: `${productName} uses your microphone to transcribe speech into message drafts.`,
-        ...(siteUpdate === undefined ? {} : { CFBundleDisplayName: productName }),
+        ...(siteUpdate === undefined ? {} : { CFBundleDisplayName: productName, CFBundleName: productName }),
       },
       // Ad-hoc signing keeps the modified Electron executable runnable without a Developer ID.
       identity: unsigned ? '-' : macOSSigning?.signingIdentity,
@@ -206,6 +206,7 @@ export function createElectronBuilderConfig(
       format: 'ULMO',
       sign: !unsigned,
       writeUpdateInfo: false,
+      ...(siteUpdate === undefined ? {} : { title: `${productName} ${buildVersion}` }),
     },
     beforePack: async context => {
       const office = await officePackageDirectories(buildPaths.dsh, { platform: resolvedPlatform, arch: resolvedArch })
@@ -275,8 +276,10 @@ export function createElectronBuilderConfig(
       target: ['nsis'],
     },
     linux: {
+      icon: resource(siteUpdate === undefined ? 'icon-windows.png' : 'site/app.png'),
       category: 'Development',
       target: ['AppImage'],
+      ...(siteUpdate === undefined ? {} : { desktop: { entry: { Name: productName } } }),
     },
     nsis: {
       ...(siteUpdate === undefined ? {} : { shortcutName: productName, installerIcon: windowsIcon, uninstallerIcon: windowsIcon }),
